@@ -23,11 +23,12 @@
 #include "kvs_port.h"
 #include "kvs_options.h"
 #include "json_helper.h"
+#include "http_helper.h"
 
-#include "core_http_client.h"
 #include "parson.h"
 
 #define IOT_CREDENTIAL_PROVIDER_ENDPOINT_TCP_PORT   "443"
+#define HTTP_METHOD_GET        "GET"
 
 #define IOT_URI_ROLE_ALIASES_BEGIN  "/role-aliases"
 #define IOT_URI_ROLE_ALIASES_END    "/credentials"
@@ -110,9 +111,7 @@ int32_t Iot_getCredential( IotCredentialRequest_t * pReq,
     size_t uConnectionRetryCnt = 0;
     uint32_t uBytesToSend = 0;
 
-    HTTPResponse_t response = { 0 };
-    TransportInterface_t transport = { 0 };
-    HTTPStatus_t httpStatus = HTTPSuccess;
+    uint32_t uHttpStatusCode = 0;
 
     do
     {
@@ -127,15 +126,6 @@ int32_t Iot_getCredential( IotCredentialRequest_t * pReq,
         {
             break;
         }
-
-        memset( &transport, 0, sizeof( TransportInterface_t ) );
-        transport.send = networkSend;
-        transport.recv = networkRecv;
-        transport.pNetworkContext = pNetworkContext;
-
-        memset( &response, 0, sizeof( HTTPResponse_t ) );
-        response.pBuffer = pNetworkContext->pHttpRecvBuffer;
-        response.bufferLen = pNetworkContext->uHttpRecvBufferLen;
 
         for( uConnectionRetryCnt = 0; uConnectionRetryCnt < MAX_CONNECTION_RETRY; uConnectionRetryCnt++ )
         {
@@ -161,19 +151,25 @@ int32_t Iot_getCredential( IotCredentialRequest_t * pReq,
             break;
         }
 
-        retStatus = KVS_STATUS_SUCCEEDED;
-        httpStatus = HTTPClient_receiveAndParseHttpResponse( &transport, &response, 0U );
-        if( httpStatus != HTTPSuccess )
+        retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+        if( retStatus < KVS_STATUS_SUCCEEDED )
         {
-            retStatus = KVS_STATUS_NETWORK_RECV_ERROR;
             break;
         }
 
+        retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+        if( retStatus != KVS_STATUS_SUCCEEDED )
+        {
+            break;
+        }
+
+        uHttpStatusCode = getLastHttpStatusCode();
+
         /* Check HTTP results */
-        if( response.statusCode == 200 )
+        if( uHttpStatusCode == 200 )
         {
             /* We got a success response here. Parse the token. */
-            retStatus = parseIoTCredential( ( const char * )response.pBody, response.bodyLen, pToken );
+            retStatus = parseIoTCredential( ( const char * )getLastHttpBodyLoc(), getLastHttpBodyLen(), pToken );
         }
         else
         {

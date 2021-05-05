@@ -34,24 +34,28 @@ if(${ENABLE_LOG_DEBUG})
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DENABLE_LOG_DEBUG")
 endif()
 
-add_library(kvs-producer-rtos STATIC source/aws_signer_v4.c
-                                     source/kvs_rest_api.c
-                                     source/mkv_generator.c
-                                     source/network_api.c
-                                     source/iot_credential_provider.c
-                                     source/json_helper.c
-                                     )
-
-target_include_directories(
-    kvs-producer-rtos 
-    PUBLIC 
-        include
-        ${CMAKE_SOURCE_DIR}/libraries/aws/coreHTTP/source/interface
-        ${CMAKE_SOURCE_DIR}/libraries/aws/coreHTTP/source/include
-        ${CMAKE_SOURCE_DIR}/libraries/3rdparty/mbedtls/include
-        ${CMAKE_SOURCE_DIR}/libraries/3rdparty/parson
+add_library(kvs-producer-rtos STATIC
+	source/aws_signer_v4.c
+	source/http_helper.c
+	source/kvs_rest_api.c
+	source/mkv_generator.c
+	source/network_api.c
+	source/iot_credential_provider.c
+	source/json_helper.c
 )
 
-install(TARGETS kvs-producer-rtos
-        DESTINATION ${LIB_INSTALL_DIR}
-	    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+target_include_directories(kvs-producer-rtos
+    PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/include
+	${CMAKE_SOURCE_DIR}/libraries/3rdparty/mbedtls/include
+	${CMAKE_SOURCE_DIR}/libraries/3rdparty/parson
+	${CMAKE_SOURCE_DIR}/libraries/3rdparty/llhttp/include
+)
+
+add_dependencies(kvs-producer-rtos
+	mbedtls
+	mbedcrypto
+	mbedx509
+	parson
+	llhttp
+)

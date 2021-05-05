@@ -29,7 +29,7 @@ target_link_libraries(
         mbedtls
         mbedcrypto
         mbedx509
-        corehttp
+        llhttp
         parson
 )
 

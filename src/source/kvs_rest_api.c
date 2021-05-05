@@ -25,9 +25,10 @@
 #include "kvs_port.h"
 #include "kvs_options.h"
 #include "json_helper.h"
+#include "http_helper.h"
 #include "logger.h"
 
-#include "core_http_client.h"
+
 #include "parson.h"
 
 /*-----------------------------------------------------------*/
@@ -533,9 +534,8 @@ int Kvs_createStream( KvsServiceParameter_t * pServiceParameter,
     char *pHttpParameter = "";
     char *pHttpBody = NULL;
     size_t uHttpBodyLen = 0;
-    HTTPResponse_t response = { 0 };
-    TransportInterface_t transport = { 0 };
-    HTTPStatus_t httpStatus = HTTPSuccess;
+
+    uint32_t uHttpStatusCode = 0;
 
     do
     {
@@ -632,15 +632,6 @@ int Kvs_createStream( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        memset( &transport, 0, sizeof( TransportInterface_t ) );
-        transport.send = networkSend;
-        transport.recv = networkRecv;
-        transport.pNetworkContext = pNetworkContext;
-
-        memset( &response, 0, sizeof( HTTPResponse_t ) );
-        response.pBuffer = pNetworkContext->pHttpRecvBuffer;
-        response.bufferLen = pNetworkContext->uHttpRecvBufferLen;
-
         for( uConnectionRetryCnt = 0; uConnectionRetryCnt < MAX_CONNECTION_RETRY; uConnectionRetryCnt++ )
         {
             if( ( retStatus = connectToServer( pNetworkContext, pServiceParameter->pHost, KVS_ENDPOINT_TCP_PORT ) ) == KVS_STATUS_SUCCEEDED )
@@ -674,21 +665,27 @@ int Kvs_createStream( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        retStatus = KVS_STATUS_SUCCEEDED;
-        httpStatus = HTTPClient_receiveAndParseHttpResponse( &transport, &response, 0U );
-        if( httpStatus != HTTPSuccess )
+        retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+        if( retStatus < KVS_STATUS_SUCCEEDED )
         {
-            retStatus = KVS_STATUS_NETWORK_RECV_ERROR;
             break;
         }
 
+        retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+        if( retStatus != KVS_STATUS_SUCCEEDED )
+        {
+            break;
+        }
+
+        uHttpStatusCode = getLastHttpStatusCode();
+
         /* Check HTTP results */
-        if( response.statusCode == 200 )
+        if( uHttpStatusCode == 200 )
         {
             retStatus = KVS_STATUS_SUCCEEDED;
             /* We got a success response here. */
         }
-        else if( response.statusCode == 400 )
+        else if( uHttpStatusCode == 400 )
         {
             retStatus = KVS_STATUS_REST_EXCEPTION_ERROR;
             break;
@@ -738,9 +735,8 @@ int Kvs_describeStream( KvsServiceParameter_t * pServiceParameter,
     char *pHttpParameter = "";
     char *pHttpBody = NULL;
     uint32_t uHttpBodyLen = 0;
-    HTTPResponse_t response = { 0 };
-    TransportInterface_t transport;
-    HTTPStatus_t httpStatus = HTTPSuccess;
+
+    uint32_t uHttpStatusCode = 0;
 
     do
     {
@@ -851,15 +847,6 @@ int Kvs_describeStream( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        memset( &transport, 0, sizeof( TransportInterface_t ) );
-        transport.send = networkSend;
-        transport.recv = networkRecv;
-        transport.pNetworkContext = pNetworkContext;
-
-        memset( &response, 0, sizeof( HTTPResponse_t ) );
-        response.pBuffer = pNetworkContext->pHttpRecvBuffer;
-        response.bufferLen = pNetworkContext->uHttpRecvBufferLen;
-
         for( uConnectionRetryCnt = 0; uConnectionRetryCnt < MAX_CONNECTION_RETRY; uConnectionRetryCnt++ )
         {
             if( ( retStatus = connectToServer( pNetworkContext, pServiceParameter->pHost, KVS_ENDPOINT_TCP_PORT ) ) == KVS_STATUS_SUCCEEDED )
@@ -897,34 +884,40 @@ int Kvs_describeStream( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        retStatus = KVS_STATUS_SUCCEEDED;
-        httpStatus = HTTPClient_receiveAndParseHttpResponse( &transport, &response, 0U );
-        if( httpStatus != HTTPSuccess )
+        retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+        if( retStatus < KVS_STATUS_SUCCEEDED )
         {
-            retStatus = KVS_STATUS_NETWORK_RECV_ERROR;
             break;
         }
 
+        retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+        if( retStatus != KVS_STATUS_SUCCEEDED )
+        {
+            break;
+        }
+
+        uHttpStatusCode = getLastHttpStatusCode();
+
         /* Check HTTP results */
-        if( response.statusCode == 200 )
+        if( uHttpStatusCode == 200 )
         {
             retStatus = KVS_STATUS_SUCCEEDED;
             /* We got a success response here. */
         }
-        else if( response.statusCode == 404 )
+        else if( uHttpStatusCode == 404 )
         {
             retStatus = KVS_STATUS_REST_RES_NOT_FOUND_ERROR;
             break;
         }
         else
         {
-            LOG_ERROR("Unable to describe stream:\r\n%.*s\r\n", ( int )response.bodyLen, response.pBody);
-            if( response.statusCode == 400 )
+            LOG_ERROR("Unable to describe stream:\r\n%.*s\r\n", (int)getLastHttpBodyLen(), getLastHttpBodyLoc());
+            if( uHttpStatusCode == 400 )
             {
                 retStatus = KVS_STATUS_REST_EXCEPTION_ERROR;
                 break;
             }
-            else if( response.statusCode == 401 )
+            else if( uHttpStatusCode == 401 )
             {
                 retStatus = KVS_STATUS_REST_NOT_AUTHORIZED_ERROR;
                 break;
@@ -977,9 +970,8 @@ int Kvs_getDataEndpoint( KvsServiceParameter_t * pServiceParameter,
     char *pHttpParameter = "";
     char *pHttpBody = NULL;
     size_t uHttpBodyLen = 0;
-    HTTPResponse_t response = { 0 };
-    TransportInterface_t transport = { 0 };
-    HTTPStatus_t httpStatus = HTTPSuccess;
+
+    uint32_t uHttpStatusCode = 0;
 
     do
     {
@@ -1088,15 +1080,6 @@ int Kvs_getDataEndpoint( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        memset( &transport, 0, sizeof( TransportInterface_t ) );
-        transport.send = networkSend;
-        transport.recv = networkRecv;
-        transport.pNetworkContext = pNetworkContext;
-
-        memset( &response, 0, sizeof( HTTPResponse_t ) );
-        response.pBuffer = pNetworkContext->pHttpRecvBuffer;
-        response.bufferLen = pNetworkContext->uHttpRecvBufferLen;
-
         for( uConnectionRetryCnt = 0; uConnectionRetryCnt < MAX_CONNECTION_RETRY; uConnectionRetryCnt++ )
         {
             if( ( retStatus = connectToServer( pNetworkContext, pServiceParameter->pHost, KVS_ENDPOINT_TCP_PORT ) ) == KVS_STATUS_SUCCEEDED )
@@ -1134,19 +1117,25 @@ int Kvs_getDataEndpoint( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        retStatus = KVS_STATUS_SUCCEEDED;
-        httpStatus = HTTPClient_receiveAndParseHttpResponse( &transport, &response, 0U );
-        if( httpStatus != HTTPSuccess )
+        retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+        if( retStatus < KVS_STATUS_SUCCEEDED )
         {
-            retStatus = KVS_STATUS_NETWORK_RECV_ERROR;
             break;
         }
 
+        retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+        if( retStatus != KVS_STATUS_SUCCEEDED )
+        {
+            break;
+        }
+
+        uHttpStatusCode = getLastHttpStatusCode();
+
         /* Check HTTP results */
-        if( response.statusCode == 200 )
+        if( uHttpStatusCode == 200 )
         {
             /* propagate the parse result on either success or fail */
-            retStatus = parseDataEndpoint( ( const char * )response.pBody, response.bodyLen, pEndPointBuffer, uEndPointBufferLen );
+            retStatus = parseDataEndpoint( ( const char * )getLastHttpBodyLoc(), getLastHttpBodyLen(), pEndPointBuffer, uEndPointBufferLen );
             if( retStatus != KVS_STATUS_SUCCEEDED )
             {
                 LOG_ERROR("Unable to get data endpoint\r\n");
@@ -1154,8 +1143,8 @@ int Kvs_getDataEndpoint( KvsServiceParameter_t * pServiceParameter,
         }
         else
         {
-            LOG_ERROR("Unable to create stream:\r\n%.*s\r\n", ( int )response.bodyLen, response.pBody);
-            if( response.statusCode == 400 )
+            LOG_ERROR("Unable to create stream:\r\n%.*s\r\n", ( int )getLastHttpBodyLen(), getLastHttpBodyLoc());
+            if( uHttpStatusCode == 400 )
             {
                 retStatus = KVS_STATUS_REST_EXCEPTION_ERROR;
             }
@@ -1211,9 +1200,8 @@ int Kvs_putMedia( KvsServiceParameter_t * pServiceParameter,
     char *pXAmznFragmentAcknowledgmentRequired = "1";
     char *pXAmznFragmentTimecodeType = "ABSOLUTE";
     char *pHttpBody = "";
-    HTTPResponse_t response = { 0 };
-    TransportInterface_t transport = { 0 };
-    HTTPStatus_t httpStatus = HTTPSuccess;
+
+    uint32_t uHttpStatusCode = 0;
 
     /* Variables for PUT MEDIA RESTful call */
     uint8_t *pDataBuf = NULL;
@@ -1367,15 +1355,6 @@ int Kvs_putMedia( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        memset( &transport, 0, sizeof( TransportInterface_t ) );
-        transport.send = networkSend;
-        transport.recv = networkRecv;
-        transport.pNetworkContext = pNetworkContext;
-
-        memset( &response, 0, sizeof( HTTPResponse_t ) );
-        response.pBuffer = pNetworkContext->pHttpRecvBuffer;
-        response.bufferLen = pNetworkContext->uHttpRecvBufferLen;
-
         for( uConnectionRetryCnt = 0; uConnectionRetryCnt < MAX_CONNECTION_RETRY; uConnectionRetryCnt++ )
         {
             if( ( retStatus = connectToServer( pNetworkContext, pServiceParameter->pHost, KVS_ENDPOINT_TCP_PORT ) ) == KVS_STATUS_SUCCEEDED )
@@ -1422,16 +1401,40 @@ int Kvs_putMedia( KvsServiceParameter_t * pServiceParameter,
             break;
         }
 
-        retStatus = KVS_STATUS_SUCCEEDED;
-        httpStatus = HTTPClient_receiveAndParseHttpResponse( &transport, &response, 1U );
-        if( httpStatus != HTTPSuccess )
+        retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+        if( retStatus < KVS_STATUS_SUCCEEDED )
         {
-            retStatus = KVS_STATUS_NETWORK_RECV_ERROR;
             break;
         }
 
+        retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+        if( retStatus != KVS_STATUS_SUCCEEDED )
+        {
+            break;
+        }
+
+        uHttpStatusCode = getLastHttpStatusCode();
+
+        if ( uHttpStatusCode / 100 == 1 )
+        {
+            /* It's a HTTP 100 continue, we should try to receive next one. */
+            retStatus = networkRecv( pNetworkContext, pNetworkContext->pHttpRecvBuffer, pNetworkContext->uHttpRecvBufferLen );
+            if( retStatus < KVS_STATUS_SUCCEEDED )
+            {
+                break;
+            }
+
+            retStatus = parseHttpResponse( ( char * )pNetworkContext->pHttpRecvBuffer, ( uint32_t )retStatus );
+            if( retStatus != KVS_STATUS_SUCCEEDED )
+            {
+                break;
+            }
+
+            uHttpStatusCode = getLastHttpStatusCode();
+        }
+
         /* Check HTTP results */
-        if( response.statusCode == 200 )
+        if( uHttpStatusCode == 200 )
         {
             /* We got a success response here. */
 
@@ -1494,18 +1497,18 @@ int Kvs_putMedia( KvsServiceParameter_t * pServiceParameter,
         }
         else
         {
-            LOG_ERROR("Unable to put media:\r\n%.*s\r\n", ( int )response.bodyLen, response.pBody);
-            if( response.statusCode == 400 )
+            LOG_ERROR("Unable to put media:\r\n%.*s\r\n", ( int )getLastHttpBodyLen(), getLastHttpBodyLoc());
+            if( uHttpStatusCode == 400 )
             {
                 retStatus = KVS_STATUS_REST_EXCEPTION_ERROR;
                 break;
             }
-            else if( response.statusCode == 401 )
+            else if( uHttpStatusCode == 401 )
             {
                 retStatus = KVS_STATUS_REST_NOT_AUTHORIZED_ERROR;
                 break;
             }
-            else if( response.statusCode == 404 )
+            else if( uHttpStatusCode == 404 )
             {
                 retStatus = KVS_STATUS_REST_RES_NOT_FOUND_ERROR;
                 break;
