@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -13,71 +13,64 @@
  * permissions and limitations under the License.
  */
 
+#include <stdbool.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
-#include "kvs_port.h"
-#include "logger.h"
 #include "json_helper.h"
 
-char * json_object_dotget_serialize_to_string( const JSON_Object *pRootObject, const char * pName, bool bRemoveQuotes )
+char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char * pcName, bool bRemoveQuotes)
 {
-    char *pRes = NULL;
-    char *pValue = NULL;
-    size_t uValueLen = 0;
-    JSON_Value * pJsonValue = NULL;
+    char *pcRes = NULL;
+    char *pcVal = NULL;
+    size_t uValLen = 0;
+    JSON_Value *pxJsonValue = NULL;
 
-    if( pRootObject != NULL )
+    if (pxRootObject != NULL)
     {
-        pJsonValue = json_object_dotget_value( pRootObject, pName );
-        if( pJsonValue != NULL )
+        if ((pxJsonValue = json_object_dotget_value(pxRootObject, pcName)) != NULL)
         {
-            pValue = json_serialize_to_string( pJsonValue );
-            if( pValue != NULL )
+            if ((pcVal = json_serialize_to_string(pxJsonValue)) != NULL)
             {
-                /* We have a valid string value here. */
-                if( bRemoveQuotes )
+                if (bRemoveQuotes)
                 {
-                    /* Remove quotes by allocating another buffer */
-                    /* TODO: It should have better way to do this. */
-                    uValueLen = strlen( pValue );
-                    pRes = ( char * )sysMalloc( uValueLen - 1 );
-                    if( pRes != NULL )
+                    uValLen = strlen(pcVal);
+                    if (uValLen > 2 && (pcRes = malloc(uValLen - 1)) != NULL)
                     {
-                        strncpy( pRes, pValue + 1, uValueLen - 2 );
-                        pRes[ uValueLen - 2 ] = '\0';
+                        memcpy(pcRes, pcVal + 1, uValLen - 2);
+                        pcRes[uValLen - 2] = '\0';
                     }
-                    sysFree( pValue );
+                    free(pcVal);
                 }
                 else
                 {
-                    pRes = pValue;
+                    pcRes = pcVal;
                 }
             }
         }
     }
 
-    return pRes;
+    return pcRes;
 }
 
-uint64_t json_object_dotget_uint64( const JSON_Object *pRootObject, const char * pName, int base )
+uint64_t json_object_dotget_uint64(const JSON_Object *pxRootObject, const char *pcName, int xBase)
 {
     uint64_t uVal = 0;
-    char *pValue = NULL;
-    JSON_Value * pJsonValue = NULL;
+    char *pcValue = NULL;
+    JSON_Value *pxJsonValue = NULL;
 
-    if( pRootObject != NULL )
+    if (pxRootObject != NULL)
     {
-        pJsonValue = json_object_dotget_value( pRootObject, pName );
-        if( pJsonValue != NULL )
+        pxJsonValue = json_object_dotget_value(pxRootObject, pcName);
+        if (pxJsonValue != NULL)
         {
-            pValue = json_serialize_to_string( pJsonValue );
-            if( pValue != NULL )
+            pcValue = json_serialize_to_string(pxJsonValue);
+            if (pcValue != NULL)
             {
                 /* We have a valid string value here. */
-                uVal = strtoull( pValue, NULL, base );
-                sysFree( pValue );
+                uVal = strtoull(pcValue, NULL, xBase);
+                free(pcValue);
             }
         }
     }

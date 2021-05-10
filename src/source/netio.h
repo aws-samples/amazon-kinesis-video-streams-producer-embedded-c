@@ -1,0 +1,96 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+#ifndef NETIO_H
+#define NETIO_H
+
+#include <stdbool.h>
+
+typedef struct NetIo *NetIoHandle;
+
+/**
+ * @brief Create a network I/O handle
+ *
+ * @return The network I/O handle
+ */
+NetIoHandle NetIo_Create(void);
+
+/**
+ * @brief Terminate a network I/O handle
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ */
+void NetIo_Terminate(NetIoHandle xNetIoHandle);
+
+/**
+ * @brief Connect to a host with port
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ * @param[in] pcHost The hostname
+ * @param[in] pcPort The port
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_Connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort);
+
+/**
+ * @brief Connect to a host with port and X509 certificates
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ * @param[in] pcHost The hostname
+ * @param[in] pcPort The port
+ * @param[in] pcRootCA The X509 root CA
+ * @param[in] pcCert The X509 client certificate
+ * @param[in] pcPrivKey The x509 client private key
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_ConnectWithX509(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey);
+
+/**
+ * @breif Disconnect from a host
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ */
+void NetIo_Disconnect(NetIoHandle xNetIoHandle);
+
+/**
+ * @brief Send data
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ * @param[in] pBuffer The data buffer
+ * @param[in] uBytesToSend The length of data
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend);
+
+/**
+ * @brief Receive data
+ *
+ * @param[in] xNetIoHandle The network I/O handle
+ * @param[in,out] pBuffer The data buffer
+ * @param[in] uBufferSize The size of the data buffer
+ * @param[out] puBytesReceived The actual bytes received
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_Recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived);
+
+/**
+ * @brief Check if any data available
+ *
+ * @param xNetIoHandle The network I/O handle
+ * @return true if data available, false otherwise
+ */
+bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle);
+
+#endif /* NETIO_H */

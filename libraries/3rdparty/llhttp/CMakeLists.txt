@@ -31,10 +31,6 @@ add_library(llhttp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/llhttp.h
 )
 
-include_directories(llhttp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-target_link_directories(llhttp PUBLIC
+target_include_directories(llhttp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )

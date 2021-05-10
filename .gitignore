@@ -1,1 +1,7 @@
 build
+libraries/3rdparty/llhttp/*
+!libraries/3rdparty/llhttp/CMakeLists.txt
+
+samples/kvs-esp32/sdkconfig*
+samples/kvs-esp32/components/llhttp/*
+!samples/kvs-esp32/components/llhttp/CMakeLists.txt

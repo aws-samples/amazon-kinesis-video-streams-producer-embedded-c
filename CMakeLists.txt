@@ -1,32 +1,60 @@
-cmake_minimum_required( VERSION 3.2.0 )
+cmake_minimum_required(VERSION 3.2.0)
+project(kvs-embedded-c)
 
-project( kvs-producer-rtos
-	 VERSION 202012.00
-	 LANGUAGES C )
+# Make warning as error
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 
-# Do not allow in-source build.
-if( ${PROJECT_SOURCE_DIR} STREQUAL ${PROJECT_BINARY_DIR} )
-    message( FATAL_ERROR "In-source build is not allowed. Please build in a separate directory, such as ${PROJECT_SOURCE_DIR}/build." )
-endif()
+# Add thirdparty library mbedtls
+set(ENABLE_PROGRAMS OFF CACHE BOOL "")
+set(ENABLE_TESTING OFF CACHE BOOL "")
+set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "")
+set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "")
+add_subdirectory(libraries/3rdparty/mbedtls)
 
-# Configurations for mbedtls
-set(ENABLE_PROGRAMS Off)
-set(ENABLE_TESTING Off)
-set(USE_SHARED_MBEDTLS_LIBRARY Off)
-set(USE_STATIC_MBEDTLS_LIBRARY On)
+# Add thirdparty library llhttp
+add_subdirectory(libraries/3rdparty/llhttp)
 
-# Add AWS libraries
-add_subdirectory( libraries/aws/coreHTTP )
+# Add thirdparty library parson
+set(PARSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/parson)
 
-# Add 3rd party libraries
-add_subdirectory( libraries/3rdparty/mbedtls )
-add_subdirectory( libraries/3rdparty/parson )
+add_library(parson
+    ${PARSON_DIR}/parson.c
+    ${PARSON_DIR}/parson.h
+)
 
-option(ENABLE_DEBUG_LOG "enable debug log" On)
+target_include_directories(parson PUBLIC
+    ${PARSON_DIR}
+)
+
+# build azure c shared utility
+set(AZURE_C_SHARED_UTILITY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/c-utility)
+
+add_library(aziotsharedutil
+    ${AZURE_C_SHARED_UTILITY_DIR}/adapters/lock_pthreads.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/buffer.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/consolelogger.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/crt_abstractions.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/doublylinkedlist.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/httpheaders.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/map.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/strings.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/xlogging.c
+)
+
+target_include_directories(aziotsharedutil PUBLIC
+    ${AZURE_C_SHARED_UTILITY_DIR}/inc
+    ${AZURE_C_SHARED_UTILITY_DIR}/deps/azure-macro-utils-c/inc
+    ${AZURE_C_SHARED_UTILITY_DIR}/deps/umock-c/inc
+)
+
+target_link_libraries(aziotsharedutil
+    mbedtls mbedcrypto mbedx509
+    m
+)
 
 # Add sources
 add_subdirectory( src )
 
-# Add examples
-add_subdirectory( examples/kvs_video_only_linux )
-add_subdirectory( examples/kvs_audio_video_linux )
+# Add samples
+add_subdirectory( samples )

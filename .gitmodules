@@ -4,3 +4,7 @@
 [submodule "libraries/3rdparty/parson"]
 	path = libraries/3rdparty/parson
 	url = https://github.com/kgabis/parson.git
+[submodule "libraries/3rdparty/c-utility"]
+	path = libraries/3rdparty/c-utility
+	url = https://github.com/Azure/azure-c-shared-utility.git
+	branch = lts_07_2020

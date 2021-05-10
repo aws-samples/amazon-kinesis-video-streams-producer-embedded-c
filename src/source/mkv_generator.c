@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,20 +19,22 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "mkv_generator.h"
-#include "kvs_errors.h"
-#include "kvs_port.h"
+/* Thirdparty headers */
+#include "azure_c_shared_utility/xlogging.h"
+
+/* Public headers */
+#include "kvs/errors.h"
+#include "kvs/mkv_generator.h"
+#include "kvs/nalu.h"
+#include "kvs/port.h"
+
+/* Internal headers */
+#include "endian.h"
 
 #define MKV_LENGTH_INDICATOR_1_BYTE                         ( 0x80 )
 #define MKV_LENGTH_INDICATOR_2_BYTE                         ( 0x4000 )
 #define MKV_LENGTH_INDICATOR_3_BYTE                         ( 0x200000 )
 #define MKV_LENGTH_INDICATOR_4_BYTE                         ( 0x10000000 )
-
-#define MKV_VIDEO_TRACK_UID                                 ( 1 )
-#define MKV_VIDEO_TRACK_TYPE                                ( 1 )
-
-#define MKV_AUDIO_TRACK_UID                                 ( 2 )
-#define MKV_AUDIO_TRACK_TYPE                                ( 2 )
 
 /* The offset of UUID value in gSegmentInfoHeader */
 #define MKV_SEGMENT_INFO_UID_OFFSET                         ( 9 )
@@ -299,30 +301,22 @@ static uint32_t gMkvAACSamplingFrequencies[] = {
 };
 static uint32_t gMkvAACSamplingFrequenciesCount = sizeof( gMkvAACSamplingFrequencies ) / sizeof( uint32_t );
 
-typedef struct
-{
-    uint32_t uRbspBeginIdx;
-    uint32_t uRbspLen;
-} NalRbsp_t;
-
 /*-----------------------------------------------------------*/
 
-static int32_t createVideoTrackEntry( VideoTrackInfo_t * pVideoTrackInfo,
-                                      uint8_t ** ppBuf,
-                                      uint32_t * pBufLen )
+static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t **ppBuf, uint32_t *puBufLen )
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
+    int xRes = KVS_ERRNO_NONE;
     uint32_t uHeaderLen = 0;
     uint8_t *pHeader = NULL;
     uint8_t *pIdx = NULL;
     bool bHasCodecPrivateData = false;
 
-    if( pVideoTrackInfo == NULL || ppBuf == NULL || pBufLen == NULL )
+    if( pVideoTrackInfo == NULL  || pVideoTrackInfo->pCodecName == NULL || ppBuf == NULL || puBufLen == NULL)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid arguments");
+        xRes = KVS_ERRNO_FAIL;
     }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
+    else
     {
         if( pVideoTrackInfo->pCodecPrivate != NULL && pVideoTrackInfo->uCodecPrivateLen != 0 )
         {
@@ -339,63 +333,59 @@ static int32_t createVideoTrackEntry( VideoTrackInfo_t * pVideoTrackInfo,
             uHeaderLen += pVideoTrackInfo->uCodecPrivateLen;
         }
 
-        /* Allocate memory for this track entry */
-        pHeader = ( uint8_t * )sysMalloc( uHeaderLen );
-        if( pHeader == NULL )
+        if ((pHeader = (uint8_t *)malloc(uHeaderLen)) == NULL)
         {
-            retStatus = KVS_STATUS_NOT_ENOUGH_MEMORY;
+            LogError("OOM: video track entry header");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            pIdx = pHeader;
+
+            memcpy(pIdx, gSegmentTrackEntryHeader, gSegmentTrackEntryHeaderSize);
+            *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NUMBER_OFFSET) = (uint8_t)TRACK_VIDEO;
+            PUT_UNALIGNED_8_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_UID_OFFSET, TRACK_VIDEO);
+            *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_TYPE_OFFSET) = (uint8_t)TRACK_VIDEO;
+            snprintf((char *)(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NAME_OFFSET), TRACK_NAME_MAX_LEN, "%s", pVideoTrackInfo->pTrackName);
+            pIdx += gSegmentTrackEntryHeaderSize;
+
+            memcpy(pIdx, gSegmentTrackEntryCodecHeader, gSegmentTrackEntryCodecHeaderSize);
+            PUT_UNALIGNED_2_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_LEN_OFFSET, MKV_LENGTH_INDICATOR_2_BYTE | strlen(pVideoTrackInfo->pCodecName));
+            pIdx += gSegmentTrackEntryCodecHeaderSize;
+
+            memcpy(pIdx, pVideoTrackInfo->pCodecName, strlen(pVideoTrackInfo->pCodecName));
+            pIdx += strlen(pVideoTrackInfo->pCodecName);
+
+            memcpy(pIdx, gSegmentTrackEntryVideoHeader, gSegmentTrackEntryVideoHeaderSize);
+            PUT_UNALIGNED_2_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_VIDEO_WIDTH_OFFSET, pVideoTrackInfo->uWidth);
+            PUT_UNALIGNED_2_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_VIDEO_HEIGHT_OFFSET, pVideoTrackInfo->uHeight);
+            pIdx += gSegmentTrackEntryVideoHeaderSize;
+
+            if (bHasCodecPrivateData)
+            {
+                memcpy(pIdx, gSegmentTrackEntryCodecPrivateHeader, gSegmentTrackEntryCodecPrivateHeaderSize);
+                PUT_UNALIGNED_4_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_PRIVATE_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | pVideoTrackInfo->uCodecPrivateLen);
+                pIdx += gSegmentTrackEntryCodecPrivateHeaderSize;
+
+                memcpy(pIdx, pVideoTrackInfo->pCodecPrivate, pVideoTrackInfo->uCodecPrivateLen);
+                pIdx += pVideoTrackInfo->uCodecPrivateLen;
+
+                PUT_UNALIGNED_4_byte_BE( pHeader + MKV_SEGMENT_TRACK_ENTRY_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | ( uHeaderLen - MKV_SEGMENT_TRACK_ENTRY_HEADER_SIZE ) );
+
+                *ppBuf = pHeader;
+                *puBufLen = uHeaderLen;
+            }
         }
     }
 
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        pIdx = pHeader;
-
-        memcpy( pIdx, gSegmentTrackEntryHeader, gSegmentTrackEntryHeaderSize );
-        *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NUMBER_OFFSET) = ( uint8_t )MKV_VIDEO_TRACK_NUMBER;
-        PUT_UNALIGNED_8_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_UID_OFFSET, MKV_VIDEO_TRACK_UID );
-        *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_TYPE_OFFSET) = ( uint8_t )MKV_VIDEO_TRACK_TYPE;
-        snprintf(( char * )( pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NAME_OFFSET ), TRACK_NAME_MAX_LEN, "%s", pVideoTrackInfo->pTrackName );
-        pIdx += gSegmentTrackEntryHeaderSize;
-
-        memcpy( pIdx, gSegmentTrackEntryCodecHeader, gSegmentTrackEntryCodecHeaderSize );
-        PUT_UNALIGNED_2_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_LEN_OFFSET, MKV_LENGTH_INDICATOR_2_BYTE | strlen( pVideoTrackInfo->pCodecName ) );
-        pIdx += gSegmentTrackEntryCodecHeaderSize;
-
-        memcpy( pIdx, pVideoTrackInfo->pCodecName, strlen( pVideoTrackInfo->pCodecName ) );
-        pIdx += strlen( pVideoTrackInfo->pCodecName );
-
-        memcpy( pIdx, gSegmentTrackEntryVideoHeader, gSegmentTrackEntryVideoHeaderSize );
-        PUT_UNALIGNED_2_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_VIDEO_WIDTH_OFFSET, pVideoTrackInfo->uWidth );
-        PUT_UNALIGNED_2_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_VIDEO_HEIGHT_OFFSET, pVideoTrackInfo->uHeight );
-        pIdx += gSegmentTrackEntryVideoHeaderSize;
-
-        if( bHasCodecPrivateData )
-        {
-            memcpy( pIdx, gSegmentTrackEntryCodecPrivateHeader, gSegmentTrackEntryCodecPrivateHeaderSize );
-            PUT_UNALIGNED_4_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_PRIVATE_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | pVideoTrackInfo->uCodecPrivateLen );
-            pIdx += gSegmentTrackEntryCodecPrivateHeaderSize;
-
-            memcpy( pIdx, pVideoTrackInfo->pCodecPrivate, pVideoTrackInfo->uCodecPrivateLen );
-            pIdx += pVideoTrackInfo->uCodecPrivateLen;
-        }
-
-        PUT_UNALIGNED_4_byte_BE( pHeader + MKV_SEGMENT_TRACK_ENTRY_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | ( uHeaderLen - MKV_SEGMENT_TRACK_ENTRY_HEADER_SIZE ) );
-
-        *ppBuf = pHeader;
-        *pBufLen = uHeaderLen;
-    }
-
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-static int32_t createAudioTrackEntry( AudioTrackInfo_t * pAudioTrackInfo,
-                                      uint8_t ** ppBuf,
-                                      uint32_t * pBufLen )
+static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t **ppBuf, uint32_t *pBufLen)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
+    int xRes = KVS_ERRNO_NONE;
     uint32_t uHeaderLen = 0;
     uint8_t *pHeader = NULL;
     uint8_t *pIdx = NULL;
@@ -404,28 +394,28 @@ static int32_t createAudioTrackEntry( AudioTrackInfo_t * pAudioTrackInfo,
     bool bHasBitsPerSampleField = false;
     double audioFrequency = 0.0;
 
-    if( pAudioTrackInfo == NULL || ppBuf == NULL || pBufLen == NULL )
+    if (pAudioTrackInfo == NULL || ppBuf == NULL || pBufLen == NULL)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
     }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
+    else
     {
-        if( pAudioTrackInfo->pCodecPrivate != NULL && pAudioTrackInfo->uCodecPrivateLen != 0 )
+        if (pAudioTrackInfo->pCodecPrivate != NULL && pAudioTrackInfo->uCodecPrivateLen != 0)
         {
             bHasCodecPrivateData = true;
         }
 
-        if( pAudioTrackInfo->uBitsPerSample > 0 )
+        if (pAudioTrackInfo->uBitsPerSample > 0)
         {
             bHasBitsPerSampleField = true;
         }
 
         /* Calculate header length */
         uHeaderLen = gSegmentTrackEntryHeaderSize;
-        uHeaderLen += gSegmentTrackEntryCodecHeaderSize + strlen( pAudioTrackInfo->pCodecName );
+        uHeaderLen += gSegmentTrackEntryCodecHeaderSize + strlen(pAudioTrackInfo->pCodecName);
         uHeaderLen += gSegmentTrackEntryAudioHeaderSize;
-        if( bHasBitsPerSampleField )
+        if (bHasBitsPerSampleField)
         {
             uHeaderLen += gSegmentTrackEntryAudioHeaderBitsPerSampleSize;
         }
@@ -435,79 +425,76 @@ static int32_t createAudioTrackEntry( AudioTrackInfo_t * pAudioTrackInfo,
             uHeaderLen += pAudioTrackInfo->uCodecPrivateLen;
         }
 
-        /* Allocate memory for this track entry */
-        pHeader = ( uint8_t * )sysMalloc( uHeaderLen );
-        if( pHeader == NULL )
+        if ((pHeader = (uint8_t *)malloc(uHeaderLen)) == NULL)
         {
-            retStatus = KVS_STATUS_NOT_ENOUGH_MEMORY;
+            LogError("OOM: audio track entry header");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            pIdx = pHeader;
+
+            memcpy(pIdx, gSegmentTrackEntryHeader, gSegmentTrackEntryHeaderSize);
+            *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NUMBER_OFFSET) = (uint8_t)TRACK_AUDIO;
+            PUT_UNALIGNED_8_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_UID_OFFSET, TRACK_AUDIO);
+            *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_TYPE_OFFSET) = (uint8_t)TRACK_AUDIO;
+            snprintf((char *)(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NAME_OFFSET), TRACK_NAME_MAX_LEN, "%s", pAudioTrackInfo->pTrackName);
+            pIdx += gSegmentTrackEntryHeaderSize;
+
+            memcpy(pIdx, gSegmentTrackEntryCodecHeader, gSegmentTrackEntryCodecHeaderSize);
+            PUT_UNALIGNED_2_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_LEN_OFFSET, MKV_LENGTH_INDICATOR_2_BYTE | strlen(pAudioTrackInfo->pCodecName));
+            pIdx += gSegmentTrackEntryCodecHeaderSize;
+
+            memcpy(pIdx, pAudioTrackInfo->pCodecName, strlen(pAudioTrackInfo->pCodecName));
+            pIdx += strlen(pAudioTrackInfo->pCodecName);
+
+            memcpy(pIdx, gSegmentTrackEntryAudioHeader, gSegmentTrackEntryAudioHeaderSize);
+            audioFrequency = (double)pAudioTrackInfo->uFrequency;
+            PUT_UNALIGNED_8_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_FREQUENCY_OFFSET, *((uint64_t*)(&audioFrequency)));
+            *(pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_CHANNEL_NUMBER_OFFSET) = pAudioTrackInfo->uChannelNumber;
+            if (bHasBitsPerSampleField)
+            {
+                /* Adjust the length field of Audio header. */
+                uAudioHeaderLen = gSegmentTrackEntryAudioHeaderSize + gSegmentTrackEntryAudioHeaderBitsPerSampleSize - MKV_SEGMENT_TRACK_ENTRY_AUDIO_HEADER_SIZE;
+                PUT_UNALIGNED_4_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | uAudioHeaderLen);
+            }
+            pIdx += gSegmentTrackEntryAudioHeaderSize;
+
+            if (bHasBitsPerSampleField)
+            {
+                memcpy(pIdx, gSegmentTrackEntryAudioHeaderBitsPerSample, gSegmentTrackEntryAudioHeaderBitsPerSampleSize);
+                *(pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_BPS_OFFSET) = pAudioTrackInfo->uBitsPerSample;
+                pIdx += gSegmentTrackEntryAudioHeaderBitsPerSampleSize;
+            }
+
+            if( bHasCodecPrivateData )
+            {
+                memcpy(pIdx, gSegmentTrackEntryCodecPrivateHeader, gSegmentTrackEntryCodecPrivateHeaderSize);
+                PUT_UNALIGNED_4_byte_BE(pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_PRIVATE_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | pAudioTrackInfo->uCodecPrivateLen);
+                pIdx += gSegmentTrackEntryCodecPrivateHeaderSize;
+
+                memcpy(pIdx, pAudioTrackInfo->pCodecPrivate, pAudioTrackInfo->uCodecPrivateLen);
+                pIdx += pAudioTrackInfo->uCodecPrivateLen;
+            }
+
+            PUT_UNALIGNED_4_byte_BE(pHeader + MKV_SEGMENT_TRACK_ENTRY_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | (uHeaderLen - MKV_SEGMENT_TRACK_ENTRY_HEADER_SIZE));
+
+            *ppBuf = pHeader;
+            *pBufLen = uHeaderLen;
         }
     }
 
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        pIdx = pHeader;
-
-        memcpy( pIdx, gSegmentTrackEntryHeader, gSegmentTrackEntryHeaderSize );
-        *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NUMBER_OFFSET) = ( uint8_t )MKV_AUDIO_TRACK_NUMBER;
-        PUT_UNALIGNED_8_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_UID_OFFSET, MKV_AUDIO_TRACK_UID );
-        *(pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_TYPE_OFFSET) = ( uint8_t )MKV_AUDIO_TRACK_TYPE;
-        snprintf(( char * )( pIdx + MKV_SEGMENT_TRACK_ENTRY_TRACK_NAME_OFFSET ), TRACK_NAME_MAX_LEN, "%s", pAudioTrackInfo->pTrackName );
-        pIdx += gSegmentTrackEntryHeaderSize;
-
-        memcpy( pIdx, gSegmentTrackEntryCodecHeader, gSegmentTrackEntryCodecHeaderSize );
-        PUT_UNALIGNED_2_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_LEN_OFFSET, MKV_LENGTH_INDICATOR_2_BYTE | strlen( pAudioTrackInfo->pCodecName ) );
-        pIdx += gSegmentTrackEntryCodecHeaderSize;
-
-        memcpy( pIdx, pAudioTrackInfo->pCodecName, strlen( pAudioTrackInfo->pCodecName ) );
-        pIdx += strlen( pAudioTrackInfo->pCodecName );
-
-        memcpy( pIdx, gSegmentTrackEntryAudioHeader, gSegmentTrackEntryAudioHeaderSize );
-        audioFrequency = (double) pAudioTrackInfo->uFrequency;
-        PUT_UNALIGNED_8_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_FREQUENCY_OFFSET, *( ( uint64_t * )( &audioFrequency ) ) );
-        *( pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_CHANNEL_NUMBER_OFFSET ) = pAudioTrackInfo->uChannelNumber;
-        if( bHasBitsPerSampleField )
-        {
-            /* Adjust the length field of Audio header. */
-            uAudioHeaderLen = gSegmentTrackEntryAudioHeaderSize + gSegmentTrackEntryAudioHeaderBitsPerSampleSize - MKV_SEGMENT_TRACK_ENTRY_AUDIO_HEADER_SIZE;
-            PUT_UNALIGNED_4_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | uAudioHeaderLen );
-        }
-        pIdx += gSegmentTrackEntryAudioHeaderSize;
-
-        if( bHasBitsPerSampleField )
-        {
-            memcpy( pIdx, gSegmentTrackEntryAudioHeaderBitsPerSample, gSegmentTrackEntryAudioHeaderBitsPerSampleSize );
-            *( pIdx + MKV_SEGMENT_TRACK_ENTRY_AUDIO_BPS_OFFSET ) = pAudioTrackInfo->uBitsPerSample;
-            pIdx += gSegmentTrackEntryAudioHeaderBitsPerSampleSize;
-        }
-
-        if( bHasCodecPrivateData )
-        {
-            memcpy( pIdx, gSegmentTrackEntryCodecPrivateHeader, gSegmentTrackEntryCodecPrivateHeaderSize );
-            PUT_UNALIGNED_4_byte_BE( pIdx + MKV_SEGMENT_TRACK_ENTRY_CODEC_PRIVATE_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | pAudioTrackInfo->uCodecPrivateLen );
-            pIdx += gSegmentTrackEntryCodecPrivateHeaderSize;
-
-            memcpy( pIdx, pAudioTrackInfo->pCodecPrivate, pAudioTrackInfo->uCodecPrivateLen );
-            pIdx += pAudioTrackInfo->uCodecPrivateLen;
-        }
-
-        PUT_UNALIGNED_4_byte_BE( pHeader + MKV_SEGMENT_TRACK_ENTRY_LEN_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | ( uHeaderLen - MKV_SEGMENT_TRACK_ENTRY_HEADER_SIZE ) );
-
-        *ppBuf = pHeader;
-        *pBufLen = uHeaderLen;
-    }
-
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-int32_t Mkv_initializeHeaders( MkvHeader_t *pMkvHeader,
-                               VideoTrackInfo_t *pVideoTrackInfo,
-                               AudioTrackInfo_t *pAudioTrackInfo )
+int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader,  VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_t *pAudioTrackInfo)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
+    int xRes = KVS_ERRNO_NONE;;
     uint8_t *pIdx = NULL;
     uint32_t uHeaderLen = 0;
+    uint8_t pSegmentUuid[UUID_LEN] = { 0 };
     uint32_t uSegmentTracksLen = 0;
 
     uint8_t *pSegmentVideo = NULL;
@@ -517,739 +504,318 @@ int32_t Mkv_initializeHeaders( MkvHeader_t *pMkvHeader,
     uint8_t *pSegmentAudio = NULL;
     uint32_t uSegmentAudioLen = 0;
 
-    uint8_t trackIdx = 0;
+    size_t i = 0;
 
-    if( pMkvHeader == NULL || pVideoTrackInfo == NULL )
+    if (pMkvHeader == NULL || pVideoTrackInfo == NULL)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
     }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
+    else
     {
-        memset( pMkvHeader, 0, sizeof( MkvHeader_t) );
+        memset(pMkvHeader, 0, sizeof(MkvHeader_t));
 
-        for( int i = 0; i < UUID_LEN; i++ )
+        for (i=0; i<UUID_LEN; i++)
         {
-            pMkvHeader->pSegmentUuid[ i ] = getRandomNumber();
+            pSegmentUuid[i] = getRandomNumber();
         }
 
-        bHasAudioTrack = ( pAudioTrackInfo != NULL ) ? true : false;
-    }
+        bHasAudioTrack = (pAudioTrackInfo != NULL) ? true : false;
 
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        retStatus = createVideoTrackEntry( pVideoTrackInfo, &pSegmentVideo, &uSegmentVideoLen );
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED && bHasAudioTrack )
-    {
-        retStatus = createAudioTrackEntry( pAudioTrackInfo, &pSegmentAudio, &uSegmentAudioLen );
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        /* Calculate size of EBML and Segment header. */
-        uHeaderLen = gEbmlHeaderSize;
-        uHeaderLen += gSegmentHeaderSize;
-        uHeaderLen += gSegmentInfoHeaderSize;
-        uHeaderLen += gSegmentTrackHeaderSize;
-
-        uHeaderLen += uSegmentVideoLen;
-        uHeaderLen += ( bHasAudioTrack ) ? uSegmentAudioLen : 0;
-
-        /* Allocate memory for EBML and Segment header. */
-        pMkvHeader->pHeader = ( uint8_t * )sysMalloc( uHeaderLen );
-        if( pMkvHeader->pHeader == NULL )
+        if (prvCreateVideoTrackEntry(pVideoTrackInfo, &pSegmentVideo, &uSegmentVideoLen) != KVS_ERRNO_NONE || 
+            (bHasAudioTrack && prvCreateAudioTrackEntry(pAudioTrackInfo, &pSegmentAudio, &uSegmentAudioLen) != KVS_ERRNO_NONE))
         {
-            retStatus = KVS_STATUS_NOT_ENOUGH_MEMORY;
-        }
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        pIdx = pMkvHeader->pHeader;
-
-        memcpy( pIdx, gEbmlHeader, gEbmlHeaderSize );
-        pIdx += gEbmlHeaderSize;
-
-        memcpy( pIdx, gSegmentHeader, gSegmentHeaderSize );
-        pIdx += gSegmentHeaderSize;
-
-        memcpy( pIdx, gSegmentInfoHeader, gSegmentInfoHeaderSize );
-        memcpy( pIdx + MKV_SEGMENT_INFO_UID_OFFSET, pMkvHeader->pSegmentUuid, UUID_LEN );
-        snprintf( ( char * )( pIdx + MKV_SEGMENT_INFO_TITLE_OFFSET ), SEGMENT_TITLE_MAX_LEN, "%s", SEGMENT_TITLE );
-        snprintf( ( char * )( pIdx + MKV_SEGMENT_INFO_MUXING_APP_OFFSET ), MUXING_APP_MAX_LEN, "%s", MUXING_APP );
-        snprintf( ( char * )( pIdx + MKV_SEGMENT_INFO_WRITING_APP_OFFSET ), WRITING_APP_MAX_LEN, "%s", WRITING_APP );
-        pIdx += gSegmentInfoHeaderSize;
-
-        memcpy( pIdx, gSegmentTrackHeader, gSegmentTrackHeaderSize );
-        uSegmentTracksLen = uSegmentVideoLen;
-        uSegmentTracksLen += ( bHasAudioTrack ) ? uSegmentAudioLen : 0;
-        PUT_UNALIGNED_4_byte_BE( pIdx + MKV_SEGMENT_TRACK_LENGTH_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | uSegmentTracksLen );
-        pIdx += gSegmentTrackHeaderSize;
-
-        memcpy( pIdx, pSegmentVideo, uSegmentVideoLen );
-        pIdx += uSegmentVideoLen;
-
-        if( bHasAudioTrack )
-        {
-            memcpy( pIdx, pSegmentAudio, uSegmentAudioLen );
-            pIdx += uSegmentAudioLen;
-        }
-
-        pMkvHeader->uHeaderLen = uHeaderLen;
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        pMkvHeader->pCluster = ( uint8_t * )sysMalloc( gClusterHeaderSize );
-        if( pMkvHeader->pCluster == NULL )
-        {
-            retStatus = KVS_STATUS_NOT_ENOUGH_MEMORY;
+            LogError("Failed to create track entries");
+            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
-            memcpy( pMkvHeader->pCluster, gClusterHeader, gClusterHeaderSize );
-            pMkvHeader->uClusterLen = gClusterHeaderSize;
-        }
-    }
+            /* Calculate size of EBML and Segment header. */
+            uHeaderLen = gEbmlHeaderSize;
+            uHeaderLen += gSegmentHeaderSize;
+            uHeaderLen += gSegmentInfoHeaderSize;
+            uHeaderLen += gSegmentTrackHeaderSize;
 
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        for( trackIdx = 1; trackIdx <= MKV_TRACK_SIZE; trackIdx++ )
-        {
-            pMkvHeader->pSimpleBlock[ trackIdx - 1 ] = ( uint8_t * )sysMalloc( gClusterSimpleBlockSize );
-            if( pMkvHeader->pSimpleBlock == NULL )
+            uHeaderLen += uSegmentVideoLen;
+            uHeaderLen += ( bHasAudioTrack ) ? uSegmentAudioLen : 0;
+
+            /* Allocate memory for EBML and Segment header. */
+            if ((pMkvHeader->pHeader = (uint8_t *)malloc(uHeaderLen)) == NULL)
             {
-                retStatus = KVS_STATUS_NOT_ENOUGH_MEMORY;
-                break;
+                LogError("OOM: MKV Header");
+                xRes = KVS_ERRNO_FAIL;
             }
             else
             {
-                memcpy( pMkvHeader->pSimpleBlock[ trackIdx - 1 ], gClusterSimpleBlock, gClusterSimpleBlockSize );
-                *( pMkvHeader->pSimpleBlock[ trackIdx - 1 ] + MKV_CLUSTER_SIMPLE_BLOCK_TRACK_NUMBER_OFFSET ) = MKV_LENGTH_INDICATOR_1_BYTE | trackIdx;
-                pMkvHeader->uSimpleBlockLen[ trackIdx - 1 ] = gClusterSimpleBlockSize;
+                pIdx = pMkvHeader->pHeader;
+
+                memcpy(pIdx, gEbmlHeader, gEbmlHeaderSize);
+                pIdx += gEbmlHeaderSize;
+
+                memcpy(pIdx, gSegmentHeader, gSegmentHeaderSize);
+                pIdx += gSegmentHeaderSize;
+
+                memcpy(pIdx, gSegmentInfoHeader, gSegmentInfoHeaderSize);
+                memcpy(pIdx + MKV_SEGMENT_INFO_UID_OFFSET, pSegmentUuid, UUID_LEN);
+                snprintf((char *)(pIdx + MKV_SEGMENT_INFO_TITLE_OFFSET), SEGMENT_TITLE_MAX_LEN, "%s", SEGMENT_TITLE);
+                snprintf((char *)(pIdx + MKV_SEGMENT_INFO_MUXING_APP_OFFSET), MUXING_APP_MAX_LEN, "%s", MUXING_APP);
+                snprintf((char *)(pIdx + MKV_SEGMENT_INFO_WRITING_APP_OFFSET), WRITING_APP_MAX_LEN, "%s", WRITING_APP);
+                pIdx += gSegmentInfoHeaderSize;
+
+                memcpy(pIdx, gSegmentTrackHeader, gSegmentTrackHeaderSize);
+                uSegmentTracksLen = uSegmentVideoLen;
+                uSegmentTracksLen += (bHasAudioTrack) ? uSegmentAudioLen : 0;
+                PUT_UNALIGNED_4_byte_BE(pIdx + MKV_SEGMENT_TRACK_LENGTH_OFFSET, MKV_LENGTH_INDICATOR_4_BYTE | uSegmentTracksLen);
+                pIdx += gSegmentTrackHeaderSize;
+
+                memcpy( pIdx, pSegmentVideo, uSegmentVideoLen );
+                pIdx += uSegmentVideoLen;
+
+                if( bHasAudioTrack )
+                {
+                    memcpy( pIdx, pSegmentAudio, uSegmentAudioLen );
+                    pIdx += uSegmentAudioLen;
+                }
+
+                pMkvHeader->uHeaderLen = uHeaderLen;
             }
         }
     }
 
-    if( retStatus != KVS_STATUS_SUCCEEDED )
+
+    if (pSegmentVideo != NULL)
     {
-        Mkv_terminateHeaders(pMkvHeader);
+        free(pSegmentVideo);
     }
 
-    if( pSegmentVideo != NULL )
+    if (pSegmentAudio != NULL)
     {
-        sysFree( pSegmentVideo );
+        free(pSegmentAudio);
     }
 
-    if( pSegmentAudio != NULL )
-    {
-        sysFree( pSegmentAudio );
-    }
-
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-void Mkv_terminateHeaders( MkvHeader_t * pMkvHeader )
+void Mkv_terminateHeaders(MkvHeader_t *pMkvHeader)
 {
-    uint8_t trackIdx = 0;
-
-    if( pMkvHeader != NULL )
+    if (pMkvHeader != NULL)
     {
-        if( pMkvHeader->pHeader != NULL )
+        if (pMkvHeader->pHeader != NULL)
         {
-            sysFree( pMkvHeader->pHeader );
+            free(pMkvHeader->pHeader);
+            pMkvHeader->pHeader = NULL;
         }
         pMkvHeader->uHeaderLen = 0;
-
-        if( pMkvHeader->pCluster != NULL )
-        {
-            sysFree( pMkvHeader->pCluster );
-        }
-        pMkvHeader->uClusterLen = 0;
-
-        for( trackIdx = 1; trackIdx <= MKV_TRACK_SIZE; trackIdx++ )
-        {
-            if( pMkvHeader->pSimpleBlock[ trackIdx - 1 ] != NULL )
-            {
-                sysFree( pMkvHeader->pSimpleBlock[ trackIdx - 1 ] );
-            }
-            pMkvHeader->uSimpleBlockLen[ trackIdx - 1 ] = 0;
-        }
     }
 }
 
 /*-----------------------------------------------------------*/
 
-int32_t Mkv_updateTimestamp( MkvHeader_t * pMkvHeader,
-                             uint64_t timestamp )
+size_t Mkv_getClusterHdrLen(MkvClusterType_t xType)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
+    size_t uLen = 0;
 
-    PUT_UNALIGNED_8_byte_BE( pMkvHeader->pCluster + 7, timestamp );
+    if (xType == MKV_CLUSTER)
+    {
+        uLen = gClusterHeaderSize + gClusterSimpleBlockSize;
+    }
+    else if (xType == MKV_SIMPLE_BLOCK)
+    {
+        uLen = gClusterSimpleBlockSize;
+    }
 
-    return retStatus;
+    return uLen;
 }
 
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_updateDeltaTimestamp( MkvHeader_t * pMkvHeader,
-                                  uint8_t trackId,
-                                  uint16_t deltaTimestamp )
+int Mkv_initializeClusterHdr(uint8_t *pMkvHeader, size_t uMkvHeaderSize, MkvClusterType_t xType, size_t uFrameSize, TrackType_t xTrackType, bool bIsKeyFrame, uint64_t uAbsoluteTimestamp, uint16_t uDeltaTimestamp)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-
-    if( pMkvHeader == NULL || !( trackId >= 1 && trackId <= MKV_TRACK_SIZE ) || pMkvHeader->pSimpleBlock[ trackId - 1 ] == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        PUT_UNALIGNED_2_byte_BE( pMkvHeader->pSimpleBlock[ trackId - 1 ] + MKV_CLUSTER_SIMPLE_BLOCK_DELTA_TIMESTAMP_OFFSET, deltaTimestamp );
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_updateFrameSize( MkvHeader_t * pMkvHeader,
-                             uint8_t trackId,
-                             uint32_t uFrameSize )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-
-    if( pMkvHeader == NULL || !( trackId >= 1 && trackId <= MKV_TRACK_SIZE ) || pMkvHeader->pSimpleBlock[ trackId - 1 ] == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        PUT_UNALIGNED_4_byte_BE( pMkvHeader->pSimpleBlock[ trackId - 1 ] + MKV_CLUSTER_SIMPLE_BLOCK_FRAME_SIZE_OFFSET, SIMPLE_BLOCK_HEADER_SIZE + uFrameSize );
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_updateProperty( MkvHeader_t * pMkvHeader,
-                            uint8_t trackId,
-                            bool isKeyFrame )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint8_t property = 0;
-
-    if( pMkvHeader == NULL || !( trackId >= 1 && trackId <= MKV_TRACK_SIZE ) || pMkvHeader->pSimpleBlock[ trackId - 1 ] == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        property = *( pMkvHeader->pSimpleBlock[ trackId - 1 ] + MKV_CLUSTER_SIMPLE_BLOCK_PROPERTY_OFFSET );
-        if( isKeyFrame )
-        {
-            property |= 0x80;
-        }
-        else
-        {
-            property &= ~0x80;
-        }
-        *( pMkvHeader->pSimpleBlock[ trackId - 1 ] + MKV_CLUSTER_SIMPLE_BLOCK_PROPERTY_OFFSET ) = property;
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkvs_getEbmlSegmentHeader( MkvHeader_t * pMkvheader,
-                                   uint8_t ** ppHeaderPtr,
-                                   uint32_t *pHeaderLen )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-
-    if( pMkvheader == NULL || pHeaderLen == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        if( ppHeaderPtr != NULL )
-        {
-            *ppHeaderPtr = pMkvheader->pHeader;
-        }
-        *pHeaderLen = pMkvheader->uHeaderLen;
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkvs_getClusterHeader( MkvHeader_t * pMkvheader,
-                               uint8_t ** ppHeaderPtr,
-                               uint32_t * pHeaderLen )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-
-    if( pMkvheader == NULL || pHeaderLen == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        if( ppHeaderPtr != NULL )
-        {
-            *ppHeaderPtr = pMkvheader->pCluster;
-        }
-        *pHeaderLen = pMkvheader->uClusterLen;
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkvs_getSimpleBlockHeader( MkvHeader_t * pMkvheader,
-                                   uint8_t trackId,
-                                   uint8_t ** ppHeaderPtr,
-                                   uint32_t *pHeaderLen )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-
-    if( pMkvheader == NULL || pHeaderLen == NULL || !( trackId >= 1 && trackId <= MKV_TRACK_SIZE ) )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        if( ppHeaderPtr != NULL )
-        {
-            *ppHeaderPtr = pMkvheader->pSimpleBlock[ trackId - 1 ];
-        }
-        *pHeaderLen = pMkvheader->uSimpleBlockLen[ trackId - 1 ];
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_getMaxHeaderSize( MkvHeader_t * pMkvHeader,
-                              uint32_t * pBufferLen )
-{
-    return Mkv_getMkvHeader( pMkvHeader, true, false, MKV_VIDEO_TRACK_NUMBER, NULL, 0, pBufferLen );
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_getMkvHeader( MkvHeader_t * pMkvHeader,
-                          bool isFirstFrame,
-                          bool isKeyFrame,
-                          uint8_t trackId,
-                          uint8_t * pBuffer,
-                          uint32_t uBufferSize,
-                          uint32_t * pBufferLen )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint32_t uHeaderSize = 0;
+    int xRes = KVS_ERRNO_NONE;
     uint8_t *pIdx = NULL;
+    size_t uMkvHeaderLen = Mkv_getClusterHdrLen(xType);
 
-    if( pMkvHeader == NULL || pBufferLen == NULL || !( trackId >= 1 && trackId <= MKV_TRACK_SIZE ) )
+    if (pMkvHeader == NULL || uMkvHeaderLen > uMkvHeaderSize)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if (xType == MKV_CLUSTER)
+    {
+        pIdx = pMkvHeader;
+        memcpy(pIdx, gClusterHeader, gClusterHeaderSize);
+        PUT_UNALIGNED_8_byte_BE(pIdx+7, uAbsoluteTimestamp);
+        pIdx += gClusterHeaderSize;
+
+        memcpy(pIdx, gClusterSimpleBlock, gClusterSimpleBlockSize);
+        *(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_TRACK_NUMBER_OFFSET) = MKV_LENGTH_INDICATOR_1_BYTE | ((uint8_t)xTrackType & 0xFF);
+        PUT_UNALIGNED_4_byte_BE(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_FRAME_SIZE_OFFSET, SIMPLE_BLOCK_HEADER_SIZE + uFrameSize);
+        *(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_PROPERTY_OFFSET) = 0x80;
+        pIdx += gClusterSimpleBlockSize;
+
+    }
+    else if (xType == MKV_SIMPLE_BLOCK)
+    {
+        pIdx = pMkvHeader;
+        memcpy(pIdx, gClusterSimpleBlock, gClusterSimpleBlockSize);
+        *(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_TRACK_NUMBER_OFFSET) = MKV_LENGTH_INDICATOR_1_BYTE | ((uint8_t)xTrackType & 0xFF);
+        PUT_UNALIGNED_4_byte_BE(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_FRAME_SIZE_OFFSET, SIMPLE_BLOCK_HEADER_SIZE + uFrameSize);
+        PUT_UNALIGNED_2_byte_BE(pIdx + MKV_CLUSTER_SIMPLE_BLOCK_DELTA_TIMESTAMP_OFFSET, uDeltaTimestamp );
+        pIdx += gClusterSimpleBlockSize;
     }
     else
     {
-        /* Calculate header size. */
-        if( isFirstFrame )
-        {
-            /* Video frame has to be the first frame. */
-            uHeaderSize = pMkvHeader->uHeaderLen + pMkvHeader->uClusterLen + pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ];
-        }
-        else if( isKeyFrame )
-        {
-            /* Video frame has to be the key frame. */
-            uHeaderSize = pMkvHeader->uClusterLen + pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ];
-        }
-        else
-        {
-            uHeaderSize = pMkvHeader->uSimpleBlockLen[ trackId - 1 ];
-        }
-        *pBufferLen = uHeaderSize;
-
-        /* If destination buffer is not null, then copy the content. */
-        if( pBuffer != NULL )
-        {
-            if( uBufferSize < uHeaderSize )
-            {
-                retStatus = KVS_STATUS_BUFFER_SIZE_NOT_ENOUGH;
-            }
-            else
-            {
-                pIdx = pBuffer;
-
-                if( isFirstFrame )
-                {
-                    /* Video frame has to be the first frame. */
-                    memcpy( pIdx, pMkvHeader->pHeader, pMkvHeader->uHeaderLen );
-                    pIdx += pMkvHeader->uHeaderLen;
-                    memcpy( pIdx, pMkvHeader->pCluster, pMkvHeader->uClusterLen );
-                    pIdx += pMkvHeader->uClusterLen;
-                    memcpy( pIdx, pMkvHeader->pSimpleBlock[ MKV_VIDEO_TRACK_NUMBER - 1 ], pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ] );
-                    pIdx += pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ];
-                }
-                else if( isKeyFrame )
-                {
-                    /* Video frame has to be the key frame. */
-                    memcpy( pIdx, pMkvHeader->pCluster, pMkvHeader->uClusterLen );
-                    pIdx += pMkvHeader->uClusterLen;
-                    memcpy( pIdx, pMkvHeader->pSimpleBlock[ MKV_VIDEO_TRACK_NUMBER - 1 ], pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ] );
-                    pIdx += pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ];
-                }
-                else
-                {
-                    memcpy( pIdx, pMkvHeader->pSimpleBlock[ trackId - 1 ], pMkvHeader->uSimpleBlockLen[ trackId - 1 ] );
-                    pIdx += pMkvHeader->uSimpleBlockLen[ MKV_VIDEO_TRACK_NUMBER - 1 ];
-                }
-            }
-        }
+        LogError("Unknown MKV cluster type");
+        xRes = KVS_ERRNO_FAIL;
     }
 
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-int32_t Mkv_convertAnnexBtoAvccInPlace( uint8_t * pAnnexbBuf,
-                                        uint32_t uAnnexbBufLen,
-                                        uint32_t uAnnexbBufSize,
-                                        uint32_t * pAvccLen )
+int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint32_t i = 0;
-    NalRbsp_t rbsps[ MAX_NALU_COUNT_IN_A_FRAME ];
-    uint32_t uNalRbspCount = 0;
-    uint32_t uAvccTotalLen = 0;
-    uint32_t uAvccIdx = 0;
-    uint8_t *pVal = NULL;
-
-    if( pAnnexbBuf == NULL || uAnnexbBufLen == 0 || pAvccLen == NULL )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else
-    {
-        /* Go through all Annex-B buffer and record all RBSP begin and length first. */
-        while( i < uAnnexbBufLen - 4 )
-        {
-            if( pAnnexbBuf[ i ] == 0x00 )
-            {
-                if( pAnnexbBuf[ i + 1 ] == 0x00 )
-                {
-                    if( pAnnexbBuf[ i + 2 ] == 0x00 )
-                    {
-                        if( pAnnexbBuf[ i + 3 ] == 0x01 )
-                        {
-                            /* 0x00000001 is start code of NAL. */
-                            if( uNalRbspCount > 0 )
-                            {
-                                rbsps[ uNalRbspCount - 1 ].uRbspLen = i - rbsps[ uNalRbspCount - 1 ].uRbspBeginIdx;
-                            }
-
-                            i += 4;
-                            rbsps[ uNalRbspCount++ ].uRbspBeginIdx = i;
-                        }
-                        else if( pAnnexbBuf[ i + 3 ] == 0x00 )
-                        {
-                            /* 0x00000000 is not allowed. */
-                            break;
-                        }
-                        else
-                        {
-                            /* 0x000000XX is acceptable. */
-                            i += 4;
-                        }
-                    }
-                    else if( pAnnexbBuf[ i + 2 ] == 0x01 )
-                    {
-                        /* 0x000001 is start code of NAL */
-                        if( uNalRbspCount > 0 )
-                        {
-                            rbsps[ uNalRbspCount - 1 ].uRbspLen = i - rbsps[ uNalRbspCount - 1 ].uRbspBeginIdx;
-                        }
-
-                        i += 3;
-                        rbsps[ uNalRbspCount++ ].uRbspBeginIdx = i;
-                    }
-                    else
-                    {
-                        /* 0x0000XX is acceptable. It includes EPB case and we reserve EPB byte. */
-                        i += 3;
-                    }
-                }
-                else
-                {
-                    /* 0x00XX is acceptable. */
-                    i += 2;
-                }
-            }
-            else
-            {
-                /* 0xXX is acceptable. */
-                i++;
-            }
-        }
-
-        if( uNalRbspCount == 0 )
-        {
-            retStatus = KVS_STATUS_MKV_INVALID_ANNEXB_CONTENT;
-        }
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        if( uNalRbspCount > 0 )
-        {
-            /* Update the last BSPS. */
-            rbsps[ uNalRbspCount - 1 ].uRbspLen = uAnnexbBufLen - rbsps[ uNalRbspCount - 1 ].uRbspBeginIdx;
-        }
-
-        /* Calculate needed size if we convert it to Avcc format. */
-        uAvccTotalLen = 4 * uNalRbspCount;
-        for( i = 0; i < uNalRbspCount; i++ )
-        {
-            uAvccTotalLen += rbsps[ i ].uRbspLen;
-        }
-
-        if( uAvccTotalLen > uAnnexbBufSize )
-        {
-            /* We don't have enough space to convert Annex-B to Avcc in place. */
-            *pAvccLen = 0;
-            retStatus = KVS_STATUS_BUFFER_SIZE_NOT_ENOUGH;
-        }
-    }
-
-    if( retStatus == KVS_STATUS_SUCCEEDED )
-    {
-        /* move RBSP from back to head */
-        i = uNalRbspCount - 1;
-        uAvccIdx = uAvccTotalLen;
-        do
-        {
-            /* move RBSP */
-            uAvccIdx -= rbsps[ i ].uRbspLen;
-            memmove( pAnnexbBuf + uAvccIdx, pAnnexbBuf + rbsps[ i ].uRbspBeginIdx, rbsps[ i ].uRbspLen);
-
-            /* fill length info */
-            uAvccIdx -= 4;
-            PUT_UNALIGNED_4_byte_BE( pAnnexbBuf + uAvccIdx, rbsps[ i ].uRbspLen );
-
-            if( i == 0 )
-            {
-                break;
-            }
-            i--;
-        } while ( true );
-
-        *pAvccLen = uAvccTotalLen;
-    }
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_generateH264CodecPrivateDataFromAvccNalus( uint8_t * pAvccBuf,
-                                                       uint32_t uAvccLen,
-                                                       uint8_t * pCodecPrivateData,
-                                                       uint32_t * pCodecPrivateLen )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
+    int xRes = KVS_ERRNO_NONE;
+    uint8_t *pSps = NULL;
+    size_t uSpsLen = 0;
+    uint8_t *pPps = NULL;
+    size_t uPpsLen = 0;
     uint8_t *pCpdIdx = NULL;
-    uint8_t *pSps = NULL;
-    uint32_t uSpsLen = 0;
-    uint8_t *pPps = NULL;
-    uint32_t uPpsLen = 0;
-    uint32_t uCodecPrivateLen = 0;
+    uint8_t *pCodecPrivateData = NULL;
+    size_t uCodecPrivateLen = 0;
 
-    if( pAvccBuf == NULL || uAvccLen == 0 )
+    if (pAvccBuf == NULL || uAvccLen == 0 || ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
-        return KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if (NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_SPS, &pSps, &uSpsLen) != KVS_ERRNO_NONE ||
+            NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_PPS, &pPps, &uPpsLen) != KVS_ERRNO_NONE)
+    {
+        LogInfo("Failed to get SPS and PPS from AVCC NALU");
+        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        Mkv_getH264SpsPpsNalusFromAvccNalus( pAvccBuf, uAvccLen, &pSps, &uSpsLen, &pPps, &uPpsLen );
-        if( pSps == NULL || uSpsLen == 0 || pPps == NULL || uPpsLen == 0 )
+        uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
+
+        if ((pCodecPrivateData = (uint8_t *)malloc(uCodecPrivateLen)) == NULL)
         {
-            retStatus = KVS_STATUS_MKV_FAIL_TO_PARSE_SPS_N_PPS;
+            LogError("OOM: H264 codec private data");
+            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
-            uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
+            pCpdIdx = pCodecPrivateData;
+            *(pCpdIdx++) = 0x01; /* Version */
+            *(pCpdIdx++) = pSps[1];
+            *(pCpdIdx++) = pSps[2];
+            *(pCpdIdx++) = pSps[3];
+            *(pCpdIdx++) = 0xFF; /* '111111' reserved + '11' lengthSizeMinusOne which is 3 (i.e. AVCC header size = 4) */
 
-            *pCodecPrivateLen = uCodecPrivateLen;
+            *(pCpdIdx++) = 0xE1; /* '111' reserved + '00001' numOfSequenceParameterSets which is 1 */
+            PUT_UNALIGNED_2_byte_BE(pCpdIdx, uSpsLen);
+            pCpdIdx += 2;
+            memcpy(pCpdIdx, pSps, uSpsLen);
+            pCpdIdx += uSpsLen;
 
-            if( pCodecPrivateData != NULL )
-            {
-                pCpdIdx = pCodecPrivateData;
-                *( pCpdIdx++ ) = 0x01; // Version
-                *( pCpdIdx++ ) = pSps[1];
-                *( pCpdIdx++ ) = pSps[2];
-                *( pCpdIdx++ ) = pSps[3];
-                *( pCpdIdx++ ) = 0xFF; // '111111' reserved + '11' lengthSizeMinusOne which is 3 (i.e. AVCC header size = 4)
+            *(pCpdIdx++) = 0x01; /* 1 numOfPictureParameterSets */
+            PUT_UNALIGNED_2_byte_BE( pCpdIdx, uPpsLen );
+            pCpdIdx += 2;
+            memcpy(pCpdIdx, pPps, uPpsLen);
+            pCpdIdx += uPpsLen;
 
-                *( pCpdIdx++ ) = 0xE1; // '111' reserved + '00001' numOfSequenceParameterSets which is 1
-                PUT_UNALIGNED_2_byte_BE( pCpdIdx, uSpsLen );
-                pCpdIdx += 2;
-                memcpy( pCpdIdx, pSps, uSpsLen );
-                pCpdIdx += uSpsLen;
-
-                *( pCpdIdx++ ) = 0x01; // 1 numOfPictureParameterSets
-                PUT_UNALIGNED_2_byte_BE( pCpdIdx, uPpsLen );
-                pCpdIdx += 2;
-                memcpy( pCpdIdx, pPps, uPpsLen );
-                pCpdIdx += uPpsLen;
-
-                if( uCodecPrivateLen != pCpdIdx - pCodecPrivateData )
-                {
-                    retStatus = KVS_STATUS_MKV_FAIL_TO_GENERATE_CODEC_PRIVATE_DATA;
-                }
-                else
-                {
-                    *pCodecPrivateLen = uCodecPrivateLen;
-                }
-            }
+            *ppCodecPrivateData = pCodecPrivateData;
+            *puCodecPrivateDataLen = uCodecPrivateLen;
         }
     }
 
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-int32_t Mkv_getH264SpsPpsNalusFromAvccNalus( uint8_t * pAvccBuf,
-                                             uint32_t uAvccLen,
-                                             uint8_t ** ppSps,
-                                             uint32_t * pSpsLen,
-                                             uint8_t ** ppPps,
-                                             uint32_t * pPpsLen )
+int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t frequency, uint16_t channel, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint32_t uAvccIdx = 0;
-    uint8_t *pSps = NULL;
-    uint32_t uSpsLen = 0;
-    uint8_t *pPps = NULL;
-    uint32_t uPpsLen = 0;
-    uint32_t uNaluLen = 0;
-
-    while( uAvccIdx < uAvccLen && ( pSps == NULL || pPps == NULL ) )
-    {
-        uNaluLen = ( pAvccBuf[ uAvccIdx ] << 24 ) | ( pAvccBuf[ uAvccIdx + 1 ] << 16 ) | ( pAvccBuf[ uAvccIdx + 2 ] << 8 ) | pAvccBuf[ uAvccIdx + 3 ];
-        uAvccIdx += 4;
-
-        if( pSps == NULL && ( pAvccBuf[ uAvccIdx ] & 0x80 ) == 0 && ( pAvccBuf[ uAvccIdx ] & 0x60 ) != 0 && (pAvccBuf[ uAvccIdx ] & 0x1F) == 0x07 )
-        {
-            pSps = pAvccBuf + uAvccIdx;
-            uSpsLen = uNaluLen;
-        }
-
-        if( pPps == NULL && ( pAvccBuf[ uAvccIdx ] & 0x80 ) == 0 && ( pAvccBuf[ uAvccIdx ] & 0x60 ) != 0 && (pAvccBuf[ uAvccIdx ] & 0x1F) == 0x08 )
-        {
-            pPps = pAvccBuf + uAvccIdx;
-            uPpsLen = uNaluLen;
-        }
-
-        uAvccIdx += uNaluLen;
-    }
-
-    *ppSps = pSps;
-    *pSpsLen = uSpsLen;
-    *ppPps = pPps;
-    *pPpsLen = uPpsLen;
-
-    return retStatus;
-}
-
-/*-----------------------------------------------------------*/
-
-int32_t Mkv_generateAacCodecPrivateData( Mpeg4AudioObjectTypes objectType,
-                                         uint32_t frequency,
-                                         uint16_t channel,
-                                         uint8_t * pBuffer,
-                                         uint32_t uBufferSize )
-{
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint16_t uCodecPrivateData = 0;
+    int xRes = KVS_ERRNO_NONE;
+    uint8_t *pCodecPrivateData = NULL;
+    size_t uCodecPrivateLen = 0;
+    uint16_t uAacCodecPrivateData = 0;
     bool bSamplingFreqFound = false;
     uint16_t uSamplingFreqIndex = 0;
     uint16_t i = 0;
 
-    if( pBuffer == NULL || uBufferSize < MKV_AAC_CPD_SIZE_BYTE )
+    if (ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        for( i = 0; i < gMkvAACSamplingFrequenciesCount; i++ )
+        for (i=0; i<gMkvAACSamplingFrequenciesCount; i++)
         {
-            if( gMkvAACSamplingFrequencies[ i ] == frequency )
+            if (gMkvAACSamplingFrequencies[i] == frequency)
             {
                 uSamplingFreqIndex = i;
                 bSamplingFreqFound = true;
+                break;
             }
         }
 
-        if( bSamplingFreqFound == false )
+        if (!bSamplingFreqFound)
         {
-            retStatus = KVS_STATUS_INVALID_ARG;
+            LogError("Invalid audio sampling frequency");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else if ((pCodecPrivateData = (uint8_t *)malloc(MKV_AAC_CPD_SIZE_BYTE)) == NULL)
+        {
+            LogError("OOM: AAC codec private data");
+            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
-            memset( pBuffer, 0, MKV_AAC_CPD_SIZE_BYTE );
-            uCodecPrivateData = ( ( ( uint16_t )objectType ) << 11 ) | ( uSamplingFreqIndex << 7 ) | ( channel << 3 );
-            PUT_UNALIGNED_2_byte_BE( pBuffer, uCodecPrivateData );
+            uCodecPrivateLen = MKV_AAC_CPD_SIZE_BYTE;
+            uAacCodecPrivateData = ( ( ( uint16_t )objectType ) << 11 ) | ( uSamplingFreqIndex << 7 ) | ( channel << 3 );
+            PUT_UNALIGNED_2_byte_BE(pCodecPrivateData, uAacCodecPrivateData);
+
+            *ppCodecPrivateData = pCodecPrivateData;
+            *puCodecPrivateDataLen = uCodecPrivateLen;
         }
     }
 
-    return retStatus;
+    return xRes;
 }
 
 /*-----------------------------------------------------------*/
 
-int32_t Mkv_generatePcmCodecPrivateData( PcmFormatCode format, uint32_t uSamplingRate, uint16_t channels, uint8_t *pBuffer, uint32_t uBufferSize )
+int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRate, uint16_t channels, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int32_t retStatus = KVS_STATUS_SUCCEEDED;
-    uint32_t uBitrate = 0;
+    int xRes = KVS_ERRNO_NONE;
+    uint8_t *pCodecPrivateData = NULL;
+    size_t uCodecPrivateLen = 0;
     uint8_t *pIdx = NULL;
+    uint32_t uBitrate = 0;
 
-    if( pBuffer == NULL || uBufferSize < MKV_PCM_CPD_SIZE_BYTE )
+    if (ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL ||
+        (uSamplingRate < MIN_PCM_SAMPLING_RATE || uSamplingRate > MAX_PCM_SAMPLING_RATE) ||
+        (channels != 1 && channels != 2))
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
     }
-    else if( format != PCM_FORMAT_CODE_ALAW && format != PCM_FORMAT_CODE_MULAW )
+    else if ((pCodecPrivateData = (uint8_t *)malloc(MKV_PCM_CPD_SIZE_BYTE)) == NULL)
     {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else if( uSamplingRate < MIN_PCM_SAMPLING_RATE || uSamplingRate > MAX_PCM_SAMPLING_RATE )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
-    }
-    else if( channels != 1 && channels != 2 )
-    {
-        retStatus = KVS_STATUS_INVALID_ARG;
+        LogError("OOM: PCM codec private data");
+        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        uint32_t uBitrate = channels * uSamplingRate / 8;
+        uCodecPrivateLen = MKV_PCM_CPD_SIZE_BYTE;
 
-        memset( pBuffer, 0, MKV_PCM_CPD_SIZE_BYTE );
+        uBitrate = channels * uSamplingRate / 8;
 
-        pIdx = pBuffer;
+        pIdx = pCodecPrivateData;
         PUT_UNALIGNED_2_byte_LE( pIdx, format );
         pIdx += 2;
         PUT_UNALIGNED_2_byte_LE( pIdx, channels );
@@ -1260,7 +826,10 @@ int32_t Mkv_generatePcmCodecPrivateData( PcmFormatCode format, uint32_t uSamplin
         pIdx += 4;
         PUT_UNALIGNED_2_byte_LE( pIdx, channels );
         pIdx += 2;
+
+        *ppCodecPrivateData = pCodecPrivateData;
+        *puCodecPrivateDataLen = uCodecPrivateLen;
     }
 
-    return retStatus;
+    return xRes;
 }

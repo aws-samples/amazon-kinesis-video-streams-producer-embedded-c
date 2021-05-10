@@ -1,6 +1,6 @@
 # Amazon Kinesis Video Streams Producer SDK for FreeRTOS
 
-This project demonstrates how to port Amazon Kinesis Video Streams Producer to FreeRTOS.  There are 3 examples.  One uses ESP-Wrover-kit as a reference platform.  The others uses Linux as a reference platform.
+This project demonstrates how to port Amazon Kinesis Video Streams Producer to FreeRTOS.  There are 2 examples.  One uses ESP-Wrover-kit as a reference platform.  The other uses Linux as a reference platform.
 
 # Build and Run Examples
 
@@ -13,16 +13,6 @@ git clone --recursive https://github.com/aws-samples/amazon-kinesis-video-stream
 ```
 
 If you miss running `git clone` command with `--recursive` , run `git submodule update --init --recursive` within repository.
-
-## Apply patch
-
-There is a patch needs to be applied to library **coreHTTP**:
-
-```
-cd libraries/aws/coreHTTP
-git apply ../../../patch/00001-coreHTTP.patch
-cd -
-```
 
 ## Configure IoT Core Certificate
 
@@ -40,12 +30,19 @@ This section describe how to run example on Linux. The reference OS is Ubuntu 18
 
 ### Configure Example Setting
 
-You need to edit file "*examples/kvs_video_only_linux/example_config.h*", and replace these settings:
+Before run the example, you need to edit file "*samples/kvs-linux/sample_config.h*", and replace these settings:
 
 ```
-#define KVS_STREAM_NAME                 "my-kvs-stream"
-#define CREDENTIALS_HOST    "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
-#define ROLE_ALIAS          "KvsCameraIoTRoleAlias"
+#define KVS_STREAM_NAME                 "kvs_example_camera_stream"
+#define AWS_KVS_REGION                  "us-east-1"
+#define AWS_KVS_SERVICE                 "kinesisvideo"
+#define AWS_KVS_HOST                    AWS_KVS_SERVICE "." AWS_KVS_REGION ".amazonaws.com"
+
+#define H264_FILE_FORMAT                "/path/to/samples/h264SampleFrames/frame-%03d.h264"
+
+#define CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
+#define ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
+#define THING_NAME                      KVS_STREAM_NAME
 
 #define ROOT_CA \
 "-----BEGIN CERTIFICATE-----\n" \
@@ -70,6 +67,7 @@ The values of these settings come from the procedure of setting up the credentia
 *   CREDENTIALS_HOST: It's the IoT credentials host we setup earier.
 *   ROLE_ALIAS: It's the role alias we setup earier.
 *   ROOT_CA, CERTIFICATE, PRIVATE_KEY: These are X509 certificates.  Please filled in your X509 certificates.
+*   H264_FILE_FORMAT: It's H264 file location.
 
 ### Build and Run Example
 
@@ -90,24 +88,22 @@ cmake --build .
 To run example run the following command.
 
 ```
-./examples/kvs_video_only_linux/kvs_video_only_linux
+./samples/kvs-linux/kvs_linux
 ```
 
 If everything works fine, you should see the following logs.
 
 ```
-try to describe stream
-try to get data endpoint
-Data endpoint: xxxxxxxxxx.kinesisvideo.us-east-1.amazonaws.com
-try to put media
-......
-Fragment buffering, timecode:1618214685798
-......
-Fragment received, timecode:1618214685798
-Fragment buffering, timecode:1618214687659
-......
-Fragment persisted, timecode:1618214685798
-
+PUT MEDIA endpoint: s-xxxxxxxx.kinesisvideo.us-east-1.amazonaws.com
+Try to put media
+Info: 100-continue
+Info: Fragment buffering, timecode:1620367399995
+Info: Fragment received, timecode:1620367399995
+Info: Fragment buffering, timecode:1620367401795
+Info: Fragment persisted, timecode:1620367399995
+Info: Fragment received, timecode:1620367401795
+Info: Fragment buffering, timecode:1620367403595
+.....
 ```
 
 You can also check the streaming video in the console of [Kinesis Video](https://console.aws.amazon.com/kinesisvideo). 
@@ -137,19 +133,28 @@ If you don't have a ESP IDF environment, please follow this document to setup ES
 
 ### Configure Example Setting
 
-Before run the example, you need to edit file "*examples/kvs_video_only_esp32/main/example_config.h*", and replace these settings. Please note that ESP-Wrover-kit only support 2.4G WiFi network.  So you should provide ssid and password of 2.4G access point.
+Before run the example, you need configure WiFi configuration by using this command.
 
 ```
-#define EXAMPLE_WIFI_SSID "your_ssid"
-#define EXAMPLE_WIFI_PASS "your_pw"
+cd samples/kvs-esp32/
+idf.py menuconfig
 ```
+
+Configure WiFi SSID and pasword in the menu "Example Configuration".  Please note that ESP-Wrover-kit only support 2.4G WiFi network.  So you should provide ssid and password of 2.4G access point.
 
 You also need to setup these settings. Please refer to linux example for more information.
 
 ```
-#define KVS_STREAM_NAME                 "my-kvs-stream"
-#define CREDENTIALS_HOST    "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
-#define ROLE_ALIAS          "KvsCameraIoTRoleAlias"
+#define KVS_STREAM_NAME                 "kvs_example_camera_stream"
+#define AWS_KVS_REGION                  "us-east-1"
+#define AWS_KVS_SERVICE                 "kinesisvideo"
+#define AWS_KVS_HOST                    AWS_KVS_SERVICE "." AWS_KVS_REGION ".amazonaws.com"
+
+#define H264_FILE_FORMAT                "/path/to/samples/h264SampleFrames/frame-%03d.h264"
+
+#define CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
+#define ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
+#define THING_NAME                      KVS_STREAM_NAME
 
 #define ROOT_CA \
 "-----BEGIN CERTIFICATE-----\n" \
@@ -188,16 +193,27 @@ If everything works fine, you should see the following logs.
 ```
 I (3776) wifi:connected with xxxxxxxx, aid = 3, channel 8, BW20, bssid = xx:xx:xx:xx:xx:xx
 ...
-I (4676) aws: Connected to AP success!
+I (4676) KVS: Connected to ap SSID:xxxxxxxx password:xxxxxxxx
 
-I (8296) kvs: try to describe stream
-I (11226) kvs: try to get data endpoint
-I (13986) kvs: Data endpoint: xxxxxxxxxx.kinesisvideo.us-east-1.amazonaws.com
-I (13986) kvs: try to put media
-I (17186) kvs: Fragment buffering, timecode:1618214685798
-I (18676) kvs: Fragment received, timecode:1618214685798
-...
-I (20646) kvs: Fragment persisted, timecode:1618214685798
+PUT MEDIA endpoint: s-xxxxxxxx.kinesisvideo.us-east-1.amazonaws.com
+Try to put media
+Info: 100-continue
+Info: Fragment buffering, timecode:1620367399995
+Info: Fragment received, timecode:1620367399995
+Info: Fragment buffering, timecode:1620367401795
+Info: Fragment persisted, timecode:1620367399995
+Info: Fragment received, timecode:1620367401795
+Info: Fragment buffering, timecode:1620367403595
 ```
 
 You can also check the streaming video in the console of [Kinesis Video](https://console.aws.amazon.com/kinesisvideo).
+
+# Porting Guide
+
+Please refer to [port](src/port/) for how to port solution to your destinate platform.  There are already platform Linux and ESP32 for refrence.
+
+In KVS application we use these platform dependent components:
+
+*   time: We need to get current time for RESTful API, and add timestamp of data frames.
+*   random number: It's used to generate the UUID of MKV segment header.  You can ignore it if you didn't use the MKV part of this library.
+

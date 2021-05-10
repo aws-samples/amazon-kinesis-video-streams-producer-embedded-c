@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -13,15 +13,28 @@
  * permissions and limitations under the License.
  */
 
-#ifndef _JSON_HELPER_H_
-#define _JSON_HELPER_H_
+#ifndef JSON_HELPER_H
+#define JSON_HELPER_H
 
-#include <stdint.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include "parson.h"
 
-char * json_object_dotget_serialize_to_string( const JSON_Object *pRootObject, const char * pName, bool bRemoveQuotes );
+/**
+ * @brief Get string value of a JSON value
+ *
+ * @param pxRootObject[in] The root JSON object, which created from parson library.
+ * @param pcName[in] The name of the property
+ * @param bRemoveQuotes[in] Remove quotes if it's true
+ * @return The value of the property on success, or NULL on error.
+ */
+char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char *pcName, bool bRemoveQuotes);
 
-uint64_t json_object_dotget_uint64( const JSON_Object *pRootObject, const char * pName, int base );
+/**
+ * @brief Get UINT64 value of a JSON value
+ * 
+ * @param 
+ */
+uint64_t json_object_dotget_uint64(const JSON_Object *pxRootObject, const char *pcName, int xBase);
 
 #endif
