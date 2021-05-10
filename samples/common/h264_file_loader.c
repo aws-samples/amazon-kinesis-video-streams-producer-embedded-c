@@ -190,14 +190,14 @@ H264FileLoaderHandle H264FileLoaderCreate(FileLoaderPara_t *pFileLoaderPara)
             (pLoader->pcTrackName = (char *)malloc(uStLen + 1)) == NULL ||
             snprintf(pLoader->pcTrackName, uStLen + 1, "%s", pFileLoaderPara->pcTrackName) != uStLen)
         {
-            printf("Failed to init track name in AAC File Loader\r\n");
+            printf("Failed to init track name in H264 File Loader\r\n");
             res = ERRNO_FAIL;
         }
         else if ((uStLen = strlen(pFileLoaderPara->pcFileFormat)) == 0 ||
                  (pLoader->pcFileFormat = (char *)malloc(uStLen + 1)) == NULL ||
                  snprintf(pLoader->pcFileFormat, uStLen + 1, "%s", pFileLoaderPara->pcFileFormat) != uStLen)
         {
-            printf("Failed to init file format in AAC File Loader\r\n");
+            printf("Failed to init file format in H264 File Loader\r\n");
             res = ERRNO_FAIL;
         }
         else
@@ -218,6 +218,7 @@ H264FileLoaderHandle H264FileLoaderCreate(FileLoaderPara_t *pFileLoaderPara)
     if (res != ERRNO_NONE)
     {
         H264FileLoaderTerminate(pLoader);
+        pLoader = NULL;
     }
 
     return pLoader;

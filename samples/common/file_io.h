@@ -18,7 +18,8 @@
 
 #include <stddef.h>
 
-int getFileSize(char * pcFilename, size_t *puFileSize);
+int getFileSize(char *pcFilename, size_t *puFileSize);
+
 int readFile(char *pcFilename, char *pBuf, size_t uBufSize, size_t *puBytesRead);
 
 #endif /* FILE_IO_H */

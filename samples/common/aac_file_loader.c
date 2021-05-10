@@ -182,6 +182,7 @@ AacFileLoaderHandle AacFileLoaderCreate(FileLoaderPara_t *pFileLoaderPara, Mpeg4
     if (res != ERRNO_NONE)
     {
         AacFileLoaderTerminate(pLoader);
+        pLoader = NULL;
     }
 
     return pLoader;
