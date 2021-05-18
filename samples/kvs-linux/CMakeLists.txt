@@ -18,3 +18,7 @@ add_executable(${APP_NAME}
 target_link_libraries(${APP_NAME}
     kvs-embedded-c samplescommon pthread
 )
+
+add_custom_command(TARGET ${APP_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${APP_NAME}> ${PROJECT_BINARY_DIR}/
+)

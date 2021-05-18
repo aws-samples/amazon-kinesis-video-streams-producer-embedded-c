@@ -8,6 +8,7 @@ set(CMAKE_C_FLAGS "--std=c99 ${CMAKE_C_FLAGS}")
 # compiled as c++11
 set(CMAKE_CXX_FLAGS "--std=c++11 ${CMAKE_CXX_FLAGS}")
 
+# needed for gettimeofday()
 set(CMAKE_C_FLAGS "-D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L ${CMAKE_C_FLAGS}")
 
 set(LIB_SRC

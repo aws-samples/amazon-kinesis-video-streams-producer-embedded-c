@@ -673,7 +673,67 @@ int Mkv_initializeClusterHdr(uint8_t *pMkvHeader, size_t uMkvHeaderSize, MkvClus
 }
 
 /*-----------------------------------------------------------*/
+int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
+{
+    int xRes = KVS_ERRNO_NONE;
+    uint8_t *pSps = NULL;
+    size_t uSpsLen = 0;
+    uint8_t *pPps = NULL;
+    size_t uPpsLen = 0;
+    uint8_t *pCpdIdx = NULL;
+    uint8_t *pCodecPrivateData = NULL;
+    size_t uCodecPrivateLen = 0;
 
+    if (pAnnexBBuf == NULL || uAnnexBLen == 0 || ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
+    {
+        LogError("Invalid argument");
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if (NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_SPS, &pSps, &uSpsLen) != KVS_ERRNO_NONE ||
+            NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_PPS, &pPps, &uPpsLen) != KVS_ERRNO_NONE)
+    {
+        LogInfo("Failed to get SPS and PPS from Annex-B NALU");
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
+
+        if ((pCodecPrivateData = (uint8_t *)malloc(uCodecPrivateLen)) == NULL)
+        {
+            LogError("OOM: H264 codec private data");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            pCpdIdx = pCodecPrivateData;
+            *(pCpdIdx++) = 0x01; /* Version */
+            *(pCpdIdx++) = pSps[1];
+            *(pCpdIdx++) = pSps[2];
+            *(pCpdIdx++) = pSps[3];
+            *(pCpdIdx++) = 0xFF; /* '111111' reserved + '11' lengthSizeMinusOne which is 3 (i.e. AVCC header size = 4) */
+
+            *(pCpdIdx++) = 0xE1; /* '111' reserved + '00001' numOfSequenceParameterSets which is 1 */
+            PUT_UNALIGNED_2_byte_BE(pCpdIdx, uSpsLen);
+            pCpdIdx += 2;
+            memcpy(pCpdIdx, pSps, uSpsLen);
+            pCpdIdx += uSpsLen;
+
+            *(pCpdIdx++) = 0x01; /* 1 numOfPictureParameterSets */
+            PUT_UNALIGNED_2_byte_BE(pCpdIdx, uPpsLen);
+            pCpdIdx += 2;
+            memcpy(pCpdIdx, pPps, uPpsLen);
+            pCpdIdx += uPpsLen;
+
+            *ppCodecPrivateData = pCodecPrivateData;
+            *puCodecPrivateDataLen = uCodecPrivateLen;
+        }
+    }
+
+    return xRes;
+}
+
+/*-----------------------------------------------------------*/
 int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
     int xRes = KVS_ERRNO_NONE;
@@ -721,7 +781,7 @@ int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvc
             pCpdIdx += uSpsLen;
 
             *(pCpdIdx++) = 0x01; /* 1 numOfPictureParameterSets */
-            PUT_UNALIGNED_2_byte_BE( pCpdIdx, uPpsLen );
+            PUT_UNALIGNED_2_byte_BE(pCpdIdx, uPpsLen);
             pCpdIdx += 2;
             memcpy(pCpdIdx, pPps, uPpsLen);
             pCpdIdx += uPpsLen;

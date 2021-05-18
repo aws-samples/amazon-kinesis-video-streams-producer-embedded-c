@@ -102,6 +102,8 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
 {
     int xRes = KVS_ERRNO_NONE;
     uint8_t *pIdx = pAnnexBBuf;
+    uint8_t *pNalu = NULL;
+    size_t uNaluLen = 0;
 
     if (pAnnexBBuf == NULL || uAnnexBLen < 5 || uNaluType >=32 || ppNalu == NULL || ppNalu == NULL)
     {
@@ -120,17 +122,17 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
                     {
                         if (pIdx[3] == 0x01)
                         {
-                            if ((pIdx[4] & 0x80) == 0 && (pIdx[4] & 0x1F) == uNaluType)
+                            /* It's a valid NALU here. */
+                            if (pNalu != NULL)
                             {
-                                /* It's a valid NALU here. */
-                                *ppNalu = pIdx;
-                                *puNaluLen = pIdx - pAnnexBBuf;
+                                uNaluLen = pIdx - pNalu;
                                 break;
                             }
-                            else
+                            else if ((pIdx[4] & 0x80) == 0 && (pIdx[4] & 0x1F) == uNaluType)
                             {
-                                pIdx += 4;
+                                pNalu = pIdx + 4;
                             }
+                            pIdx += 4;
                         }
                         else
                         {
@@ -140,16 +142,15 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
                     else if (pIdx[2] == 0x01)
                     {
                         /* It's a valid NALU here. */
-                        if ((pIdx[3] & 0x80) == 0 && (pIdx[3] & 0x1F) == uNaluType)
+                        if (pNalu != NULL)
                         {
-                            *ppNalu = pIdx;
-                            *puNaluLen = pIdx - pAnnexBBuf;
-                            break;
+                            uNaluLen = pIdx - pNalu;
                         }
-                        else
+                        else if ((pIdx[3] & 0x80) == 0 && (pIdx[3] & 0x1F) == uNaluType)
                         {
-                            pIdx += 3;
+                            pNalu = pIdx + 3;
                         }
+                        pIdx += 3;
                     }
                     else
                     {
@@ -167,7 +168,16 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
             }
         }
 
-        if (pIdx - pAnnexBBuf >= uAnnexBLen)
+        if (pNalu != NULL)
+        {
+            if (uNaluLen == 0)
+            {
+                uNaluLen = uAnnexBLen - (pNalu - pAnnexBBuf);
+            }
+            *ppNalu = pNalu;
+            *puNaluLen = uNaluLen;
+        }
+        else
         {
             xRes = KVS_ERRNO_FAIL;
         }

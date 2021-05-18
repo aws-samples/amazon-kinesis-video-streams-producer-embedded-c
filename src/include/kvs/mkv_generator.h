@@ -157,6 +157,17 @@ int Mkv_initializeClusterHdr(uint8_t *pMkvHeader, size_t uMkvHeaderSize, MkvClus
 /**
  * @brief Create MKV codec private date for H264 from AVCC NALUs
  *
+ * @param[in] pAnnexBBuf The Annex-B NALUs
+ * @param[in] uAnnexBLen the length of Annex-B NALUs
+ * @param[out] ppCodecPrivateData the generated codec private data that is memory allocated
+ * @param[out] puCodecPrivateDataLen the length of generated codec private data
+ * @return 0 on success, non-zero value otherwise
+ */
+int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen);
+
+/**
+ * @brief Create MKV codec private date for H264 from AVCC NALUs
+ *
  * @param[in] pAvccBuf The AVCC NALUs
  * @param[in] uAvccLen the length of AVCC NALUs
  * @param[out] ppCodecPrivateData the generated codec private data that is memory allocated
