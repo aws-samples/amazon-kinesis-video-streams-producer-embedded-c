@@ -88,7 +88,7 @@ cmake --build .
 To run example run the following command.
 
 ```
-./samples/kvs-linux/kvs_linux
+./kvs_linux
 ```
 
 If everything works fine, you should see the following logs.

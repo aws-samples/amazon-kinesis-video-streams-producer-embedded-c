@@ -194,6 +194,7 @@ void AacFileLoaderTerminate(AacFileLoaderHandle xLoader)
 
     if (pLoader != NULL)
     {
+        SAFE_FREE(pLoader->xAudioTrackInfo.pCodecPrivate);
         SAFE_FREE(pLoader->pcTrackName);
         SAFE_FREE(pLoader->pcFileFormat);
         free(pLoader);

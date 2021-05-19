@@ -18,8 +18,24 @@
 
 #include <stddef.h>
 
+/**
+ * @brief Get filesize by given a filename
+ *
+ * @param[in] pcFilename filename
+ * @param[out] puFileSize the size of the file
+ * @return 0 on success, non-zero value otherwise
+ */
 int getFileSize(char *pcFilename, size_t *puFileSize);
 
+/**
+ * @brief Read a whole file into a buffer
+ *
+ * @param[in] pcFilename filename
+ * @param[out] pBuf buffer that stores the content of the file
+ * @param[in] uBufSize buffer size
+ * @param[out] puBytesRead the actual bytes are stored into the buffer
+ * @return 0 on success, non-zero value otherwise
+ */
 int readFile(char *pcFilename, char *pBuf, size_t uBufSize, size_t *puBytesRead);
 
 #endif /* FILE_IO_H */

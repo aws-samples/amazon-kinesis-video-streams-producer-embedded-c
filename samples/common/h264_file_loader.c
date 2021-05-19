@@ -230,6 +230,7 @@ void H264FileLoaderTerminate(H264FileLoaderHandle xLoader)
 
     if (pLoader != NULL)
     {
+        SAFE_FREE(pLoader->xVideoTrackInfo.pCodecPrivate);
         SAFE_FREE(pLoader->pcTrackName);
         SAFE_FREE(pLoader->pcFileFormat);
         free(pLoader);

@@ -22,10 +22,36 @@
 
 typedef struct H264FileLoader *H264FileLoaderHandle;
 
+/**
+ * @brief Create a H264 file loader
+ *
+ * @param[in] pFileLoaderPara file loader parameter that describe the filename format, start index, and end index
+ * @return handle of the H264 file loader on success, NULL otherwise
+ */
 H264FileLoaderHandle H264FileLoaderCreate(FileLoaderPara_t *pFileLoaderPara);
+
+/**
+ * @brief Terminate H264 file loader
+ * @param[in] xLoader handle of the H264 file loader
+ */
 void H264FileLoaderTerminate(H264FileLoaderHandle xLoader);
 
+/**
+ * @brief Load a H264 file into a memory allocated pointer
+ *
+ * @param[in] xLoader handle of the H264 file loader
+ * @param[out] ppData H264 frame pointer
+ * @param[out] puDataLen H264 frame length
+ * @return 0 on success, non-zero value otherwise
+ */
 int H264FileLoaderLoadFrame(H264FileLoaderHandle xLoader, char **ppData, size_t *puDataLen);
+
+/**
+ * @brief Get video track info
+ *
+ * @param[in] xLoader handle of the H264 file loader
+ * @return Video track info on success, NULL otherwise
+ */
 VideoTrackInfo_t *H264FileLoaderGetVideoTrackInfo(H264FileLoaderHandle xLoader);
 
 #endif /* H264_FILE_LOADER_H */

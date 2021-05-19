@@ -17,6 +17,7 @@ set(LIB_SRC
     source/iot_credential_provider.c
     source/json_helper.c
     source/mkv_generator.c
+    source/mkv_parser.c
     source/nalu.c
     source/netio.c
     source/restapi.c
