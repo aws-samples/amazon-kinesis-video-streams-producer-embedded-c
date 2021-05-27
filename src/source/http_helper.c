@@ -157,6 +157,8 @@ int Http_executeHttpReq(NetIoHandle xNetIoHandle, const char *pcHttpMethod, cons
         /* nop */
     }
 
+    STRING_delete(xStHttpReq);
+
     return xRes;
 }
 

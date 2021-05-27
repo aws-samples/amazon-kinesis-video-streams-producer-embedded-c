@@ -461,6 +461,11 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
         }
     }
 
+    if (pxRootValue != NULL)
+    {
+        json_value_free(pxRootValue);
+    }
+
     return xRes;
 }
 
@@ -903,6 +908,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
     SAFE_FREE(pRspBody);
     HTTPHeaders_Free(xHttpReqHeaders);
     AwsSigV4_Terminate(xAwsSigV4Handle);
+    STRING_delete(xStProducerStartTimestamp);
 
     return xRes;
 }

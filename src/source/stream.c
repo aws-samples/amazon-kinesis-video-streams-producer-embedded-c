@@ -158,6 +158,7 @@ void Kvs_streamTermintate(StreamHandle xStreamHandle)
     {
         free(pxStream->pMkvEbmlSeg);
         Lock_Deinit(pxStream->xLock);
+        free(pxStream);
     }
 }
 

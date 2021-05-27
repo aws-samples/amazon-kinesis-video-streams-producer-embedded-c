@@ -224,6 +224,7 @@ void NetIo_Terminate(NetIoHandle xNetIoHandle)
             free(pxNet->pPrivKey);
             pxNet->pPrivKey = NULL;
         }
+        free(pxNet);
     }
 }
 

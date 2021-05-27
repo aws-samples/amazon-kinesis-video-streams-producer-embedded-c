@@ -153,6 +153,11 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         pToken = NULL;
     }
 
+    if (pRspBody != NULL)
+    {
+        free(pRspBody);
+    }
+
     NetIo_Disconnect(xNetIoHandle);
     NetIo_Terminate(xNetIoHandle);
     HTTPHeaders_Free(xHttpReqHeaders);

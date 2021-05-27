@@ -243,6 +243,10 @@ static int putMedia(Kvs_t *pKvs)
     printf("Leaving put media\r\n");
     Kvs_putMediaFinish(pKvs->xPutMediaHandle);
     pKvs->xPutMediaHandle = NULL;
+    if (pBuf != NULL)
+    {
+        free(pBuf);
+    }
 
     return res;
 }

@@ -88,6 +88,7 @@ void FIS_terminate(FileInputStream_t *pFis)
         {
             free(pFis->pBuf);
         }
+        free(pFis);
     }
 }
 

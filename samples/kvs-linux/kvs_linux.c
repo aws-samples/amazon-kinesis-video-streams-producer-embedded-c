@@ -422,6 +422,7 @@ static void *audioThread(void *arg)
             {
                 printf("Failed to load data frame\r\n");
                 res = ERRNO_FAIL;
+                break;
             }
             else
             {
