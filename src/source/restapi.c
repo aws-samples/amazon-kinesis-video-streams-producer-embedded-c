@@ -811,6 +811,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
     char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = { 0 };
     STRING_HANDLE xStProducerStartTimestamp = NULL;
+    uint64_t uProducerStartTimestamp = 0;
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
 
@@ -834,9 +835,10 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStProducerStartTimestamp = STRING_construct_sprintf("%" PRIu64, (pPutMediaPara->uProducerStartTimestampMs == 0) ? (getEpochTimestampInMs() / 1000) : (pPutMediaPara->uProducerStartTimestampMs / 1000))) == NULL)
+    else if (((uProducerStartTimestamp = (pPutMediaPara->uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : pPutMediaPara->uProducerStartTimestampMs) == 0) ||
+        (xStProducerStartTimestamp = STRING_construct_sprintf("%." PRIu64 ".%03d", uProducerStartTimestamp / 1000, uProducerStartTimestamp % 1000)) == NULL)
     {
-        LogError("Failed to get epoch time");
+        LogError("Failed to setup producer timestamp");
         xRes = KVS_ERRNO_FAIL;
     }
     else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
