@@ -57,6 +57,7 @@ typedef struct
 {
     char *pcStreamName;
     FragmentTimecodeType_t xTimecodeType;
+    uint64_t uProducerStartTimestampMs;
 } KvsPutMediaParameter_t;
 
 typedef struct PutMedia *PutMediaHandle;

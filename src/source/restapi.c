@@ -834,7 +834,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStProducerStartTimestamp = STRING_construct_sprintf("%" PRIu64, getEpochTimestampInMs() / 1000)) == NULL)
+    else if ((xStProducerStartTimestamp = STRING_construct_sprintf("%" PRIu64, (pPutMediaPara->uProducerStartTimestampMs == 0) ? (getEpochTimestampInMs() / 1000) : (pPutMediaPara->uProducerStartTimestampMs / 1000))) == NULL)
     {
         LogError("Failed to get epoch time");
         xRes = KVS_ERRNO_FAIL;
