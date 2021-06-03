@@ -3,7 +3,7 @@ project(kvs-embedded-c)
 
 # Make warning as error
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -std=c99")
 
 # Add thirdparty library mbedtls
 set(ENABLE_PROGRAMS OFF CACHE BOOL "")
