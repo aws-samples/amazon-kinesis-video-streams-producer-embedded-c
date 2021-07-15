@@ -177,6 +177,19 @@ int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t 
 int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen);
 
 /**
+ * @brief Generate H264 codec private data from SPS and PPS
+ *
+ * @param[in] pSps The SPS buffer
+ * @param[in] uSpsLen The length of SPS
+ * @param[in] pPps The PPS buffer
+ * @param[in] uPpsLen The length of PPS
+ * @param[out] ppCodecPrivateData the generated codec private data that is memory allocated
+ * @param[out] puCodecPrivateDataLen the length of generated codec private data
+ * @return 0 on success, non-zero value otherwise
+ */
+int Mkv_generateH264CodecPrivateDataFromSpsPps(uint8_t *pSps, size_t uSpsLen, uint8_t *pPps, size_t uPpsLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen);
+
+/**
  * @brief Create MKV codec private data for AAC
  *
  * @param[in] objectType The MPEG4 audio object type

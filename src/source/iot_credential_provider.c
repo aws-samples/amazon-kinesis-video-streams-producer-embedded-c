@@ -99,11 +99,6 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         LogError("OOM: Failed to allocate IoT URI");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pToken = (IotCredentialToken_t *)malloc(sizeof(IotCredentialToken_t))) == NULL)
-    {
-        LogError("OOM: pToken");
-        xRes = KVS_ERRNO_FAIL;
-    }
     else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
              HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pReq->pCredentialHost) != HTTP_HEADERS_OK ||
              HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "accept", "*/*") != HTTP_HEADERS_OK ||
@@ -138,11 +133,18 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         }
         else
         {
-            memset(pToken, 0, sizeof(IotCredentialToken_t));
-            if (parseIoTCredential(pRspBody, uRspBodyLen, pToken) != KVS_ERRNO_NONE)
+            if ((pToken = (IotCredentialToken_t *)malloc(sizeof(IotCredentialToken_t))) == NULL)
             {
-                LogError("Failed to parse data endpoint");
+                LogError("OOM: pToken");
                 xRes = KVS_ERRNO_FAIL;
+            }
+            else
+            {
+                memset(pToken, 0, sizeof(IotCredentialToken_t));
+                if (parseIoTCredential(pRspBody, uRspBodyLen, pToken) != KVS_ERRNO_NONE) {
+                    LogError("Failed to parse data endpoint");
+                    xRes = KVS_ERRNO_FAIL;
+                }
             }
         }
     }
@@ -182,6 +184,6 @@ void Iot_credentialTerminate(IotCredentialToken_t *pToken)
         {
             free(pToken->pSessionToken);
         }
+        free(pToken);
     }
-    free(pToken);
 }

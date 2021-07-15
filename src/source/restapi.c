@@ -838,7 +838,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
     else if (((uProducerStartTimestamp = (pPutMediaPara->uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : pPutMediaPara->uProducerStartTimestampMs) == 0) ||
         (xStProducerStartTimestamp = STRING_construct_sprintf("%." PRIu64 ".%03d", uProducerStartTimestamp / 1000, uProducerStartTimestamp % 1000)) == NULL)
     {
-        LogError("Failed to setup producer timestamp");
+        LogError("Failed to get epoch time");
         xRes = KVS_ERRNO_FAIL;
     }
     else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||

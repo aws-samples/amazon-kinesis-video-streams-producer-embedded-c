@@ -20,9 +20,18 @@
 #include <inttypes.h>
 
 #define NALU_TYPE_UNKNOWN   (0)
-#define NALU_TYPE_IFRAME    (5)
-#define NALU_TYPE_SPS       (7)
-#define NALU_TYPE_PPS       (8)
+
+/* VCL */
+#define NALU_TYPE_NON_IDR_PICTURE   (1)
+#define NALU_TYPE_PFRAME_PA         (2)
+#define NALU_TYPE_PFRAME_PB         (3)
+#define NALU_TYPE_PFRAME_PC         (4)
+#define NALU_TYPE_IFRAME            (5)
+
+/* non-VCL */
+#define NALU_TYPE_SEI               (6)
+#define NALU_TYPE_SPS               (7)
+#define NALU_TYPE_PPS               (8)
 
 /**
  * @brief Check if the frame is key frame
@@ -32,6 +41,15 @@
  * @return true if it's key-frame, or false otherwise
  */
 bool isKeyFrame(uint8_t *pBuf, size_t uLen);
+
+/**
+ * @brief Get NALU type of the first NALU in the buffer
+ *
+ * @param[in] pBuf The NALU buffer
+ * @param[in] uLen The size of buffer
+ * @return NALU type
+ */
+int NALU_getNaluType(uint8_t *pBuf, size_t uLen);
 
 /**
  * @brief Get specific NALU type from AVCC NALUs

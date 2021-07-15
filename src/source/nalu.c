@@ -62,6 +62,31 @@ bool isKeyFrame(uint8_t *pBuf, size_t uLen)
     return bIsKeyFrame;
 }
 
+int NALU_getNaluType(uint8_t *pBuf, size_t uLen)
+{
+    int xNaluType = NALU_TYPE_UNKNOWN;
+
+    if (pBuf != NULL && uLen > 0)
+    {
+        if (uLen >=4 && pBuf[0] == 0x00 && pBuf[1] == 0x00 && pBuf[2] == 0x01)
+        {
+            /* It's AnnexB frame with 3 bytes header, get type from 4th byte. */
+            xNaluType = pBuf[3] & 0x1F;
+        }
+        else if (uLen >= 5 && pBuf[0] == 0x00 && pBuf[1] == 0x00 && pBuf[2] == 0x00 && pBuf[3] == 0x01)
+        {
+            /* It's AnnexB frame with 4 bytes header, get type from 5th byte. */
+            xNaluType = pBuf[4] & 0x1F;
+        }
+        else if (uLen >= 5)
+        {
+            /* It's AVCC frame, get type from 5th byte. */
+            xNaluType = pBuf[4] & 0x1F;
+        }
+    }
+    return xNaluType;
+}
+
 int NALU_getNaluFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t uNaluType, uint8_t **ppNalu, size_t *puNaluLen)
 {
     int xRes = KVS_ERRNO_NONE;

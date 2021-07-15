@@ -2,8 +2,12 @@ cmake_minimum_required(VERSION 3.2.0)
 project(kvs-embedded-c)
 
 # Make warning as error
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+
+# compiled as C99
+set(CMAKE_C_FLAGS "--std=c99 ${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "--std=c++11 ${CMAKE_CXX_FLAGS}")
 
 # Add thirdparty library mbedtls
 set(ENABLE_PROGRAMS OFF CACHE BOOL "")

@@ -227,7 +227,7 @@ static int putMedia(Kvs_t *pKvs)
                 pKvs->bIsFileUploaded = true;
                 break;
             }
-            if (Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pBuf, uBytesToSend) != ERRNO_NONE)
+            if (Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, (uint8_t *)pBuf, uBytesToSend) != ERRNO_NONE)
             {
                 printf("Failed to Kvs_putMediaUpdateRaw\r\n");
                 res = ERRNO_FAIL;

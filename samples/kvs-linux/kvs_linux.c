@@ -155,11 +155,11 @@ static int setupDataEndpoint(Kvs_t *pKvs)
             printf("Try to describe stream\r\n");
             if (Kvs_describeStream(&(pKvs->xServicePara), &(pKvs->xDescPara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
             {
-                printf("Failed to describe stream\r\n");
+                printf("Failed to describe stream, status code:%u\r\n", uHttpStatusCode);
                 printf("Try to create stream\r\n");
                 if (Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
                 {
-                    printf("Failed to create stream\r\n");
+                    printf("Failed to create stream, status code:%u\r\n", uHttpStatusCode);
                     res = ERRNO_FAIL;
                 }
             }
@@ -168,7 +168,7 @@ static int setupDataEndpoint(Kvs_t *pKvs)
             {
                 if (Kvs_getDataEndpoint(&(pKvs->xServicePara), &(pKvs->xGetDataEpPara), &uHttpStatusCode, &(pKvs->xServicePara.pcPutMediaEndpoint)) != 0 || uHttpStatusCode != 200)
                 {
-                    printf("Failed to get data endpoint\r\n");
+                    printf("Failed to get data endpoint, status code:%u\r\n", uHttpStatusCode);
                     res = ERRNO_FAIL;
                 }
             }
