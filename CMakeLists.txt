@@ -6,8 +6,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 
 # compiled as C99
-set(CMAKE_C_FLAGS "--std=c99 ${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "--std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
 # Add thirdparty library mbedtls
 set(ENABLE_PROGRAMS OFF CACHE BOOL "")
