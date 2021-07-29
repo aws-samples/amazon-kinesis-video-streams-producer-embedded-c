@@ -1,6 +1,12 @@
 # Amazon Kinesis Video Streams Producer SDK for FreeRTOS
 
-This project demonstrates how to port Amazon Kinesis Video Streams Producer to FreeRTOS.  There are 2 examples.  One uses ESP-Wrover-kit as a reference platform.  The other uses Linux as a reference platform.
+This project demonstrates how to port Amazon Kinesis Video Streams Producer to FreeRTOS. In case of using the following platforms the reference examples can securely stream video to Kinesis Video Streams.
+
+- [Espressif ESP-WROVER-KIT](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c#esp-wrover-kit-example)
+- [Realtek AmebaPro](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c#realtek-amebapro-example)
+- [Linux](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c#linux-example) - To evaluate KVS Producer without using MCU-based hardware, you can use the Linux machine.
+
+
 
 # Build and Run Examples
 
