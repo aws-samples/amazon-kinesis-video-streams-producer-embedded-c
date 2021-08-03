@@ -148,7 +148,7 @@ static int initializeVideoTrackInfo(H264FileLoader_t *pLoader)
             else
             {
                 if (NALU_getNaluFromAvccNalus((uint8_t *)pData, uDataLen, NALU_TYPE_SPS, &pSps, &uSpsLen) == 0 &&
-                    NALUE_getH264VideoResolutionFromSps(pSps, uSpsLen, &(pLoader->xVideoTrackInfo.uWidth), &(pLoader->xVideoTrackInfo.uHeight)) == 0 &&
+                    NALU_getH264VideoResolutionFromSps(pSps, uSpsLen, &(pLoader->xVideoTrackInfo.uWidth), &(pLoader->xVideoTrackInfo.uHeight)) == 0 &&
                     Mkv_generateH264CodecPrivateDataFromAvccNalus((uint8_t *)pData, uDataLen,  &pCodecPrivateData, &uCodecPrivateDataLen) == 0)
                 {
                     pLoader->xVideoTrackInfo.pCodecPrivate = pCodecPrivateData;

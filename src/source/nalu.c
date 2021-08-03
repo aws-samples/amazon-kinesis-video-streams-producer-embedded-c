@@ -364,7 +364,7 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
     return xRes;
 }
 
-int NALUE_getH264VideoResolutionFromSps(uint8_t *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight)
+int NALU_getH264VideoResolutionFromSps(uint8_t *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight)
 {
     int xRes = KVS_ERRNO_NONE;
 

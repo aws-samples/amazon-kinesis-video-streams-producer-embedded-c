@@ -106,6 +106,6 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
  * @param[out] puHeight The height of video
  * @return 0 on success, non-zero value otherwise
  */
-int NALUE_getH264VideoResolutionFromSps(uint8_t *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight);
+int NALU_getH264VideoResolutionFromSps(uint8_t *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight);
 
 #endif /* KVS_NALU_H */
