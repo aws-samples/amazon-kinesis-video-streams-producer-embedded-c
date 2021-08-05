@@ -5,3 +5,10 @@ libraries/3rdparty/llhttp/*
 samples/kvs-esp32/sdkconfig*
 samples/kvs-esp32/components/llhttp/*
 !samples/kvs-esp32/components/llhttp/CMakeLists.txt
+
+samples/kvsapp-ingenic-t31/sdk/*
+!samples/kvsapp-ingenic-t31/sdk/README.md
+
+# Ignore IDE related
+.idea
+.vscode

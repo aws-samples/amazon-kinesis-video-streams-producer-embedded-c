@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.2.0)
 project(kvs-embedded-c)
 
+# Options
+option(BUILD_SAMPLES "Build samples" ON)
+option(BOARD "The target board" "OFF")
+
 # Make warning as error
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
@@ -8,6 +12,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 # compiled as C99
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
+
+if("${BOARD}" STREQUAL "INGENTIC_T31")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -Wall -march=mips32r2 -muclibc")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces -Wno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -Wno-unused-function")
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -Wall -march=mips32r2 -muclibc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-braces -Wno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-int-to-pointer-cast -Wno-maybe-uninitialized -Wno-unused-function")
+endif()
 
 # Add thirdparty library mbedtls
 set(ENABLE_PROGRAMS OFF CACHE BOOL "")
@@ -26,6 +38,12 @@ add_library(parson
     ${PARSON_DIR}/parson.c
     ${PARSON_DIR}/parson.h
 )
+
+# Add FDK AAC for Ingentic T31
+if("${BOARD}" STREQUAL "INGENTIC_T31")
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+    add_subdirectory(libraries/3rdparty/fdk-aac)
+endif()
 
 target_include_directories(parson PUBLIC
     ${PARSON_DIR}
@@ -58,7 +76,12 @@ target_link_libraries(aziotsharedutil
 )
 
 # Add sources
-add_subdirectory( src )
+add_subdirectory(src)
 
-# Add samples
-add_subdirectory( samples )
+# Add application
+add_subdirectory(app)
+
+if(BUILD_SAMPLES)
+    # Add samples
+    add_subdirectory(samples)
+endif()

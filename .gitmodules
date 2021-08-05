@@ -8,3 +8,6 @@
 	path = libraries/3rdparty/c-utility
 	url = https://github.com/Azure/azure-c-shared-utility.git
 	branch = lts_07_2020
+[submodule "libraries/3rdparty/fdk-aac"]
+	path = libraries/3rdparty/fdk-aac
+	url = https://github.com/mstorsjo/fdk-aac.git
