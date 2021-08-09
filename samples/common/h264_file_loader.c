@@ -96,7 +96,7 @@ static int loadFrame(H264FileLoader_t *pLoader, char **ppData, size_t *puDataLen
     }
     else
     {
-       *ppData = pData;
+        *ppData = pData;
         *puDataLen = uDataLen;
     }
 
