@@ -79,13 +79,7 @@ int KvsApp_close(KvsAppHandle handle);
  * @param[in] xTrackType Track type, it could be TRACK_VIDEO or TRACK_AUDIO
  * @return 0 on success, non-zero value otherwise
  */
-int KvsApp_addFrame(
-    KvsAppHandle handle,
-    uint8_t *pData,
-    size_t uDataLen,
-    size_t uDataSize,
-    uint64_t uTimestamp,
-    TrackType_t xTrackType);
+int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType);
 
 /**
  * Let KVS application do works. It will try to send out frames, and check if any messages from server.
@@ -95,4 +89,12 @@ int KvsApp_addFrame(
  */
 int KvsApp_doWork(KvsAppHandle handle);
 
-#endif
+/**
+ * Get the memory used in the stream buffer.
+ *
+ * @param handle  KVS application handle
+ * @return Memory used in current stream buffer, zero value otherwise
+ */
+size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle);
+
+#endif /* KVSAPP_H */

@@ -40,7 +40,7 @@
 #define AUDIO_CODEC_NAME                "A_AAC"
 #define AUDIO_TRACK_NAME                "kvs audio track"
 #define AUDIO_MPEG_OBJECT_TYPE          AAC_LC
-#define AUDIO_FREQUENCY                 48000
+#define AUDIO_FREQUENCY                 16000
 #define AUDIO_CHANNEL_NUMBER            2
 #endif /* ENABLE_AUDIO_TRACK */
 
@@ -65,5 +65,8 @@
 "......\n" \
 "-----END RSA PRIVATE KEY-----\n"
 #endif
+
+/* Buffering options */
+#define RING_BUFFER_MEM_LIMIT (2 * 1000 * 1000)
 
 #endif /* SAMPLE_CONFIG_H */

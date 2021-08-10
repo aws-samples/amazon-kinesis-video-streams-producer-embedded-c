@@ -90,12 +90,24 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
+    KvsApp_streamPolicy_t xPolicy = STREAM_POLICY_RING_BUFFER;
+    if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY, (const char *)&xPolicy) != 0)
+    {
+        printf("Failed to set stream policy\r\n");
+    }
+    size_t uRingBufferMemLimit = RING_BUFFER_MEM_LIMIT;
+    if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT, (const char *)&uRingBufferMemLimit) != 0)
+    {
+        printf("Failed to set ring buffer memory limit\r\n");
+    }
+
     return res;
 }
 
 int main(int argc, char *argv[])
 {
     KvsAppHandle kvsAppHandle;
+    uint64_t uLastPrintMemStatTimestamp = 0;
 
     if ((kvsAppHandle = KvsApp_create(AWS_KVS_HOST, AWS_KVS_REGION, AWS_KVS_SERVICE, KVS_STREAM_NAME)) == NULL)
     {
@@ -130,6 +142,12 @@ int main(int argc, char *argv[])
                 if (KvsApp_doWork(kvsAppHandle) != 0)
                 {
                     break;
+                }
+
+                if (getEpochTimestampInMs() > uLastPrintMemStatTimestamp + 1000)
+                {
+                    printf("Buffer memory used: %zu\r\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
+                    uLastPrintMemStatTimestamp = getEpochTimestampInMs();
                 }
             }
 
