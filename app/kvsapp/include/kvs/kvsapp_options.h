@@ -16,6 +16,13 @@
 #ifndef KVSAPP_OPTIONS_H
 #define KVSAPP_OPTIONS_H
 
+typedef enum KvsApp_streamPolicy
+{
+    STREAM_POLICY_NONE = 0,
+    STREAM_POLICY_RING_BUFFER,
+    STREAM_POLICY_MAX
+} KvsApp_streamPolicy_t;
+
 static const char * const OPTION_AWS_ACCESS_KEY_ID = "Aws_accessKeyId";
 static const char * const OPTION_AWS_SECRET_ACCESS_KEY = "Aws_secretAccessKey";
 
@@ -29,5 +36,9 @@ static const char * const OPTION_IOT_X509_KEY = "Iot_x509PrivateKey";
 static const char * const OPTION_KVS_DATA_RETENTION_IN_HOURS = "Kvs_dataRetentionInHours";
 static const char * const OPTION_KVS_VIDEO_TRACK_INFO = "Kvs_videoTrackInfo";
 static const char * const OPTION_KVS_AUDIO_TRACK_INFO = "Kvs_audioTrackInfo";
+
+static const char * const OPTION_STREAM_POLICY = "Stream_policy";
+
+static const char * const OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT = "Stream_RbMemlimit";
 
 #endif

@@ -39,6 +39,22 @@
 #define VIDEO_CODEC_NAME "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME "kvs video track"
 
+#define DEFAULT_RING_BUFFER_MEM_LIMIT (1 * 1024 * 1024)
+
+typedef struct PolicyRingBufferParameter
+{
+    size_t uMemLimit;
+} PolicyRingBufferParameter_t;
+
+typedef struct StreamStrategy
+{
+    KvsApp_streamPolicy_t xPolicy;
+    union
+    {
+        PolicyRingBufferParameter_t xRingBufferPara;
+    };
+} StreamStrategy_t;
+
 typedef struct KvsApp
 {
     LOCK_HANDLE xLock;
@@ -76,6 +92,7 @@ typedef struct KvsApp
     StreamHandle xStreamHandle;
     PutMediaHandle xPutMediaHandle;
     bool isEbmlHeaderUpdated;
+    StreamStrategy_t xStrategy;
 
     /* Track information */
     VideoTrackInfo_t *pVideoTrackInfo;
@@ -210,6 +227,22 @@ static void prvStreamFlushToNextCluster(KvsApp_t *pKvs)
                 Kvs_dataFrameTerminate(xDataFrameHandle);
             }
         }
+    }
+}
+
+static void prvStreamFlushHeadUntilMem(KvsApp_t *pKvs, size_t uMemLimit)
+{
+    StreamHandle xStreamHandle = pKvs->xStreamHandle;
+    DataFrameHandle xDataFrameHandle = NULL;
+    DataFrameIn_t *pDataFrameIn = NULL;
+    size_t uMemTotal = 0;
+
+    while (Kvs_streamMemStatTotal(xStreamHandle, &uMemTotal) == 0 && uMemTotal > uMemLimit &&
+           (xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
+    {
+        pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
+        free(pDataFrameIn->pData);
+        Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
 
@@ -500,6 +533,54 @@ static int createStream(KvsApp_t *pKvs)
     return res;
 }
 
+static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, TrackType_t xTrackType)
+{
+    int res = ERRNO_NONE;
+    uint8_t *pSps = NULL;
+    size_t uSpsLen = 0;
+    uint8_t *pPps = NULL;
+    size_t uPpsLen = 0;
+
+    if (pKvs->xStreamHandle == NULL)
+    {
+        /* Try to build video track info from frames. */
+        if (pKvs->pVideoTrackInfo == NULL && xTrackType == TRACK_VIDEO)
+        {
+            if (pKvs->pSps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_SPS, &pSps, &uSpsLen) == ERRNO_NONE)
+            {
+                LogInfo("SPS is found");
+                if (prvBufMallocAndCopy(&(pKvs->pSps), &(pKvs->uSpsLen), pSps, uSpsLen) != ERRNO_NONE)
+                {
+                    res = ERRNO_FAIL;
+                }
+                else
+                {
+                    LogInfo("SPS is set");
+                }
+            }
+            if (pKvs->pPps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_PPS, &pPps, &uPpsLen) == ERRNO_NONE)
+            {
+                LogInfo("PPS is found");
+                if (prvBufMallocAndCopy(&(pKvs->pPps), &(pKvs->uPpsLen), pPps, uPpsLen) != ERRNO_NONE)
+                {
+                    res = ERRNO_FAIL;
+                }
+                else
+                {
+                    LogInfo("PPS is set");
+                }
+            }
+        }
+
+        if (pKvs->pSps != NULL && pKvs->pPps != NULL)
+        {
+            createStream(pKvs);
+        }
+    }
+
+    return res;
+}
+
 static int prvPutMediaSendData(KvsApp_t *pKvs)
 {
     int res = 0;
@@ -594,6 +675,7 @@ KvsAppHandle KvsApp_create(char *pcHost, char *pcRegion, char *pcService, char *
             pKvs->xStreamHandle = NULL;
             pKvs->xPutMediaHandle = NULL;
             pKvs->isEbmlHeaderUpdated = false;
+            pKvs->xStrategy.xPolicy = STREAM_POLICY_NONE;
 
             pKvs->pVideoTrackInfo = NULL;
             pKvs->isAudioTrackPresent = false;
@@ -778,7 +860,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
-                LogError("Invalid value set for KVS data retention in hours");
+                LogError("Invalid value for KVS data retention in hours");
                 res = ERRNO_FAIL;
             }
             else
@@ -790,7 +872,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
-                LogError("Invalid value set for KVS video track info");
+                LogError("Invalid value set to KVS video track info");
                 res = ERRNO_FAIL;
             }
             else if ((pKvs->pVideoTrackInfo = prvCopyVideoTrackInfo((VideoTrackInfo_t *)pValue)) == NULL)
@@ -802,12 +884,54 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
-                LogError("Invalid value set for KVS audio track info");
+                LogError("Invalid value set to KVS audio track info");
                 res = ERRNO_FAIL;
             }
             else if ((pKvs->pAudioTrackInfo = prvCopyAudioTrackInfo((AudioTrackInfo_t *)pValue)) == NULL)
             {
                 LogError("failed to copy audio track info");
+            }
+        }
+        else if (strcmp(pcOptionName, OPTION_STREAM_POLICY) == 0)
+        {
+            if (pValue == NULL)
+            {
+                LogError("Invalid value set to stream strategy");
+                res = ERRNO_FAIL;
+            }
+            else
+            {
+                KvsApp_streamPolicy_t xPolicy = *((KvsApp_streamPolicy_t *)pValue);
+                if (xPolicy < STREAM_POLICY_NONE || xPolicy >= STREAM_POLICY_MAX)
+                {
+                    LogError("Invalid policy val");
+                }
+                else
+                {
+                    pKvs->xStrategy.xPolicy = xPolicy;
+                    if (pKvs->xStrategy.xPolicy == STREAM_POLICY_RING_BUFFER)
+                    {
+                        pKvs->xStrategy.xRingBufferPara.uMemLimit = DEFAULT_RING_BUFFER_MEM_LIMIT;
+                    }
+                }
+            }
+        }
+        else if (strcmp(pcOptionName, OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT) == 0)
+        {
+            if (pValue == NULL)
+            {
+                LogError("Invalid value set to parameter of ring buffer policy");
+                res = ERRNO_FAIL;
+            }
+            else if (pKvs->xStrategy.xPolicy != STREAM_POLICY_RING_BUFFER)
+            {
+                LogError("Cannot set parameter to policy: %d ", (int)(pKvs->xStrategy.xPolicy));
+                res = ERRNO_FAIL;
+            }
+            else
+            {
+                size_t uMemLimit = *((size_t *)pKvs);
+                pKvs->xStrategy.xRingBufferPara.uMemLimit = uMemLimit;
             }
         }
         else
@@ -899,105 +1023,55 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
     DataFrameIn_t xDataFrameIn = {0};
-    uint32_t uAvccLen = 0;
-
-    uint8_t *pSps = NULL;
-    size_t uSpsLen = 0;
-    uint8_t *pPps = NULL;
-    size_t uPpsLen = 0;
 
     if (pKvs == NULL || pData == NULL || uDataLen == 0)
     {
         res = ERRNO_FAIL;
     }
+    else if (uTimestamp < pKvs->uEarliestTimestamp)
+    {
+        res = ERRNO_FAIL;
+    }
+    else if (xTrackType == TRACK_VIDEO && NALU_isAnnexBFrame(pData, uDataLen) && NALU_convertAnnexBToAvccInPlace(pData, uDataLen, uDataSize, (uint32_t *)&uDataLen) != ERRNO_NONE)
+    {
+        LogError("Failed to convert Annex-B to Avcc in place");
+        res = ERRNO_FAIL;
+    }
+    else if (checkAndBuildStream(pKvs, pData, uDataLen, xTrackType) != ERRNO_NONE)
+    {
+        LogError("Failed to build stream buffer");
+        res = ERRNO_FAIL;
+    }
+    else if (pKvs->xStreamHandle == NULL)
+    {
+        res = ERRNO_FAIL;
+    }
     else
     {
-        if (uTimestamp < pKvs->uEarliestTimestamp)
+        xDataFrameIn.pData = (char *)pData;
+        xDataFrameIn.uDataLen = uDataLen;
+        xDataFrameIn.bIsKeyFrame = (xTrackType == TRACK_VIDEO) ? isKeyFrame(pData, uDataLen) : false;
+        xDataFrameIn.uTimestampMs = uTimestamp;
+        xDataFrameIn.xTrackType = xTrackType;
+        xDataFrameIn.xClusterType = (xDataFrameIn.bIsKeyFrame) ? MKV_CLUSTER : MKV_SIMPLE_BLOCK;
+
+        if (pKvs->xStrategy.xPolicy == STREAM_POLICY_RING_BUFFER)
         {
-            free(pData);
+            prvStreamFlushHeadUntilMem(pKvs, pKvs->xStrategy.xRingBufferPara.uMemLimit);
+        }
+
+        if (Kvs_streamAddDataFrame(pKvs->xStreamHandle, &xDataFrameIn) == NULL)
+        {
+            LogError("Failed to add data frame");
             res = ERRNO_FAIL;
         }
+    }
 
-        if (res == ERRNO_NONE)
+    if (res != ERRNO_NONE)
+    {
+        if (pData != NULL)
         {
-            if (xTrackType == TRACK_VIDEO && NALU_isAnnexBFrame(pData, uDataLen))
-            {
-                if (NALU_convertAnnexBToAvccInPlace(pData, uDataLen, uDataSize, &uAvccLen) != ERRNO_NONE)
-                {
-                    LogError("Failed to convert Annex-B to Avcc in place");
-                    res = ERRNO_FAIL;
-                }
-                else
-                {
-                    uDataLen = (size_t)uAvccLen;
-                }
-            }
-        }
-
-        if (res == ERRNO_NONE)
-        {
-            if (pKvs->xStreamHandle == NULL)
-            {
-                if (pKvs->pVideoTrackInfo == NULL && xTrackType == TRACK_VIDEO)
-                {
-                    if (pKvs->pSps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_SPS, &pSps, &uSpsLen) == ERRNO_NONE)
-                    {
-                        LogInfo("SPS is found");
-                        if (prvBufMallocAndCopy(&(pKvs->pSps), &(pKvs->uSpsLen), pSps, uSpsLen) != ERRNO_NONE)
-                        {
-                            res = ERRNO_FAIL;
-                        }
-                        else
-                        {
-                            LogInfo("SPS is set");
-                        }
-                    }
-                    if (pKvs->pPps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_PPS, &pPps, &uPpsLen) == ERRNO_NONE)
-                    {
-                        LogInfo("PPS is found");
-                        if (prvBufMallocAndCopy(&(pKvs->pPps), &(pKvs->uPpsLen), pPps, uPpsLen) != ERRNO_NONE)
-                        {
-                            res = ERRNO_FAIL;
-                        }
-                        else
-                        {
-                            LogInfo("PPS is set");
-                        }
-                    }
-                }
-
-                if (pKvs->pSps != NULL && pKvs->pPps != NULL)
-                {
-                    createStream(pKvs);
-                }
-            }
-
-            if (pKvs->xStreamHandle == NULL)
-            {
-                free(pData);
-            }
-            else
-            {
-                xDataFrameIn.pData = (char *)pData;
-                xDataFrameIn.uDataLen = uDataLen;
-                if (xTrackType == TRACK_VIDEO)
-                {
-                    xDataFrameIn.bIsKeyFrame = isKeyFrame(pData, uDataLen);
-                }
-                else
-                {
-                    xDataFrameIn.bIsKeyFrame = false;
-                }
-                xDataFrameIn.uTimestampMs = uTimestamp;
-                xDataFrameIn.xTrackType = xTrackType;
-                xDataFrameIn.xClusterType = (xDataFrameIn.bIsKeyFrame) ? MKV_CLUSTER : MKV_SIMPLE_BLOCK;
-
-                if (Kvs_streamAddDataFrame(pKvs->xStreamHandle, &xDataFrameIn) == NULL)
-                {
-                    LogError("Failed to add data frame");
-                    res = ERRNO_FAIL;
-                }
-            }
+            free(pData);
         }
     }
 
@@ -1045,4 +1119,19 @@ int KvsApp_doWork(KvsAppHandle handle)
     }
 
     return res;
+}
+
+size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle)
+{
+    size_t uMemTotal = 0;
+    KvsApp_t *pKvs = (KvsApp_t *)handle;
+
+    if (pKvs != NULL && pKvs->xStreamHandle != NULL && Kvs_streamMemStatTotal(pKvs->xStreamHandle, &uMemTotal) == 0)
+    {
+        return uMemTotal;
+    }
+    else
+    {
+        return 0;
+    }
 }
