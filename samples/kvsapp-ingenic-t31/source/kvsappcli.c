@@ -90,6 +90,7 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
+#if ENABLE_RING_BUFFER_MEM_LIMIT
     KvsApp_streamPolicy_t xPolicy = STREAM_POLICY_RING_BUFFER;
     if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY, (const char *)&xPolicy) != 0)
     {
@@ -100,6 +101,7 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     {
         printf("Failed to set ring buffer memory limit\r\n");
     }
+#endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
 
     return res;
 }

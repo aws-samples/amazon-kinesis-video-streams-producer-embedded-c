@@ -31,6 +31,7 @@
 /* KVS optional configuration */
 #define ENABLE_AUDIO_TRACK              1
 #define ENABLE_IOT_CREDENTIAL           0
+#define ENABLE_RING_BUFFER_MEM_LIMIT    1
 
 #define VIDEO_CODEC_NAME                "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME                "kvs video track"
@@ -66,7 +67,9 @@
 "-----END RSA PRIVATE KEY-----\n"
 #endif
 
+#if ENABLE_RING_BUFFER_MEM_LIMIT
 /* Buffering options */
-#define RING_BUFFER_MEM_LIMIT (2 * 1000 * 1000)
+#define RING_BUFFER_MEM_LIMIT           (2 * 1024 * 1024)
+#endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
 
 #endif /* SAMPLE_CONFIG_H */

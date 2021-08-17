@@ -31,6 +31,7 @@
 /* KVS optional configuration */
 #define ENABLE_AUDIO_TRACK              1
 #define ENABLE_IOT_CREDENTIAL           0
+#define ENABLE_RING_BUFFER_MEM_LIMIT    1
 
 /* Video configuration */
 #define H264_FILE_FORMAT                "/path/to/samples/h264SampleFrames/frame-%03d.h264"
@@ -74,5 +75,10 @@
 "......\n" \
 "-----END RSA PRIVATE KEY-----\n"
 #endif
+
+#if ENABLE_RING_BUFFER_MEM_LIMIT
+/* Buffering options */
+#define RING_BUFFER_MEM_LIMIT           (2 * 1024 * 1024)
+#endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
 
 #endif /* SAMPLE_CONFIG_H */
