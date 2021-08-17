@@ -27,7 +27,7 @@
 #include "endian.h"
 #include "sps_decode.h"
 
-#define MAX_NALU_COUNT_IN_A_FRAME ( 8 )
+#define MAX_NALU_COUNT_IN_A_FRAME ( 16 )
 
 typedef struct Nal
 {
@@ -250,6 +250,11 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
         /* Go through all Annex-B buffer and record all RBSP begin and length first. */
         while (i < uAnnexbBufLen - 4)
         {
+            if (uNalRbspCount > MAX_NALU_COUNT_IN_A_FRAME)
+            {
+                break;
+            }
+
             if (pAnnexbBuf[i] == 0x00)
             {
                 if (pAnnexbBuf[i+1] == 0x00)
@@ -313,6 +318,11 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
         if (uNalRbspCount == 0)
         {
             LogInfo("No NALU is found in Annex-B frame");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else if (uNalRbspCount > MAX_NALU_COUNT_IN_A_FRAME)
+        {
+            LogError("NAL RBSP count exceeds max count");
             xRes = KVS_ERRNO_FAIL;
         }
         else
