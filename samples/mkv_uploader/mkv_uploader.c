@@ -13,26 +13,26 @@
  * permissions and limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include "kvs/allocator.h"
 #include <getopt.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "kvs/port.h"
-#include "kvs/nalu.h"
-#include "kvs/restapi.h"
 #include "kvs/mkv_parser.h"
+#include "kvs/nalu.h"
+#include "kvs/port.h"
+#include "kvs/restapi.h"
 
 #include "sample_config.h"
 
 #if ENABLE_IOT_CREDENTIAL
-#include "kvs/iot_credential_provider.h"
+#    include "kvs/iot_credential_provider.h"
 #endif /* ENABLE_IOT_CREDENTIAL */
 
-#define ERRNO_NONE      0
-#define ERRNO_FAIL      __LINE__
+#define ERRNO_NONE 0
+#define ERRNO_FAIL __LINE__
 
 typedef struct Kvs
 {
@@ -56,9 +56,9 @@ typedef struct Kvs
     bool bIsFileUploaded;
 } Kvs_t;
 
-static void sleepInMs( uint32_t ms )
+static void sleepInMs(uint32_t ms)
 {
-    usleep( ms * 1000 );
+    usleep(ms * 1000);
 }
 
 static int kvsInitialize(Kvs_t *pKvs, char *pcMkvFileName)
@@ -79,9 +79,7 @@ static int kvsInitialize(Kvs_t *pKvs, char *pcMkvFileName)
             printf("Failed to open file:%s\r\n", pcMkvFileName);
             res = ERRNO_FAIL;
         }
-        else if (fseek(pKvs->fp, 0L, SEEK_END) != 0 || 
-                 ((pKvs->xFileSize = ftell(pKvs->fp)) < 0) ||
-                 fseek(pKvs->fp, 0L, SEEK_SET) != 0)
+        else if (fseek(pKvs->fp, 0L, SEEK_END) != 0 || ((pKvs->xFileSize = ftell(pKvs->fp)) < 0) || fseek(pKvs->fp, 0L, SEEK_SET) != 0)
         {
             printf("Failed to calculate file size\r\n");
             res = ERRNO_FAIL;
@@ -136,7 +134,7 @@ static void kvsTerminate(Kvs_t *pKvs)
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
-            free(pKvs->xServicePara.pcPutMediaEndpoint);
+            KVS_FREE(pKvs->xServicePara.pcPutMediaEndpoint);
             pKvs->xServicePara.pcPutMediaEndpoint = NULL;
         }
         if (pKvs->fp != NULL)
@@ -208,7 +206,7 @@ static int putMedia(Kvs_t *pKvs)
         printf("Invalid argument: pKvs\r\n");
         res = ERRNO_FAIL;
     }
-    else if ((pBuf = (char *)malloc(uBufSize)) == NULL)
+    else if ((pBuf = (char *)KVS_MALLOC(uBufSize)) == NULL)
     {
         printf("OOM: pBuf\r\n");
     }
@@ -245,7 +243,7 @@ static int putMedia(Kvs_t *pKvs)
     pKvs->xPutMediaHandle = NULL;
     if (pBuf != NULL)
     {
-        free(pBuf);
+        KVS_FREE(pBuf);
     }
 
     return res;
@@ -325,7 +323,7 @@ int main(int argc, char *argv[])
 
     while ((c = getopt(argc, argv, optstring)) != -1)
     {
-        switch(c)
+        switch (c)
         {
             case 'i':
                 pcMkvFilename = optarg;

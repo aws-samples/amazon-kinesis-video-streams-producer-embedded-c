@@ -17,7 +17,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -32,6 +31,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 
 /* KVS headers */
+#include "kvs/allocator.h"
 #include "kvs/kvsapp.h"
 #include <kvs/port.h>
 
@@ -114,7 +114,7 @@ static int sendVideoFrame(T31Video_t *pVideo, IMPEncoderStream *pStream)
             uPacketLen += pPack->length;
         }
 
-        if ((pPacketBuf = (uint8_t *)malloc(uPacketLen)) == NULL)
+        if ((pPacketBuf = (uint8_t *)KVS_MALLOC(uPacketLen)) == NULL)
         {
             LogError("OOM: pPacketBuf");
             res = ERRNO_FAIL;
@@ -262,7 +262,7 @@ T31VideoHandle T31Video_create(KvsAppHandle kvsAppHandle)
     int res = ERRNO_NONE;
     T31Video_t *pVideo = NULL;
 
-    if ((pVideo = (T31Video_t *)malloc(sizeof(T31Video_t))) == NULL)
+    if ((pVideo = (T31Video_t *)KVS_MALLOC(sizeof(T31Video_t))) == NULL)
     {
         LogError("OOM: pVideo");
         res = ERRNO_FAIL;
@@ -308,6 +308,6 @@ void T31Video_terminate(T31VideoHandle handle)
 
         pthread_join(pVideo->tid, NULL);
 
-        free(pVideo);
+        KVS_FREE(pVideo);
     }
 }

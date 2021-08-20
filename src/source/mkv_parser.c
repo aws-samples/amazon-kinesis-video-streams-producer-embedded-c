@@ -13,10 +13,10 @@
  * permissions and limitations under the License.
  */
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
+#include "kvs/allocator.h"
 #include <inttypes.h>
+#include <stddef.h>
+#include <string.h>
 
 #include "kvs/errors.h"
 #include "kvs/mkv_parser.h"
@@ -25,9 +25,9 @@ static uint64_t prvPack(uint8_t *pBuf, size_t uLen)
 {
     uint64_t uVal = 0;
 
-    if (uLen <= 8 )
+    if (uLen <= 8)
     {
-        for (size_t i = 0; i<uLen; i++)
+        for (size_t i = 0; i < uLen; i++)
         {
             uVal = (uVal << 8) | pBuf[i];
         }
@@ -137,7 +137,7 @@ int Mkv_getElementSize(uint8_t *pBuf, size_t uBufSize, uint64_t *puElementSize, 
         else
         {
             memcpy(pBufTemp, pBuf, uElementSizeLen);
-            uMask = 0x80 >> (uElementSizeLen-1);
+            uMask = 0x80 >> (uElementSizeLen - 1);
             pBufTemp[0] &= ~uMask;
             *puElementSize = prvPack(pBufTemp, uElementSizeLen);
             *puElementSizeLen = uElementSizeLen;

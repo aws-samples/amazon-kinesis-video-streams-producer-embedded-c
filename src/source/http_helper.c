@@ -24,13 +24,14 @@
 #include "llhttp.h"
 
 /* Public headers */
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
 #include "http_helper.h"
 #include "netio.h"
 
-#define DEFAULT_HTTP_RECV_BUFSIZE       2048
+#define DEFAULT_HTTP_RECV_BUFSIZE 2048
 
 typedef struct
 {
@@ -51,14 +52,13 @@ static STRING_HANDLE prvGenerateHttpReq(const char *pcHttpMethod, const char *pc
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStHttpReq = STRING_new()) == NULL ||
-             STRING_sprintf(xStHttpReq, "%s %s HTTP/1.1\r\n", pcHttpMethod, pcUri) != 0)
+    else if ((xStHttpReq = STRING_new()) == NULL || STRING_sprintf(xStHttpReq, "%s %s HTTP/1.1\r\n", pcHttpMethod, pcUri) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        for (i=0; i<uHeadersCnt && xRes == KVS_ERRNO_NONE; i++)
+        for (i = 0; i < uHeadersCnt && xRes == KVS_ERRNO_NONE; i++)
         {
             if (HTTPHeaders_GetHeader(xHttpReqHeaders, i, &pcHeader) != HTTP_HEADERS_OK)
             {
@@ -66,10 +66,11 @@ static STRING_HANDLE prvGenerateHttpReq(const char *pcHttpMethod, const char *pc
             }
             else
             {
-                if (STRING_sprintf(xStHttpReq, "%s\r\n", pcHeader)!= 0)
+                if (STRING_sprintf(xStHttpReq, "%s\r\n", pcHeader) != 0)
                 {
                     xRes = KVS_ERRNO_FAIL;
                 }
+                /* pcHeader was created by HTTPHeaders_GetHeader via malloc */
                 free(pcHeader);
             }
         }
@@ -100,7 +101,7 @@ static STRING_HANDLE prvGenerateHttpReq(const char *pcHttpMethod, const char *pc
     return xStHttpReq;
 }
 
-static int prvHandleHttpOnBodyComplete( llhttp_t *pHttpParser, const char *at, size_t length )
+static int prvHandleHttpOnBodyComplete(llhttp_t *pHttpParser, const char *at, size_t length)
 {
     llhttp_settings_ex_t *pxSettings = (llhttp_settings_ex_t *)(pHttpParser->settings);
     pxSettings->pBodyLoc = at;
@@ -118,7 +119,7 @@ static enum llhttp_errno prvParseHttpResponse(const char *pBuf, size_t uLen, uns
     xSettings.xSettings.on_body = prvHandleHttpOnBodyComplete;
     llhttp_init(&xHttpParser, HTTP_RESPONSE, (llhttp_settings_t *)&xSettings);
 
-    xHttpErrno = llhttp_execute(&xHttpParser, pBuf, ( size_t )uLen );
+    xHttpErrno = llhttp_execute(&xHttpParser, pBuf, (size_t)uLen);
     if (xHttpErrno == HPE_OK)
     {
         if (puStatusCode != NULL)
@@ -197,8 +198,7 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                     break;
                 }
             }
-            if (NetIo_Recv(xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived,
-                           BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) != KVS_ERRNO_NONE ||
+            if (NetIo_Recv(xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) != KVS_ERRNO_NONE ||
                 uBytesReceived == 0)
             {
                 xRes = KVS_ERRNO_FAIL;
@@ -212,7 +212,7 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                     xRes = KVS_ERRNO_FAIL;
                 }
                 /* If it's 100-continue, then we need to discard previous result and do it again. */
-                else if (uHttpStatusCode/100==1)
+                else if (uHttpStatusCode / 100 == 1)
                 {
                     LogInfo("100-continue");
                     uBytesTotalReceived = 0;
@@ -224,7 +224,7 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                     *puHttpStatus = uHttpStatusCode;
                     if (uHttpStatusCode == 200)
                     {
-                        if ((pRspBody = (char *)malloc(uBodyLen + 1)) == NULL)
+                        if ((pRspBody = (char *)KVS_MALLOC(uBodyLen + 1)) == NULL)
                         {
                             LogError("OOM: ppBodyLoc");
                             xRes = KVS_ERRNO_NONE;

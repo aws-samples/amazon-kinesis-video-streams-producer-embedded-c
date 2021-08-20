@@ -13,21 +13,22 @@
  * permissions and limitations under the License.
  */
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "file_input_stream.h"
+#include "kvs/allocator.h"
 #include "kvs/mkv_parser.h"
 
 #include "mkv_update_time.h"
 
-#define ERRNO_NONE      0
-#define ERRNO_FAIL      __LINE__
+#define ERRNO_NONE 0
+#define ERRNO_FAIL __LINE__
 
 #define MKV_INPUT_FILENAME "/mnt/c/movie/test2.mkv"
 #define MKV_OUTPUT_FILENAME "/mnt/c/movie/test-out.mkv"
@@ -38,7 +39,7 @@ static uint64_t pack(uint8_t *pBuf, size_t uLen)
 
     if (uLen <= 8)
     {
-        for (size_t i = 0; i<uLen; i++)
+        for (size_t i = 0; i < uLen; i++)
         {
             uVal = (uVal << 8) | pBuf[i];
         }
@@ -51,9 +52,9 @@ static void unpack(uint8_t *pBuf, size_t uLen, uint64_t uVal)
 {
     if (pBuf != NULL && uLen > 0 && uLen <= 8)
     {
-        for (size_t i = 0; i<uLen; i++)
+        for (size_t i = 0; i < uLen; i++)
         {
-            pBuf[uLen-i-1] = (uint8_t)(uVal & 0xFF);
+            pBuf[uLen - i - 1] = (uint8_t)(uVal & 0xFF);
             uVal >>= 8;
         }
     }
@@ -148,8 +149,8 @@ int updateMkvBeginTimestamp(const char *pcSrcFilename, const char *pcDstFilename
     uint8_t *pCopyData = NULL;
     size_t uCopyDataLen = 0;
 
-    const uint8_t pElementSegmentHdr[] = {0x18, 0x53, 0x80, 0x67, 0xFF}; /* Unknown size of segment header */
-    const uint8_t pElementClusterHdr[] = {0x1F, 0x43, 0xB6, 0x75, 0xFF}; /* Unknown size of cluster header */
+    const uint8_t pElementSegmentHdr[] = {0x18, 0x53, 0x80, 0x67, 0xFF};                               /* Unknown size of segment header */
+    const uint8_t pElementClusterHdr[] = {0x1F, 0x43, 0xB6, 0x75, 0xFF};                               /* Unknown size of cluster header */
     uint8_t pElementClusterTimestamp[] = {0xE7, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; /* Cluster timestamp template*/
 
     uint64_t uTimestampScaleMs = 0;
@@ -159,8 +160,7 @@ int updateMkvBeginTimestamp(const char *pcSrcFilename, const char *pcDstFilename
     {
         res = ERRNO_FAIL;
     }
-    else if ((pFis = FIS_create(pcSrcFilename)) == NULL ||
-             (fpDst = fopen(pcDstFilename, "wb")) == NULL)
+    else if ((pFis = FIS_create(pcSrcFilename)) == NULL || (fpDst = fopen(pcDstFilename, "wb")) == NULL)
     {
         res = ERRNO_FAIL;
     }
@@ -292,11 +292,7 @@ int main(int argc, char *argv[])
 {
     int res = 0;
     const char *optstring = "i:o:t:";
-    struct option opts[] = {
-        {"infile", 1, NULL, 'i'},
-        {"outfile", 1, NULL, 'o'},
-        {"time", 1, NULL, 't'}
-    };
+    struct option opts[] = {{"infile", 1, NULL, 'i'}, {"outfile", 1, NULL, 'o'}, {"time", 1, NULL, 't'}};
     int c;
 
     char *pcSrcFilename = NULL;
@@ -306,7 +302,7 @@ int main(int argc, char *argv[])
 
     while ((c = getopt_long(argc, argv, optstring, opts, NULL)) != -1)
     {
-        switch(c)
+        switch (c)
         {
             case 'i':
                 pcSrcFilename = optarg;

@@ -15,10 +15,10 @@
 
 #include <inttypes.h>
 #include <stddef.h>
-#include <stdlib.h>
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
 
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/port.h"
 
@@ -31,10 +31,10 @@ int platformInit(void)
     return xRes;
 }
 
-int getTimeInIso8601( char *pBuf, size_t uBufSize )
+int getTimeInIso8601(char *pBuf, size_t uBufSize)
 {
     int xRes = KVS_ERRNO_NONE;
-    time_t xTimeUtcNow = { 0 };
+    time_t xTimeUtcNow = {0};
 
     if (pBuf == NULL || uBufSize < DATE_TIME_ISO_8601_FORMAT_STRING_SIZE)
     {
@@ -42,25 +42,25 @@ int getTimeInIso8601( char *pBuf, size_t uBufSize )
     }
     else
     {
-        xTimeUtcNow = time( NULL );
+        xTimeUtcNow = time(NULL);
         strftime(pBuf, DATE_TIME_ISO_8601_FORMAT_STRING_SIZE, "%Y%m%dT%H%M%SZ", gmtime(&xTimeUtcNow));
     }
 
     return xRes;
 }
 
-uint64_t getEpochTimestampInMs( void )
+uint64_t getEpochTimestampInMs(void)
 {
     uint64_t timestamp = 0;
 
     struct timeval tv;
-    gettimeofday( &tv, NULL );
+    gettimeofday(&tv, NULL);
     timestamp = (uint64_t)(tv.tv_sec) * 1000 + (uint64_t)(tv.tv_usec) / 1000;
 
     return timestamp;
 }
 
-uint8_t getRandomNumber( void )
+uint8_t getRandomNumber(void)
 {
     return (uint8_t)rand();
 }

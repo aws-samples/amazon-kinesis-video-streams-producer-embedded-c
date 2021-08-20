@@ -13,9 +13,9 @@
  * permissions and limitations under the License.
  */
 
+#include "kvs/allocator.h"
 #include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 

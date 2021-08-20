@@ -13,9 +13,8 @@
  * permissions and limitations under the License.
  */
 
-#include <stdlib.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <sys/socket.h>
@@ -23,12 +22,13 @@
 
 /* Thirdparty headers */
 #include "azure_c_shared_utility/xlogging.h"
-#include "mbedtls/net.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
+#include "mbedtls/net.h"
 #include "mbedtls/net_sockets.h"
 
 /* Public headers */
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
@@ -53,10 +53,9 @@ static int prvCreateX509Cert(NetIo_t *pxNet)
 {
     int xRes = KVS_ERRNO_NONE;
 
-    if (pxNet == NULL ||
-        (pxNet->pRootCA = (mbedtls_x509_crt *)malloc(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pCert = (mbedtls_x509_crt *)malloc(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pPrivKey = (mbedtls_pk_context *)malloc(sizeof(mbedtls_pk_context))) == NULL)
+    if (pxNet == NULL || (pxNet->pRootCA = (mbedtls_x509_crt *)KVS_MALLOC(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pCert = (mbedtls_x509_crt *)KVS_MALLOC(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pPrivKey = (mbedtls_pk_context *)KVS_MALLOC(sizeof(mbedtls_pk_context))) == NULL)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -92,9 +91,9 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
             mbedtls_ssl_conf_rng(&(pxNet->xConf), mbedtls_ctr_drbg_random, &(pxNet->xCtrDrbg));
             if (pcRootCA != NULL && pcCert != NULL && pcPrivKey != NULL)
             {
-                if (mbedtls_x509_crt_parse(pxNet->pRootCA, (void *)pcRootCA, strlen(pcRootCA)+1) != 0 ||
-                    mbedtls_x509_crt_parse( pxNet->pCert, ( void * )pcCert, strlen( pcCert ) + 1 ) != 0 ||
-                    mbedtls_pk_parse_key( pxNet->pPrivKey, ( void * )pcPrivKey, strlen( pcPrivKey ) + 1, NULL, 0 ) != 0)
+                if (mbedtls_x509_crt_parse(pxNet->pRootCA, (void *)pcRootCA, strlen(pcRootCA) + 1) != 0 ||
+                    mbedtls_x509_crt_parse(pxNet->pCert, (void *)pcCert, strlen(pcCert) + 1) != 0 ||
+                    mbedtls_pk_parse_key(pxNet->pPrivKey, (void *)pcPrivKey, strlen(pcPrivKey) + 1, NULL, 0) != 0)
                 {
                     LogError("Failed to parse x509");
                     xRes = KVS_ERRNO_FAIL;
@@ -104,7 +103,7 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
                     mbedtls_ssl_conf_authmode(&(pxNet->xConf), MBEDTLS_SSL_VERIFY_REQUIRED);
                     mbedtls_ssl_conf_ca_chain(&(pxNet->xConf), pxNet->pRootCA, NULL);
 
-                    if (mbedtls_ssl_conf_own_cert( &( pxNet->xConf ), pxNet->pCert, pxNet->pPrivKey ) != 0)
+                    if (mbedtls_ssl_conf_own_cert(&(pxNet->xConf), pxNet->pCert, pxNet->pPrivKey) != 0)
                     {
                         LogError("Failed to conf own cert");
                         xRes = KVS_ERRNO_FAIL;
@@ -145,7 +144,7 @@ static int prvConnect(NetIo_t *pxNet, const char *pcHost, const char *pcPort, co
         LogError("Failed to init x509");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((ret=mbedtls_net_connect(&(pxNet->xFd), pcHost, pcPort, MBEDTLS_NET_PROTO_TCP)) != 0)
+    else if ((ret = mbedtls_net_connect(&(pxNet->xFd), pcHost, pcPort, MBEDTLS_NET_PROTO_TCP)) != 0)
     {
         LogError("Failed to connect to %s:%s", pcHost, pcPort);
         xRes = KVS_ERRNO_FAIL;
@@ -172,7 +171,7 @@ NetIoHandle NetIo_Create(void)
 {
     NetIo_t *pxNet = NULL;
 
-    if ((pxNet = (NetIo_t *)malloc(sizeof(NetIo_t)))!= NULL)
+    if ((pxNet = (NetIo_t *)KVS_MALLOC(sizeof(NetIo_t))) != NULL)
     {
         memset(pxNet, 0, sizeof(NetIo_t));
 
@@ -182,7 +181,7 @@ NetIoHandle NetIo_Create(void)
         mbedtls_ctr_drbg_init(&(pxNet->xCtrDrbg));
         mbedtls_entropy_init(&(pxNet->xEntropy));
 
-        if (mbedtls_ctr_drbg_seed(&(pxNet->xCtrDrbg), mbedtls_entropy_func, &(pxNet->xEntropy), NULL, 0 ) != 0 )
+        if (mbedtls_ctr_drbg_seed(&(pxNet->xCtrDrbg), mbedtls_entropy_func, &(pxNet->xEntropy), NULL, 0) != 0)
         {
             NetIo_Terminate(pxNet);
             pxNet = NULL;
@@ -207,24 +206,24 @@ void NetIo_Terminate(NetIoHandle xNetIoHandle)
         if (pxNet->pRootCA != NULL)
         {
             mbedtls_x509_crt_free(pxNet->pRootCA);
-            free(pxNet->pRootCA);
+            KVS_FREE(pxNet->pRootCA);
             pxNet->pRootCA = NULL;
         }
 
         if (pxNet->pCert != NULL)
         {
             mbedtls_x509_crt_free(pxNet->pCert);
-            free(pxNet->pCert);
+            KVS_FREE(pxNet->pCert);
             pxNet->pCert = NULL;
         }
 
         if (pxNet->pPrivKey != NULL)
         {
             mbedtls_pk_free(pxNet->pPrivKey);
-            free(pxNet->pPrivKey);
+            KVS_FREE(pxNet->pPrivKey);
             pxNet->pPrivKey = NULL;
         }
-        free(pxNet);
+        KVS_FREE(pxNet);
     }
 }
 
@@ -254,7 +253,7 @@ int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uB
     int xRes = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
     size_t uBytesRemaining = uBytesToSend;
-    char * pIndex = ( char * )pBuffer;
+    char *pIndex = (char *)pBuffer;
 
     if (pxNet == NULL || pBuffer == NULL)
     {
@@ -330,7 +329,7 @@ bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle)
             tv.tv_sec = 0;
             tv.tv_usec = 0;
 
-            if (select(fd+1, &read_fds, NULL, NULL, &tv) >= 0)
+            if (select(fd + 1, &read_fds, NULL, NULL, &tv) >= 0)
             {
                 if (FD_ISSET(fd, &read_fds))
                 {

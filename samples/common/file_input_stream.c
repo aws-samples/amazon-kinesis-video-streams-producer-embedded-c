@@ -14,13 +14,14 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+
+#include "kvs/allocator.h"
 
 #include "file_input_stream.h"
 
-#define ERRNO_NONE      0
-#define ERRNO_FAIL      __LINE__
+#define ERRNO_NONE 0
+#define ERRNO_FAIL __LINE__
 
 #define DEFAULT_BUFSIZE (1024)
 
@@ -33,7 +34,7 @@ FileInputStream_t *FIS_create(const char *pcFilename)
     {
         res = ERRNO_FAIL;
     }
-    else if ((pFis = (FileInputStream_t *)malloc(sizeof(FileInputStream_t))) == NULL)
+    else if ((pFis = (FileInputStream_t *)KVS_MALLOC(sizeof(FileInputStream_t))) == NULL)
     {
         res = ERRNO_FAIL;
     }
@@ -48,14 +49,12 @@ FileInputStream_t *FIS_create(const char *pcFilename)
             printf("Unable to open file:%s\r\n", pcFilename);
             res = ERRNO_FAIL;
         }
-        else if (fseek(pFis->fp, 0L, SEEK_END) != 0 || 
-                 ((pFis->xFileSize = ftell(pFis->fp)) < 0) ||
-                 fseek(pFis->fp, 0L, SEEK_SET) != 0)
+        else if (fseek(pFis->fp, 0L, SEEK_END) != 0 || ((pFis->xFileSize = ftell(pFis->fp)) < 0) || fseek(pFis->fp, 0L, SEEK_SET) != 0)
         {
             printf("Unable to identify the filesize\r\n");
             res = ERRNO_FAIL;
         }
-        else if ((pFis->pBuf = (uint8_t *)malloc(pFis->uBufSize)) == NULL)
+        else if ((pFis->pBuf = (uint8_t *)KVS_MALLOC(pFis->uBufSize)) == NULL)
         {
             printf("OOM: pBuf in File Stream\r\n");
             res = ERRNO_FAIL;
@@ -86,9 +85,9 @@ void FIS_terminate(FileInputStream_t *pFis)
         }
         if (pFis->pBuf != NULL)
         {
-            free(pFis->pBuf);
+            KVS_FREE(pFis->pBuf);
         }
-        free(pFis);
+        KVS_FREE(pFis);
     }
 }
 
@@ -112,7 +111,7 @@ int FIS_readIntoBuf(FileInputStream_t *pFis)
     {
         if (pFis->uDataLen == pFis->uBufSize)
         {
-            pBufTemp = realloc(pFis->pBuf, pFis->uBufSize * 2);
+            pBufTemp = KVS_REALLOC(pFis->pBuf, pFis->uBufSize * 2);
             if (pBufTemp == NULL)
             {
                 printf("OOM: pBufTemp in File Input Stream\r\n");

@@ -18,47 +18,48 @@
 /* Thirdparty headers */
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
-#include "mbedtls/sha256.h"
 #include "mbedtls/md.h"
+#include "mbedtls/sha256.h"
 
 /* Public headers */
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
 #include "aws_signer_v4.h"
 
-#define HTTP_METHOD_GET     "GET"
-#define HTTP_METHOD_PUT     "PUT"
-#define HTTP_METHOD_POST    "POST"
+#define HTTP_METHOD_GET "GET"
+#define HTTP_METHOD_PUT "PUT"
+#define HTTP_METHOD_POST "POST"
 
 /* The buffer length used for doing SHA256 hash check. */
-#define SHA256_DIGEST_LENGTH                    32
+#define SHA256_DIGEST_LENGTH 32
 
 /* The buffer length used for ASCII Hex encoded SHA256 result. */
-#define HEX_ENCODED_SHA_256_STRING_SIZE         65
+#define HEX_ENCODED_SHA_256_STRING_SIZE 65
 
 /* The string length of "date" format defined by AWS Signature V4. */
-#define SIGNATURE_DATE_STRING_LEN               8
+#define SIGNATURE_DATE_STRING_LEN 8
 
 /* The signature start described by AWS Signature V4. */
-#define AWS_SIG_V4_SIGNATURE_START              "AWS4"
+#define AWS_SIG_V4_SIGNATURE_START "AWS4"
 
 /* The signature end described by AWS Signature V4. */
-#define AWS_SIG_V4_SIGNATURE_END                "aws4_request"
+#define AWS_SIG_V4_SIGNATURE_END "aws4_request"
 
 /* The signed algorithm. */
-#define AWS_SIG_V4_ALGORITHM                    "AWS4-HMAC-SHA256"
+#define AWS_SIG_V4_ALGORITHM "AWS4-HMAC-SHA256"
 
 /* The length of oct string for SHA256 hash buffer. */
-#define AWS_SIG_V4_MAX_HMAC_SIZE                ( SHA256_DIGEST_LENGTH * 2 + 1 )
+#define AWS_SIG_V4_MAX_HMAC_SIZE (SHA256_DIGEST_LENGTH * 2 + 1)
 
 /* Template of canonical scope: <DATE>/<REGION>/<SERVICE>/<SIGNATURE_END>*/
-#define TEMPLATE_CANONICAL_SCOPE                "%.*s/%s/%s/%s"
+#define TEMPLATE_CANONICAL_SCOPE "%.*s/%s/%s/%s"
 
 /* Template of canonical signed string: <ALGO>\n<DATE_TIME>\n<SCOPE>\n<HEX_SHA_CANONICAL_REQ> */
-#define TEMPLATE_CANONICAL_SIGNED_STRING        "%s\n%s\n%s\n%s"
+#define TEMPLATE_CANONICAL_SIGNED_STRING "%s\n%s\n%s\n%s"
 
-#define TEMPLATE_SIGNATURE_START                "%s%s"
+#define TEMPLATE_SIGNATURE_START "%s%s"
 
 typedef struct AwsSigV4
 {
@@ -124,14 +125,14 @@ static int prvHexEncodedSha256(const unsigned char *pMsg, size_t uMsgLen, char p
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if(mbedtls_sha256_ret(pMsg, uMsgLen, pHashBuf, 0) != 0)
+    else if (mbedtls_sha256_ret(pMsg, uMsgLen, pHashBuf, 0) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     else
     {
         p = pcHexEncodedHash;
-        for (i=0; i<SHA256_DIGEST_LENGTH; i++)
+        for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
         {
             p += snprintf(p, 3, "%02x", pHashBuf[i]);
         }
@@ -149,7 +150,7 @@ AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
     {
         do
         {
-            pxAwsSigV4 = (AwsSigV4_t *)malloc(sizeof(AwsSigV4_t));
+            pxAwsSigV4 = (AwsSigV4_t *)KVS_MALLOC(sizeof(AwsSigV4_t));
             if (pxAwsSigV4 == NULL)
             {
                 xRes = KVS_ERRNO_FAIL;
@@ -169,7 +170,6 @@ AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
                 break;
             }
         } while (0);
-
 
         if (xRes == KVS_ERRNO_FAIL)
         {
@@ -193,7 +193,7 @@ void AwsSigV4_Terminate(AwsSigV4Handle xSigV4Handle)
         STRING_delete(pxAwsSigV4->xStScope);
         STRING_delete(pxAwsSigV4->xStHmacHexEncoded);
         STRING_delete(pxAwsSigV4->xStAuthorization);
-        free(pxAwsSigV4);
+        KVS_FREE(pxAwsSigV4);
     }
 }
 
@@ -240,11 +240,11 @@ int AwsSigV4_AddCanonicalBody(AwsSigV4Handle xSigV4Handle, const char *pBody, si
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if(prvHexEncodedSha256((const unsigned char *)pBody, uBodyLen, pcBodyHexEncodedSha256) != 0)
+    else if (prvHexEncodedSha256((const unsigned char *)pBody, uBodyLen, pcBodyHexEncodedSha256) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if(STRING_concat(pxAwsSigV4->xStCanonicalRequest, pcBodyHexEncodedSha256) != 0)
+    else if (STRING_concat(pxAwsSigV4->xStCanonicalRequest, pcBodyHexEncodedSha256) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -261,7 +261,7 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
     int xRes = KVS_ERRNO_NONE;
     AwsSigV4_t *pxAwsSigV4 = (AwsSigV4_t *)xSigV4Handle;
     char pcCanonicalReqHexEncSha256[HEX_ENCODED_SHA_256_STRING_SIZE] = {0};
-    const mbedtls_md_info_t * pxMdInfo = NULL;
+    const mbedtls_md_info_t *pxMdInfo = NULL;
     STRING_HANDLE xStSignedStr = NULL;
     size_t uHmacSize = 0;
     char pHmac[AWS_SIG_V4_MAX_HMAC_SIZE] = {0};
@@ -272,46 +272,54 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
         xRes = KVS_ERRNO_FAIL;
     }
     /* Do SHA256 on canonical request and then hex encode it. */
-    else if(prvHexEncodedSha256((const unsigned char *)STRING_c_str(pxAwsSigV4->xStCanonicalRequest), STRING_length(pxAwsSigV4->xStCanonicalRequest), pcCanonicalReqHexEncSha256) != KVS_ERRNO_NONE)
+    else if (
+        prvHexEncodedSha256((const unsigned char *)STRING_c_str(pxAwsSigV4->xStCanonicalRequest), STRING_length(pxAwsSigV4->xStCanonicalRequest), pcCanonicalReqHexEncSha256) !=
+        KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if((pxMdInfo = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256)) == NULL)
+    else if ((pxMdInfo = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256)) == NULL)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     /* HMAC size of SHA256 should be 32. */
-    else if((uHmacSize = mbedtls_md_get_size(pxMdInfo)) == 0)
+    else if ((uHmacSize = mbedtls_md_get_size(pxMdInfo)) == 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     /* Generate the scope string. */
-    else if(STRING_sprintf(pxAwsSigV4->xStScope, TEMPLATE_CANONICAL_SCOPE, SIGNATURE_DATE_STRING_LEN, pcXAmzDate, pcRegion, pcService, AWS_SIG_V4_SIGNATURE_END) != 0)
+    else if (STRING_sprintf(pxAwsSigV4->xStScope, TEMPLATE_CANONICAL_SCOPE, SIGNATURE_DATE_STRING_LEN, pcXAmzDate, pcRegion, pcService, AWS_SIG_V4_SIGNATURE_END) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     /* Generate the signed string. */
-    else if((xStSignedStr = STRING_construct_sprintf(TEMPLATE_CANONICAL_SIGNED_STRING, AWS_SIG_V4_ALGORITHM, pcXAmzDate, STRING_c_str(pxAwsSigV4->xStScope), pcCanonicalReqHexEncSha256)) == NULL)
+    else if (
+        (xStSignedStr =
+             STRING_construct_sprintf(TEMPLATE_CANONICAL_SIGNED_STRING, AWS_SIG_V4_ALGORITHM, pcXAmzDate, STRING_c_str(pxAwsSigV4->xStScope), pcCanonicalReqHexEncSha256)) == NULL)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     /* Generatue the beginning of the signature. */
-    else if(snprintf(pHmac, AWS_SIG_V4_MAX_HMAC_SIZE, TEMPLATE_SIGNATURE_START, AWS_SIG_V4_SIGNATURE_START, pcSecretKey) == 0)
+    else if (snprintf(pHmac, AWS_SIG_V4_MAX_HMAC_SIZE, TEMPLATE_SIGNATURE_START, AWS_SIG_V4_SIGNATURE_START, pcSecretKey) == 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     /* Calculate the HMAC of date, region, service, signature end, and signed string*/
-    else if(mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, strlen(pHmac), (const unsigned char *)pcXAmzDate, SIGNATURE_DATE_STRING_LEN, (unsigned char *)pHmac) != 0 ||
-            mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcRegion, strlen(pcRegion), (unsigned char *)pHmac) != 0 ||
-            mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcService, strlen(pcService), (unsigned char *)pHmac) != 0 ||
-            mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)AWS_SIG_V4_SIGNATURE_END, sizeof(AWS_SIG_V4_SIGNATURE_END)-1, (unsigned char *)pHmac) != 0 ||
-            mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)STRING_c_str(xStSignedStr), STRING_length(xStSignedStr), (unsigned char *)pHmac) != 0)
+    else if (
+        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, strlen(pHmac), (const unsigned char *)pcXAmzDate, SIGNATURE_DATE_STRING_LEN, (unsigned char *)pHmac) != 0 ||
+        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcRegion, strlen(pcRegion), (unsigned char *)pHmac) != 0 ||
+        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcService, strlen(pcService), (unsigned char *)pHmac) != 0 ||
+        mbedtls_md_hmac(
+            pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)AWS_SIG_V4_SIGNATURE_END, sizeof(AWS_SIG_V4_SIGNATURE_END) - 1, (unsigned char *)pHmac) !=
+            0 ||
+        mbedtls_md_hmac(
+            pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)STRING_c_str(xStSignedStr), STRING_length(xStSignedStr), (unsigned char *)pHmac) != 0)
     {
         xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        for (i=0; i<uHmacSize; i++)
+        for (i = 0; i < uHmacSize; i++)
         {
             if (STRING_sprintf(pxAwsSigV4->xStHmacHexEncoded, "%02x", pHmac[i] & 0xFF) != 0)
             {
@@ -322,7 +330,13 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
 
         if (xRes == 0)
         {
-            if (STRING_sprintf(pxAwsSigV4->xStAuthorization, "AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s", pcAccessKey, STRING_c_str(pxAwsSigV4->xStScope), STRING_c_str(pxAwsSigV4->xStSignedHeaders), STRING_c_str(pxAwsSigV4->xStHmacHexEncoded)) != 0)
+            if (STRING_sprintf(
+                    pxAwsSigV4->xStAuthorization,
+                    "AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
+                    pcAccessKey,
+                    STRING_c_str(pxAwsSigV4->xStScope),
+                    STRING_c_str(pxAwsSigV4->xStSignedHeaders),
+                    STRING_c_str(pxAwsSigV4->xStHmacHexEncoded)) != 0)
             {
                 xRes = KVS_ERRNO_FAIL;
             }

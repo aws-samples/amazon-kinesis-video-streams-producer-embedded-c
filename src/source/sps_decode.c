@@ -13,10 +13,10 @@
  * permissions and limitations under the License.
  */
 
-#include <stdlib.h>
+#include "kvs/allocator.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h>
 
 typedef struct BitStream
 {
@@ -72,7 +72,7 @@ static unsigned int uReadSE(BitStream_t *pBitStream)
 
 void getH264VideoResolution(char *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight)
 {
-    BitStream_t xBitStream = { .pBuf = (unsigned char *)pSps, .xCurrentBit = 0 };
+    BitStream_t xBitStream = {.pBuf = (unsigned char *)pSps, .xCurrentBit = 0};
     int frame_crop_left_offset = 0;
     int frame_crop_right_offset = 0;
     int frame_crop_top_offset = 0;
@@ -95,7 +95,8 @@ void getH264VideoResolution(char *pSps, size_t uSpsLen, uint16_t *puWidth, uint1
     int xHeight = 0;
 
     /* Please refer to https://www.itu.int/rec/T-REC-H.264/ Section 7.4.2.1.1 Sequence parameter set data semantics */
-    if (profile_idc == 100 || profile_idc == 110 || profile_idc == 122 || profile_idc == 244 || profile_idc == 44 || profile_idc == 83 || profile_idc == 86 || profile_idc == 118 || profile_idc == 128 || profile_idc == 138 || profile_idc == 139 || profile_idc == 134 || profile_idc == 135)
+    if (profile_idc == 100 || profile_idc == 110 || profile_idc == 122 || profile_idc == 244 || profile_idc == 44 || profile_idc == 83 || profile_idc == 86 || profile_idc == 118 ||
+        profile_idc == 128 || profile_idc == 138 || profile_idc == 139 || profile_idc == 134 || profile_idc == 135)
     {
         chroma_format_idc = uReadExponentialGolombCode(&xBitStream);
         if (chroma_format_idc == 3)
