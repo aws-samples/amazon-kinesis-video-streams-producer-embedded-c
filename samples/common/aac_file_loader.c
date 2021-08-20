@@ -16,14 +16,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "kvs/nalu.h"
+#include "kvs/allocator.h"
 #include "kvs/mkv_generator.h"
+#include "kvs/nalu.h"
 
-#include "file_io.h"
 #include "aac_file_loader.h"
+#include "file_io.h"
 
 #define ERRNO_NONE      0
 #define ERRNO_FAIL      __LINE__
@@ -32,7 +32,7 @@
 #define SAFE_FREE(a)    \
     do                  \
     {                   \
-        free(a);        \
+        KVS_FREE(a);    \
         a = NULL;       \
     } while (0)
 #endif /* SAFE_FREE */
@@ -72,23 +72,21 @@ static int loadFrame(AacFileLoader_t *pLoader, char **ppData, size_t *puDataLen)
         printf("File loader has stopped loading\r\n");
         res = ERRNO_FAIL;
     }
-    else if ((uFilenameLen = snprintf(NULL, 0, pLoader->pcFileFormat, pLoader->xFileCurrentIdx)) == 0 ||
-             (pcFilename = (char *)malloc(uFilenameLen + 1)) == NULL ||
-            snprintf(pcFilename, uFilenameLen + 1, pLoader->pcFileFormat, pLoader->xFileCurrentIdx) != uFilenameLen)
+    else if (
+        (uFilenameLen = snprintf(NULL, 0, pLoader->pcFileFormat, pLoader->xFileCurrentIdx)) == 0 || (pcFilename = (char *)KVS_MALLOC(uFilenameLen + 1)) == NULL ||
+        snprintf(pcFilename, uFilenameLen + 1, pLoader->pcFileFormat, pLoader->xFileCurrentIdx) != uFilenameLen)
     {
         printf("Unable to setup filename\r\n");
         res = ERRNO_FAIL;
     }
-    else if (getFileSize(pcFilename, &uDataLen) != 0 ||
-             (pData = (char *)malloc(uDataLen)) == NULL ||
-             readFile(pcFilename, pData, uDataLen, &uDataLen) != 0)
+    else if (getFileSize(pcFilename, &uDataLen) != 0 || (pData = (char *)KVS_MALLOC(uDataLen)) == NULL || readFile(pcFilename, pData, uDataLen, &uDataLen) != 0)
     {
         printf("Unable to load data frame: %s\r\n", pcFilename);
         res = ERRNO_FAIL;
     }
     else
     {
-       *ppData = pData;
+        *ppData = pData;
         *puDataLen = uDataLen;
     }
 
@@ -141,7 +139,7 @@ AacFileLoaderHandle AacFileLoaderCreate(FileLoaderPara_t *pFileLoaderPara, Mpeg4
         printf("Invalid H264 File Loader arguments while creating\r\n");
         res = ERRNO_FAIL;
     }
-    else if ((pLoader = (AacFileLoader_t *)malloc(sizeof(AacFileLoader_t))) == NULL)
+    else if ((pLoader = (AacFileLoader_t *)KVS_MALLOC(sizeof(AacFileLoader_t))) == NULL)
     {
         printf("OOM: pLoader in AAC File Loader\r\n");
         res = ERRNO_FAIL;
@@ -150,16 +148,15 @@ AacFileLoaderHandle AacFileLoaderCreate(FileLoaderPara_t *pFileLoaderPara, Mpeg4
     {
         memset(pLoader, 0, sizeof(AacFileLoader_t));
 
-        if ((uStLen = strlen(pFileLoaderPara->pcTrackName)) == 0 ||
-            (pLoader->pcTrackName = (char *)malloc(uStLen + 1)) == NULL ||
+        if ((uStLen = strlen(pFileLoaderPara->pcTrackName)) == 0 || (pLoader->pcTrackName = (char *)KVS_MALLOC(uStLen + 1)) == NULL ||
             snprintf(pLoader->pcTrackName, uStLen + 1, "%s", pFileLoaderPara->pcTrackName) != uStLen)
         {
             printf("Failed to init track name in AAC File Loader\r\n");
             res = ERRNO_FAIL;
         }
-        else if ((uStLen = strlen(pFileLoaderPara->pcFileFormat)) == 0 ||
-                 (pLoader->pcFileFormat = (char *)malloc(uStLen + 1)) == NULL ||
-                 snprintf(pLoader->pcFileFormat, uStLen + 1, "%s", pFileLoaderPara->pcFileFormat) != uStLen)
+        else if (
+            (uStLen = strlen(pFileLoaderPara->pcFileFormat)) == 0 || (pLoader->pcFileFormat = (char *)KVS_MALLOC(uStLen + 1)) == NULL ||
+            snprintf(pLoader->pcFileFormat, uStLen + 1, "%s", pFileLoaderPara->pcFileFormat) != uStLen)
         {
             printf("Failed to init file format in AAC File Loader\r\n");
             res = ERRNO_FAIL;
@@ -197,7 +194,7 @@ void AacFileLoaderTerminate(AacFileLoaderHandle xLoader)
         SAFE_FREE(pLoader->xAudioTrackInfo.pCodecPrivate);
         SAFE_FREE(pLoader->pcTrackName);
         SAFE_FREE(pLoader->pcFileFormat);
-        free(pLoader);
+        KVS_FREE(pLoader);
     }
 }
 

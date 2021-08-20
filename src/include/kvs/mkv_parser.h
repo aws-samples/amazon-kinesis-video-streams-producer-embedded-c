@@ -16,6 +16,8 @@
 #ifndef MKV_PARSER_H
 #define MKV_PARSER_H
 
+#include <stdint.h>
+
 #define MKV_ELEMENT_MAX_ID_LEN                      (4)
 #define MKV_ELEMENT_MAX_SIZE_LEN                    (8)
 #define MKV_ELEMENT_HDR_MAX_SIZE                    (MKV_ELEMENT_MAX_ID_LEN + MKV_ELEMENT_MAX_SIZE_LEN)

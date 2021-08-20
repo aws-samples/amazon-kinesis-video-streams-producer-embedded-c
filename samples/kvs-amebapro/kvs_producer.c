@@ -1,74 +1,74 @@
 #include "platform_opts.h"
 #if CONFIG_EXAMPLE_KVS_PRODUCER
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#    include <stdio.h>
+#    include <stdlib.h>
+#    include <string.h>
 
 /* Headers for example */
-#include "sample_config.h"
-#include "kvs_producer.h"
+#    include "kvs_producer.h"
+#    include "sample_config.h"
 
 /* Headers for FreeRTOS */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
+#    include "FreeRTOS.h"
+#    include "semphr.h"
+#    include "task.h"
 
 /* Headers for video */
-#include "video_common_api.h"
-#include "h264_encoder.h"
-#include "isp_api.h"
-#include "h264_api.h"
-#include "sensor.h"
+#    include "h264_api.h"
+#    include "h264_encoder.h"
+#    include "isp_api.h"
+#    include "sensor.h"
+#    include "video_common_api.h"
 
-#if ENABLE_AUDIO_TRACK
-#include "audio_api.h"
-#include "faac.h"
-#include "faac_api.h"
-#endif /* ENABLE_AUDIO_TRACK */
+#    if ENABLE_AUDIO_TRACK
+#        include "audio_api.h"
+#        include "faac.h"
+#        include "faac_api.h"
+#    endif /* ENABLE_AUDIO_TRACK */
 
 /* Headers for KVS */
-#include "kvs/port.h"
-#include "kvs/nalu.h"
-#include "kvs/restapi.h"
-#include "kvs/stream.h"
+#    include "kvs/nalu.h"
+#    include "kvs/port.h"
+#    include "kvs/restapi.h"
+#    include "kvs/stream.h"
 
-#if ENABLE_IOT_CREDENTIAL
-#include "kvs/iot_credential_provider.h"
-#endif /* ENABLE_IOT_CREDENTIAL */
+#    if ENABLE_IOT_CREDENTIAL
+#        include "kvs/iot_credential_provider.h"
+#    endif /* ENABLE_IOT_CREDENTIAL */
 
-#define ERRNO_NONE      0
-#define ERRNO_FAIL      __LINE__
+#    define ERRNO_NONE 0
+#    define ERRNO_FAIL __LINE__
 
-#define KVS_VIDEO_THREAD_STACK_SIZE     1024
-#define KVS_AUDIO_THREAD_STACK_SIZE     1024
+#    define KVS_VIDEO_THREAD_STACK_SIZE 1024
+#    define KVS_AUDIO_THREAD_STACK_SIZE 1024
 
-#define ISP_SW_BUF_NUM      3
+#    define ISP_SW_BUF_NUM 3
 
-#define ISP_STREAM_ID       0
-#define ISP_HW_SLOT         1
-#define VIDEO_OUTPUT_BUFFER_SIZE    ( VIDEO_HEIGHT * VIDEO_WIDTH / 10 )
+#    define ISP_STREAM_ID 0
+#    define ISP_HW_SLOT 1
+#    define VIDEO_OUTPUT_BUFFER_SIZE (VIDEO_HEIGHT * VIDEO_WIDTH / 10)
 
-#if ENABLE_AUDIO_TRACK
-#define AUDIO_DMA_PAGE_NUM 2
-#define AUDIO_DMA_PAGE_SIZE ( 2 * 1024 )
+#    if ENABLE_AUDIO_TRACK
+#        define AUDIO_DMA_PAGE_NUM 2
+#        define AUDIO_DMA_PAGE_SIZE (2 * 1024)
 
-#define RX_PAGE_SIZE 	AUDIO_DMA_PAGE_SIZE //64*N bytes, max: 4095. 128, 4032
-#define RX_PAGE_NUM 	AUDIO_DMA_PAGE_NUM
+#        define RX_PAGE_SIZE AUDIO_DMA_PAGE_SIZE // 64*N bytes, max: 4095. 128, 4032
+#        define RX_PAGE_NUM AUDIO_DMA_PAGE_NUM
 
 static audio_t audio;
-static uint8_t dma_rxdata[ RX_PAGE_SIZE * RX_PAGE_NUM ]__attribute__ ((aligned (0x20))); 
+static uint8_t dma_rxdata[RX_PAGE_SIZE * RX_PAGE_NUM] __attribute__((aligned(0x20)));
 
-#define AUDIO_QUEUE_DEPTH         ( 10 )
+#        define AUDIO_QUEUE_DEPTH (10)
 static xQueueHandle audioQueue;
-#endif /* ENABLE_AUDIO_TRACK */
+#    endif /* ENABLE_AUDIO_TRACK */
 
 typedef struct isp_s
 {
-    isp_stream_t* stream;
-    
+    isp_stream_t *stream;
+
     isp_cfg_t cfg;
-    
+
     isp_buf_t buf_item[ISP_SW_BUF_NUM];
     xQueueHandle output_ready;
     xQueueHandle output_recycle;
@@ -76,9 +76,9 @@ typedef struct isp_s
 
 typedef struct Kvs
 {
-#if ENABLE_IOT_CREDENTIAL
+#    if ENABLE_IOT_CREDENTIAL
     IotCredentialRequest_t xIotCredentialReq;
-#endif
+#    endif
 
     KvsServiceParameter_t xServicePara;
     KvsDescribeStreamParameter_t xDescPara;
@@ -93,41 +93,47 @@ typedef struct Kvs
     AudioTrackInfo_t *pAudioTrackInfo;
 } Kvs_t;
 
-static void sleepInMs( uint32_t ms )
+static void sleepInMs(uint32_t ms)
 {
-    vTaskDelay( ms / portTICK_PERIOD_MS );
+    vTaskDelay(ms / portTICK_PERIOD_MS);
 }
 
-void isp_frame_cb(void* p)
+void isp_frame_cb(void *p)
 {
     BaseType_t xTaskWokenByReceive = pdFALSE;
     BaseType_t xHigherPriorityTaskWoken;
-    
-    isp_t* ctx = (isp_t*)p;
-    isp_info_t* info = &ctx->stream->info;
+
+    isp_t *ctx = (isp_t *)p;
+    isp_info_t *info = &ctx->stream->info;
     isp_cfg_t *cfg = &ctx->cfg;
     isp_buf_t buf;
     isp_buf_t queue_item;
-    
+
     int is_output_ready = 0;
-    
+
     u32 timestamp = xTaskGetTickCountFromISR();
-    
-    if(info->isp_overflow_flag == 0){
+
+    if (info->isp_overflow_flag == 0)
+    {
         is_output_ready = xQueueReceiveFromISR(ctx->output_recycle, &buf, &xTaskWokenByReceive) == pdTRUE;
-    }else{
-        info->isp_overflow_flag = 0;
-        ISP_DBG_INFO("isp overflow = %d\r\n",cfg->isp_id);
     }
-    
-    if(is_output_ready){
+    else
+    {
+        info->isp_overflow_flag = 0;
+        ISP_DBG_INFO("isp overflow = %d\r\n", cfg->isp_id);
+    }
+
+    if (is_output_ready)
+    {
         isp_handle_buffer(ctx->stream, &buf, MODE_EXCHANGE);
-        xQueueSendFromISR(ctx->output_ready, &buf, &xHigherPriorityTaskWoken);    
-    }else{
+        xQueueSendFromISR(ctx->output_ready, &buf, &xHigherPriorityTaskWoken);
+    }
+    else
+    {
         isp_handle_buffer(ctx->stream, NULL, MODE_SKIP);
     }
-    if( xHigherPriorityTaskWoken || xTaskWokenByReceive )
-        taskYIELD ();
+    if (xHigherPriorityTaskWoken || xTaskWokenByReceive)
+        taskYIELD();
 }
 
 int KvsVideoInitTrackInfo(VIDEO_BUFFER *pVideoBuf, Kvs_t *pKvs)
@@ -148,7 +154,7 @@ int KvsVideoInitTrackInfo(VIDEO_BUFFER *pVideoBuf, Kvs_t *pKvs)
     {
         res = ERRNO_FAIL;
     }
-    else if ((pKvs->pVideoTrackInfo = (VideoTrackInfo_t *)malloc(sizeof(VideoTrackInfo_t))) == NULL)
+    else if ((pKvs->pVideoTrackInfo = (VideoTrackInfo_t *)KVS_MALLOC(sizeof(VideoTrackInfo_t))) == NULL)
     {
         res = ERRNO_FAIL;
     }
@@ -196,7 +202,7 @@ static void sendVideoFrame(VIDEO_BUFFER *pBuffer, Kvs_t *pKvs)
                 printf("Failed to convert Annex-B to AVCC\r\n");
                 res = ERRNO_FAIL;
             }
-            else if ((xDataFrameIn.pData = (char *)malloc(uAvccLen)) == NULL)
+            else if ((xDataFrameIn.pData = (char *)KVS_MALLOC(uAvccLen)) == NULL)
             {
                 printf("OOM: xDataFrameIn.pData\r\n");
                 res = ERRNO_FAIL;
@@ -216,13 +222,12 @@ static void sendVideoFrame(VIDEO_BUFFER *pBuffer, Kvs_t *pKvs)
                 }
                 else
                 {
-                    free(xDataFrameIn.pData);
+                    KVS_FREE(xDataFrameIn.pData);
                 }
             }
         }
-        free(pBuffer->output_buffer);
+        KVS_FREE(pBuffer->output_buffer);
     }
-
 }
 
 static void camera_thread(void *param)
@@ -234,134 +239,148 @@ static void camera_thread(void *param)
     isp_t isp_ctx;
     Kvs_t *pKvs = (Kvs_t *)param;
 
-    vTaskDelay( 2000 / portTICK_PERIOD_MS );
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
 
     printf("[H264] init video related settings\n\r");
-    
+
     memset(&isp_init_cfg, 0, sizeof(isp_init_cfg));
     isp_init_cfg.pin_idx = ISP_PIN_IDX;
     isp_init_cfg.clk = SENSOR_CLK_USE;
     isp_init_cfg.ldc = LDC_STATE;
     isp_init_cfg.fps = SENSOR_FPS;
     isp_init_cfg.isp_fw_location = ISP_FW_LOCATION;
-    
+
     video_subsys_init(&isp_init_cfg);
-#if CONFIG_LIGHT_SENSOR
+#    if CONFIG_LIGHT_SENSOR
     init_sensor_service();
-#else
+#    else
     ir_cut_init(NULL);
     ir_cut_enable(1);
-#endif
-    
+#    endif
+
     printf("[H264] create encoder\n\r");
-    struct h264_context* h264_ctx;
+    struct h264_context *h264_ctx;
     ret = h264_create_encoder(&h264_ctx);
-    if (ret != H264_OK) {
-        printf("\n\rh264_create_encoder err %d\n\r",ret);
+    if (ret != H264_OK)
+    {
+        printf("\n\rh264_create_encoder err %d\n\r", ret);
         goto exit;
     }
 
     printf("[H264] get & set encoder parameters\n\r");
     struct h264_parameter h264_parm;
     ret = h264_get_parm(h264_ctx, &h264_parm);
-    if (ret != H264_OK) {
-        printf("\n\rh264_get_parmeter err %d\n\r",ret);
+    if (ret != H264_OK)
+    {
+        printf("\n\rh264_get_parmeter err %d\n\r", ret);
         goto exit;
     }
-    
+
     h264_parm.height = VIDEO_HEIGHT;
     h264_parm.width = VIDEO_WIDTH;
     h264_parm.rcMode = H264_RC_MODE_CBR;
     h264_parm.bps = 1 * 1024 * 1024;
     h264_parm.ratenum = VIDEO_FPS;
     h264_parm.gopLen = 30;
-    
+
     ret = h264_set_parm(h264_ctx, &h264_parm);
-    if (ret != H264_OK) {
-        printf("\n\rh264_set_parmeter err %d\n\r",ret);
+    if (ret != H264_OK)
+    {
+        printf("\n\rh264_set_parmeter err %d\n\r", ret);
         goto exit;
     }
-    
+
     printf("[H264] init encoder\n\r");
     ret = h264_init_encoder(h264_ctx);
-    if (ret != H264_OK) {
-        printf("\n\rh264_init_encoder_buffer err %d\n\r",ret);
+    if (ret != H264_OK)
+    {
+        printf("\n\rh264_init_encoder_buffer err %d\n\r", ret);
         goto exit;
     }
-    
+
     printf("[ISP] init ISP\n\r");
-    memset(&isp_ctx,0,sizeof(isp_ctx));
+    memset(&isp_ctx, 0, sizeof(isp_ctx));
     isp_ctx.output_ready = xQueueCreate(ISP_SW_BUF_NUM, sizeof(isp_buf_t));
     isp_ctx.output_recycle = xQueueCreate(ISP_SW_BUF_NUM, sizeof(isp_buf_t));
-    
+
     isp_ctx.cfg.isp_id = ISP_STREAM_ID;
     isp_ctx.cfg.format = ISP_FORMAT_YUV420_SEMIPLANAR;
     isp_ctx.cfg.width = VIDEO_WIDTH;
     isp_ctx.cfg.height = VIDEO_HEIGHT;
     isp_ctx.cfg.fps = VIDEO_FPS;
     isp_ctx.cfg.hw_slot_num = ISP_HW_SLOT;
-    
+
     isp_ctx.stream = isp_stream_create(&isp_ctx.cfg);
-    
-    isp_stream_set_complete_callback(isp_ctx.stream, isp_frame_cb, (void*)&isp_ctx);
-    
-    for (int i=0; i<ISP_SW_BUF_NUM; i++ ) {
-        unsigned char *ptr =(unsigned char *) malloc( VIDEO_WIDTH * VIDEO_HEIGHT * 3 / 2 );
-        if (ptr==NULL) {
-            printf("[ISP] Allocate isp buffer[%d] failed\n\r",i);
-            while(1);
+
+    isp_stream_set_complete_callback(isp_ctx.stream, isp_frame_cb, (void *)&isp_ctx);
+
+    for (int i = 0; i < ISP_SW_BUF_NUM; i++)
+    {
+        unsigned char *ptr = (unsigned char *)KVS_MALLOC(VIDEO_WIDTH * VIDEO_HEIGHT * 3 / 2);
+        if (ptr == NULL)
+        {
+            printf("[ISP] Allocate isp buffer[%d] failed\n\r", i);
+            while (1)
+                ;
         }
         isp_ctx.buf_item[i].slot_id = i;
-        isp_ctx.buf_item[i].y_addr = (uint32_t) ptr;
+        isp_ctx.buf_item[i].y_addr = (uint32_t)ptr;
         isp_ctx.buf_item[i].uv_addr = isp_ctx.buf_item[i].y_addr + VIDEO_WIDTH * VIDEO_HEIGHT;
-        
-        if( i < ISP_HW_SLOT ) {
+
+        if (i < ISP_HW_SLOT)
+        {
             // config hw slot
-            //printf("\n\rconfig hw slot[%d] y=%x, uv=%x\n\r",i,isp_ctx.buf_item[i].y_addr,isp_ctx.buf_item[i].uv_addr);
+            // printf("\n\rconfig hw slot[%d] y=%x, uv=%x\n\r",i,isp_ctx.buf_item[i].y_addr,isp_ctx.buf_item[i].uv_addr);
             isp_handle_buffer(isp_ctx.stream, &isp_ctx.buf_item[i], MODE_SETUP);
         }
-        else {
+        else
+        {
             // extra sw buffer
-            //printf("\n\rextra sw buffer[%d] y=%x, uv=%x\n\r",i,isp_ctx.buf_item[i].y_addr,isp_ctx.buf_item[i].uv_addr);
-            if(xQueueSend(isp_ctx.output_recycle, &isp_ctx.buf_item[i], 0)!= pdPASS) {
+            // printf("\n\rextra sw buffer[%d] y=%x, uv=%x\n\r",i,isp_ctx.buf_item[i].y_addr,isp_ctx.buf_item[i].uv_addr);
+            if (xQueueSend(isp_ctx.output_recycle, &isp_ctx.buf_item[i], 0) != pdPASS)
+            {
                 printf("[ISP] Queue send fail\n\r");
-                while(1);
+                while (1)
+                    ;
             }
         }
     }
-    
+
     isp_stream_apply(isp_ctx.stream);
     isp_stream_start(isp_ctx.stream);
-    
+
     printf("Start recording\n");
     int enc_cnt = 0;
-    while ( 1 )
+    while (1)
     {
         // [ISP] get isp data
         isp_buf_t isp_buf;
-        if(xQueueReceive(isp_ctx.output_ready, &isp_buf, 10) != pdTRUE) {
+        if (xQueueReceive(isp_ctx.output_ready, &isp_buf, 10) != pdTRUE)
+        {
             continue;
         }
 
         // [H264] encode data
         video_buf.output_buffer_size = VIDEO_OUTPUT_BUFFER_SIZE;
-        video_buf.output_buffer = malloc( VIDEO_OUTPUT_BUFFER_SIZE );
-        if (video_buf.output_buffer== NULL) {
+        video_buf.output_buffer = KVS_MALLOC(VIDEO_OUTPUT_BUFFER_SIZE);
+        if (video_buf.output_buffer == NULL)
+        {
             printf("Allocate output buffer fail\n\r");
             continue;
         }
         ret = h264_encode_frame(h264_ctx, &isp_buf, &video_buf);
-        if (ret != H264_OK) {
-            printf("\n\rh264_encode_frame err %d\n\r",ret);
+        if (ret != H264_OK)
+        {
+            printf("\n\rh264_encode_frame err %d\n\r", ret);
             if (video_buf.output_buffer != NULL)
-                free(video_buf.output_buffer);
+                KVS_FREE(video_buf.output_buffer);
             continue;
         }
         enc_cnt++;
-        
+
         // [ISP] put back isp buffer
         xQueueSend(isp_ctx.output_recycle, &isp_buf, 10);
-        
+
         // Send video frame
         if (start_recording)
         {
@@ -381,29 +400,30 @@ static void camera_thread(void *param)
             else
             {
                 if (video_buf.output_buffer != NULL)
-                    free(video_buf.output_buffer);
+                    KVS_FREE(video_buf.output_buffer);
             }
         }
     }
-    
+
 exit:
     isp_stream_stop(isp_ctx.stream);
     xQueueReset(isp_ctx.output_ready);
     xQueueReset(isp_ctx.output_recycle);
-    for (int i=0; i<ISP_SW_BUF_NUM; i++ ) {
-        unsigned char* ptr = (unsigned char*) isp_ctx.buf_item[i].y_addr;
-        if (ptr) 
-            free(ptr);
+    for (int i = 0; i < ISP_SW_BUF_NUM; i++)
+    {
+        unsigned char *ptr = (unsigned char *)isp_ctx.buf_item[i].y_addr;
+        if (ptr)
+            KVS_FREE(ptr);
     }
 
-    vTaskDelete( NULL );
+    vTaskDelete(NULL);
 }
 
 static int initCamera(Kvs_t *pKvs)
 {
     int res = ERRNO_NONE;
 
-    if (xTaskCreate(camera_thread, ((const char*)"camera_thread"), KVS_VIDEO_THREAD_STACK_SIZE, pKvs, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+    if (xTaskCreate(camera_thread, ((const char *)"camera_thread"), KVS_VIDEO_THREAD_STACK_SIZE, pKvs, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
     {
         printf("Failed to create camera thread\r\n");
         res = ERRNO_FAIL;
@@ -419,7 +439,7 @@ static int initCamera(Kvs_t *pKvs)
     return res;
 }
 
-#if ENABLE_AUDIO_TRACK
+#    if ENABLE_AUDIO_TRACK
 static void audio_rx_complete(uint32_t arg, uint8_t *pbuf)
 {
     BaseType_t xHigherPriorityTaskWoken = pdTRUE;
@@ -433,7 +453,7 @@ int KvsAudioInitTrackInfo(Kvs_t *pKvs)
     uint8_t *pCodecPrivateData = NULL;
     uint32_t uCodecPrivateDataLen = 0;
 
-    pKvs->pAudioTrackInfo = (AudioTrackInfo_t *)malloc(sizeof(AudioTrackInfo_t));
+    pKvs->pAudioTrackInfo = (AudioTrackInfo_t *)KVS_MALLOC(sizeof(AudioTrackInfo_t));
     memset(pKvs->pAudioTrackInfo, 0, sizeof(AudioTrackInfo_t));
     pKvs->pAudioTrackInfo->pTrackName = AUDIO_NAME;
     pKvs->pAudioTrackInfo->pCodecName = AUDIO_CODEC_NAME;
@@ -454,7 +474,7 @@ static void audio_thread(void *param)
     DataFrameIn_t xDataFrameIn = {0};
     Kvs_t *pKvs = (Kvs_t *)param;
 
-    vTaskDelay( 2000 / portTICK_PERIOD_MS );
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
 
     /* AAC initialize */
     faacEncHandle faac_enc;
@@ -462,7 +482,7 @@ static void audio_thread(void *param)
     int max_bytes_output;
     uint8_t *pAacFrame = NULL;
 
-    aac_encode_init(&faac_enc, FAAC_INPUT_16BIT, 0, AUDIO_SAMPLING_RATE, AUDIO_CHANNEL_NUMBER, MPEG4, &samples_input, &max_bytes_output );
+    aac_encode_init(&faac_enc, FAAC_INPUT_16BIT, 0, AUDIO_SAMPLING_RATE, AUDIO_CHANNEL_NUMBER, MPEG4, &samples_input, &max_bytes_output);
 
     audioQueue = xQueueCreate(AUDIO_QUEUE_DEPTH, sizeof(uint8_t *));
     xQueueReset(audioQueue);
@@ -483,8 +503,8 @@ static void audio_thread(void *param)
     {
         xQueueReceive(audioQueue, &pAudioRxBuffer, portMAX_DELAY);
 
-        pAudioFrame = (uint8_t *)malloc(RX_PAGE_SIZE);
-        if( pAudioFrame == NULL )
+        pAudioFrame = (uint8_t *)KVS_MALLOC(RX_PAGE_SIZE);
+        if (pAudioFrame == NULL)
         {
             printf("OOM: pAudioFrame\r\n");
             continue;
@@ -500,8 +520,8 @@ static void audio_thread(void *param)
 
         xDataFrameIn.xClusterType = MKV_SIMPLE_BLOCK;
 
-        pAacFrame = (uint8_t *)malloc( max_bytes_output );
-        if( pAacFrame == NULL )
+        pAacFrame = (uint8_t *)KVS_MALLOC(max_bytes_output);
+        if (pAacFrame == NULL)
         {
             printf("%s(): out of memory\r\n");
             continue;
@@ -509,7 +529,7 @@ static void audio_thread(void *param)
         int xFrameSize = aac_encode_run(faac_enc, pAudioFrame, 1024, pAacFrame, max_bytes_output);
         xDataFrameIn.pData = (char *)pAacFrame;
         xDataFrameIn.uDataLen = xFrameSize;
-        free(pAudioFrame);
+        KVS_FREE(pAudioFrame);
 
         if (pKvs->xStreamHandle != NULL)
         {
@@ -517,7 +537,7 @@ static void audio_thread(void *param)
         }
         else
         {
-            free(xDataFrameIn.pData);
+            KVS_FREE(xDataFrameIn.pData);
         }
     }
 }
@@ -526,7 +546,7 @@ static int initAudio(Kvs_t *pKvs)
 {
     int res = ERRNO_NONE;
 
-    if (xTaskCreate(audio_thread, ((const char*)"audio_thread"), KVS_AUDIO_THREAD_STACK_SIZE, pKvs, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+    if (xTaskCreate(audio_thread, ((const char *)"audio_thread"), KVS_AUDIO_THREAD_STACK_SIZE, pKvs, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
     {
         printf("Failed to create camera thread\r\n");
         res = ERRNO_FAIL;
@@ -542,7 +562,7 @@ static int initAudio(Kvs_t *pKvs)
 
     return res;
 }
-#endif /* ENABLE_AUDIO_TRACK */
+#    endif /* ENABLE_AUDIO_TRACK */
 
 static int kvsInitialize(Kvs_t *pKvs)
 {
@@ -573,14 +593,14 @@ static int kvsInitialize(Kvs_t *pKvs)
         pKvs->xPutMediaPara.pcStreamName = pcStreamName;
         pKvs->xPutMediaPara.xTimecodeType = TIMECODE_TYPE_ABSOLUTE;
 
-#if ENABLE_IOT_CREDENTIAL
+#    if ENABLE_IOT_CREDENTIAL
         pKvs->xIotCredentialReq.pCredentialHost = CREDENTIALS_HOST;
         pKvs->xIotCredentialReq.pRoleAlias = ROLE_ALIAS;
         pKvs->xIotCredentialReq.pThingName = THING_NAME;
         pKvs->xIotCredentialReq.pRootCA = ROOT_CA;
         pKvs->xIotCredentialReq.pCertificate = CERTIFICATE;
         pKvs->xIotCredentialReq.pPrivateKey = PRIVATE_KEY;
-#endif
+#    endif
     }
 
     return res;
@@ -592,7 +612,7 @@ static void kvsTerminate(Kvs_t *pKvs)
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
-            free(pKvs->xServicePara.pcPutMediaEndpoint);
+            KVS_FREE(pKvs->xServicePara.pcPutMediaEndpoint);
             pKvs->xServicePara.pcPutMediaEndpoint = NULL;
         }
     }
@@ -653,7 +673,7 @@ static void streamFlush(StreamHandle xStreamHandle)
     while ((xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
     {
         pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        free(pDataFrameIn->pData);
+        KVS_FREE(pDataFrameIn->pData);
         Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
@@ -681,7 +701,7 @@ static void streamFlushToNextCluster(StreamHandle xStreamHandle)
             {
                 xDataFrameHandle = Kvs_streamPop(xStreamHandle);
                 pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-                free(pDataFrameIn->pData);
+                KVS_FREE(pDataFrameIn->pData);
                 Kvs_dataFrameTerminate(xDataFrameHandle);
             }
         }
@@ -699,9 +719,9 @@ static int putMediaSendData(Kvs_t *pKvs)
     size_t uMkvHeaderLen = 0;
 
     if (Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO)
-#if ENABLE_AUDIO_TRACK
-           && Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)
-#endif
+#    if ENABLE_AUDIO_TRACK
+        && Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)
+#    endif
     )
     {
         if ((xDataFrameHandle = Kvs_streamPop(pKvs->xStreamHandle)) == NULL)
@@ -721,13 +741,12 @@ static int putMediaSendData(Kvs_t *pKvs)
         }
         else
         {
-
         }
 
         if (xDataFrameHandle != NULL)
         {
             pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            free(pDataFrameIn->pData);
+            KVS_FREE(pDataFrameIn->pData);
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
     }
@@ -753,8 +772,7 @@ static int putMedia(Kvs_t *pKvs)
         printf("Failed to setup PUT MEDIA\r\n");
         res = ERRNO_FAIL;
     }
-    else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 ||
-             Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
+    else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
     {
         printf("Failed to upadte MKV EBML and segment\r\n");
         res = ERRNO_FAIL;
@@ -793,9 +811,9 @@ void Kvs_run(Kvs_t *pKvs)
     int res = ERRNO_NONE;
     unsigned int uHttpStatusCode = 0;
 
-#if ENABLE_IOT_CREDENTIAL
+#    if ENABLE_IOT_CREDENTIAL
     IotCredentialToken_t *pToken = NULL;
-#endif /* ENABLE_IOT_CREDENTIAL */
+#    endif /* ENABLE_IOT_CREDENTIAL */
 
     if (kvsInitialize(pKvs) != 0)
     {
@@ -807,13 +825,13 @@ void Kvs_run(Kvs_t *pKvs)
         printf("Failed to init camera\r\n");
         res = ERRNO_FAIL;
     }
-#if ENABLE_AUDIO_TRACK
+#    if ENABLE_AUDIO_TRACK
     else if (initAudio(pKvs) != 0)
     {
         printf("Failed to init audio\r\n");
         res = ERRNO_FAIL;
     }
-#endif /* ENABLE_AUDIO_TRACK */
+#    endif /* ENABLE_AUDIO_TRACK */
     else if ((pKvs->xStreamHandle = Kvs_streamCreate(pKvs->pVideoTrackInfo, pKvs->pAudioTrackInfo)) == NULL)
     {
         printf("Failed to create stream\r\n");
@@ -823,7 +841,7 @@ void Kvs_run(Kvs_t *pKvs)
     {
         while (1)
         {
-#if ENABLE_IOT_CREDENTIAL
+#    if ENABLE_IOT_CREDENTIAL
             Iot_credentialTerminate(pToken);
             if ((pToken = Iot_getCredential(&(pKvs->xIotCredentialReq))) == NULL)
             {
@@ -836,7 +854,7 @@ void Kvs_run(Kvs_t *pKvs)
                 pKvs->xServicePara.pcSecretKey = pToken->pSecretAccessKey;
                 pKvs->xServicePara.pcToken = pToken->pSessionToken;
             }
-#endif
+#    endif
 
             if (setupDataEndpoint(pKvs) != ERRNO_NONE)
             {

@@ -14,7 +14,6 @@
  */
 
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "azure_c_shared_utility/httpheaders.h"
@@ -22,8 +21,9 @@
 #include "azure_c_shared_utility/xlogging.h"
 #include "parson.h"
 
-#include "kvs/iot_credential_provider.h"
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
+#include "kvs/iot_credential_provider.h"
 
 #include "http_helper.h"
 #include "json_helper.h"
@@ -36,8 +36,8 @@ static int parseIoTCredential(const char *pcJsonSrc, size_t uJsonSrcLen, IotCred
 {
     int xRes = KVS_ERRNO_NONE;
     STRING_HANDLE xStJson = NULL;
-    JSON_Value * pxRootValue = NULL;
-    JSON_Object * pxRootObject = NULL;
+    JSON_Value *pxRootValue = NULL;
+    JSON_Object *pxRootObject = NULL;
 
     json_set_escape_slashes(0);
 
@@ -51,11 +51,11 @@ static int parseIoTCredential(const char *pcJsonSrc, size_t uJsonSrcLen, IotCred
         LogError("OOM: parse IoT credential");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pxRootValue = json_parse_string(STRING_c_str(xStJson))) == NULL ||
-             (pxRootObject = json_value_get_object(pxRootValue)) == NULL ||
-             (pToken->pAccessKeyId = json_object_dotget_serialize_to_string(pxRootObject, "credentials.accessKeyId", true)) == NULL ||
-             (pToken->pSecretAccessKey = json_object_dotget_serialize_to_string(pxRootObject, "credentials.secretAccessKey", true)) == NULL ||
-             (pToken->pSessionToken = json_object_dotget_serialize_to_string(pxRootObject, "credentials.sessionToken", true)) == NULL)
+    else if (
+        (pxRootValue = json_parse_string(STRING_c_str(xStJson))) == NULL || (pxRootObject = json_value_get_object(pxRootValue)) == NULL ||
+        (pToken->pAccessKeyId = json_object_dotget_serialize_to_string(pxRootObject, "credentials.accessKeyId", true)) == NULL ||
+        (pToken->pSecretAccessKey = json_object_dotget_serialize_to_string(pxRootObject, "credentials.secretAccessKey", true)) == NULL ||
+        (pToken->pSessionToken = json_object_dotget_serialize_to_string(pxRootObject, "credentials.sessionToken", true)) == NULL)
     {
         LogError("Failed to parse IoT credential");
         xRes = KVS_ERRNO_FAIL;
@@ -89,7 +89,8 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
 
     NetIoHandle xNetIoHandle = NULL;
 
-    if (pReq == NULL || pReq->pCredentialHost == NULL || pReq->pRoleAlias == NULL || pReq->pThingName == NULL || pReq->pRootCA == NULL || pReq->pCertificate == NULL || pReq->pPrivateKey == NULL)
+    if (pReq == NULL || pReq->pCredentialHost == NULL || pReq->pRoleAlias == NULL || pReq->pThingName == NULL || pReq->pRootCA == NULL || pReq->pCertificate == NULL ||
+        pReq->pPrivateKey == NULL)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -99,17 +100,17 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         LogError("OOM: Failed to allocate IoT URI");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pReq->pCredentialHost) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "accept", "*/*") != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_IOT_THINGNAME, pReq->pThingName) != HTTP_HEADERS_OK)
+    else if (
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pReq->pCredentialHost) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "accept", "*/*") != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_IOT_THINGNAME, pReq->pThingName) != HTTP_HEADERS_OK)
     {
         LogError("Failed to generate HTTP headers");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL ||
-            NetIo_ConnectWithX509(xNetIoHandle, pReq->pCredentialHost, "443", pReq->pRootCA, pReq->pCertificate,
-                                  pReq->pPrivateKey) != KVS_ERRNO_NONE)
+    else if (
+        (xNetIoHandle = NetIo_Create()) == NULL ||
+        NetIo_ConnectWithX509(xNetIoHandle, pReq->pCredentialHost, "443", pReq->pRootCA, pReq->pCertificate, pReq->pPrivateKey) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pReq->pCredentialHost);
         xRes = KVS_ERRNO_FAIL;
@@ -133,7 +134,7 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         }
         else
         {
-            if ((pToken = (IotCredentialToken_t *)malloc(sizeof(IotCredentialToken_t))) == NULL)
+            if ((pToken = (IotCredentialToken_t *)KVS_MALLOC(sizeof(IotCredentialToken_t))) == NULL)
             {
                 LogError("OOM: pToken");
                 xRes = KVS_ERRNO_FAIL;
@@ -141,7 +142,8 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
             else
             {
                 memset(pToken, 0, sizeof(IotCredentialToken_t));
-                if (parseIoTCredential(pRspBody, uRspBodyLen, pToken) != KVS_ERRNO_NONE) {
+                if (parseIoTCredential(pRspBody, uRspBodyLen, pToken) != KVS_ERRNO_NONE)
+                {
                     LogError("Failed to parse data endpoint");
                     xRes = KVS_ERRNO_FAIL;
                 }
@@ -157,7 +159,7 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
 
     if (pRspBody != NULL)
     {
-        free(pRspBody);
+        KVS_FREE(pRspBody);
     }
 
     NetIo_Disconnect(xNetIoHandle);
@@ -174,16 +176,16 @@ void Iot_credentialTerminate(IotCredentialToken_t *pToken)
     {
         if (pToken->pAccessKeyId != NULL)
         {
-            free(pToken->pAccessKeyId);
+            KVS_FREE(pToken->pAccessKeyId);
         }
         if (pToken->pSecretAccessKey != NULL)
         {
-            free(pToken->pSecretAccessKey);
+            KVS_FREE(pToken->pSecretAccessKey);
         }
         if (pToken->pSessionToken != NULL)
         {
-            free(pToken->pSessionToken);
+            KVS_FREE(pToken->pSessionToken);
         }
-        free(pToken);
+        KVS_FREE(pToken);
     }
 }

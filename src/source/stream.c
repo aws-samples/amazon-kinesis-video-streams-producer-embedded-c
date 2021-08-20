@@ -14,7 +14,6 @@
  */
 
 #include <inttypes.h>
-#include <stdlib.h>
 #include <string.h>
 
 /* Thirdparty headers */
@@ -23,6 +22,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 
 /* Public headers */
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/mkv_generator.h"
 #include "kvs/stream.h"
@@ -115,7 +115,7 @@ StreamHandle Kvs_streamCreate(VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_
     {
         LogError("Invalid argument");
     }
-    else if ((pxStream = (Stream_t *)malloc(sizeof(Stream_t))) == NULL)
+    else if ((pxStream = (Stream_t *)KVS_MALLOC(sizeof(Stream_t))) == NULL)
     {
         LogError("OOM: pxStream");
     }
@@ -129,13 +129,13 @@ StreamHandle Kvs_streamCreate(VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_
         if (Mkv_initializeHeaders(&xMkvHeader, pVideoTrackInfo, pAudioTrackInfo) != KVS_ERRNO_NONE)
         {
             LogError("Failed to initialize mkv headers");
-            free(pxStream);
+            KVS_FREE(pxStream);
             pxStream = NULL;
         }
         else if ((pxStream->xLock = Lock_Init()) == NULL)
         {
             LogError("Failed to initialize lock");
-            free(pxStream);
+            KVS_FREE(pxStream);
             pxStream = NULL;
         }
         else
@@ -156,9 +156,9 @@ void Kvs_streamTermintate(StreamHandle xStreamHandle)
 
     if (pxStream != NULL)
     {
-        free(pxStream->pMkvEbmlSeg);
+        KVS_FREE(pxStream->pMkvEbmlSeg);
         Lock_Deinit(pxStream->xLock);
-        free(pxStream);
+        KVS_FREE(pxStream);
     }
 }
 
@@ -172,7 +172,7 @@ int Kvs_streamGetMkvEbmlSegHdr(StreamHandle xStreamHandle, uint8_t **ppMkvHeader
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if(pxStream->pMkvEbmlSeg == NULL || pxStream->uMkvEbmlSegLen == 0)
+    else if (pxStream->pMkvEbmlSeg == NULL || pxStream->uMkvEbmlSegLen == 0)
     {
         LogError("Mkv EBML and segment are not initialized");
         xRes = KVS_ERRNO_FAIL;
@@ -204,9 +204,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0 ||
-        (pxDataFrame = (DataFrame_t *)malloc(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL
-    )
+    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0 || (pxDataFrame = (DataFrame_t *)KVS_MALLOC(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
     {
         LogError("Failed to create data frame");
         xRes = KVS_ERRNO_FAIL;
@@ -251,7 +249,15 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
             bListAdded = true;
         }
 
-        Mkv_initializeClusterHdr((uint8_t *)(pxDataFrame->pMkvHdr), pxDataFrame->uMkvHdrLen, pxDataFrameIn->xClusterType, pxDataFrameIn->uDataLen, pxDataFrameIn->xTrackType, pxDataFrameIn->bIsKeyFrame, pxDataFrameIn->uTimestampMs, uDeltaTimestampMs);
+        Mkv_initializeClusterHdr(
+            (uint8_t *)(pxDataFrame->pMkvHdr),
+            pxDataFrame->uMkvHdrLen,
+            pxDataFrameIn->xClusterType,
+            pxDataFrameIn->uDataLen,
+            pxDataFrameIn->xTrackType,
+            pxDataFrameIn->bIsKeyFrame,
+            pxDataFrameIn->uTimestampMs,
+            uDeltaTimestampMs);
 
         Unlock(pxStream->xLock);
     }
@@ -260,7 +266,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
     {
         if (pxDataFrame != NULL)
         {
-            free(pxDataFrame);
+            KVS_FREE(pxDataFrame);
             pxDataFrame = NULL;
         }
     }
@@ -404,6 +410,6 @@ void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
 
     if (pxDataFrame != NULL)
     {
-        free(pxDataFrame);
+        KVS_FREE(pxDataFrame);
     }
 }

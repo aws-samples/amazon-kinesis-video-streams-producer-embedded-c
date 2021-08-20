@@ -13,14 +13,15 @@
  * permissions and limitations under the License.
  */
 
-#include <stdbool.h>
+#include "kvs/allocator.h"
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "json_helper.h"
 
-char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char * pcName, bool bRemoveQuotes)
+char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char *pcName, bool bRemoveQuotes)
 {
     char *pcRes = NULL;
     char *pcVal = NULL;
@@ -36,12 +37,12 @@ char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, co
                 if (bRemoveQuotes)
                 {
                     uValLen = strlen(pcVal);
-                    if (uValLen > 2 && (pcRes = malloc(uValLen - 1)) != NULL)
+                    if (uValLen > 2 && (pcRes = KVS_MALLOC(uValLen - 1)) != NULL)
                     {
                         memcpy(pcRes, pcVal + 1, uValLen - 2);
                         pcRes[uValLen - 2] = '\0';
                     }
-                    free(pcVal);
+                    KVS_FREE(pcVal);
                 }
                 else
                 {
@@ -70,7 +71,7 @@ uint64_t json_object_dotget_uint64(const JSON_Object *pxRootObject, const char *
             {
                 /* We have a valid string value here. */
                 uVal = strtoull(pcValue, NULL, xBase);
-                free(pcValue);
+                KVS_FREE(pcValue);
             }
         }
     }

@@ -13,13 +13,13 @@
  * permissions and limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
+#include <aacenc_lib.h>
 
 #include "aac_encoder/aac_encoder.h"
-#include <aacenc_lib.h>
+#include "kvs/allocator.h"
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
@@ -40,7 +40,7 @@ AacEncoderHandle AacEncoder_create(const unsigned int sample_rate, const unsigne
     {
         printf("%s: Invalid parameters\n", __FUNCTION__);
     }
-    else if ((pAacEncoder = (AacEncoder_t *)malloc(sizeof(AacEncoder_t))) == NULL)
+    else if ((pAacEncoder = (AacEncoder_t *)KVS_MALLOC(sizeof(AacEncoder_t))) == NULL)
     {
         printf("OOM: pAacEncoder\n");
     }
@@ -88,7 +88,7 @@ AacEncoderHandle AacEncoder_create(const unsigned int sample_rate, const unsigne
             {
                 aacEncClose(&(pAacEncoder->aacEncoderHandle));
             }
-            free(pAacEncoder);
+            KVS_FREE(pAacEncoder);
             pAacEncoder = NULL;
         }
     }
@@ -106,7 +106,7 @@ void AacEncoder_terminate(AacEncoderHandle xAacEncoderHandle)
         {
             aacEncClose(&(pAacEncoder->aacEncoderHandle));
         }
-        free(pAacEncoder);
+        KVS_FREE(pAacEncoder);
     }
 }
 

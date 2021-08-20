@@ -22,12 +22,13 @@
 #include "azure_c_shared_utility/httpheaders.h"
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
-#include "parson.h"
 #include "llhttp.h"
+#include "parson.h"
 
 /* Public headers */
-#include "kvs/restapi.h"
+#include "kvs/allocator.h"
 #include "kvs/errors.h"
+#include "kvs/restapi.h"
 
 /* Platform dependent headers */
 #include "kvs/port.h"
@@ -39,30 +40,30 @@
 #include "netio.h"
 
 #ifndef SAFE_FREE
-#define SAFE_FREE(a)    \
-    do                  \
-    {                   \
-        free(a);        \
-        a = NULL;       \
-    } while (0)
+#    define SAFE_FREE(a)                                                                                                                                                           \
+        do                                                                                                                                                                         \
+        {                                                                                                                                                                          \
+            KVS_FREE(a);                                                                                                                                                           \
+            a = NULL;                                                                                                                                                              \
+        } while (0)
 #endif /* SAFE_FREE */
 
-#define DEFAULT_RECV_BUFSIZE            (1024)
+#define DEFAULT_RECV_BUFSIZE (1024)
 
-#define PORT_HTTPS                      "443"
-
-/*-----------------------------------------------------------*/
-
-#define KVS_URI_CREATE_STREAM           "/createStream"
-#define KVS_URI_DESCRIBE_STREAM         "/describeStream"
-#define KVS_URI_GET_DATA_ENDPOINT       "/getDataEndpoint"
-#define KVS_URI_PUT_MEDIA               "/putMedia"
+#define PORT_HTTPS "443"
 
 /*-----------------------------------------------------------*/
 
-#define DESCRIBE_STREAM_HTTP_BODY_TEMPLATE  "{\"StreamName\": \"%s\"}"
+#define KVS_URI_CREATE_STREAM "/createStream"
+#define KVS_URI_DESCRIBE_STREAM "/describeStream"
+#define KVS_URI_GET_DATA_ENDPOINT "/getDataEndpoint"
+#define KVS_URI_PUT_MEDIA "/putMedia"
 
-#define CREATE_STREAM_HTTP_BODY_TEMPLATE    "{\"StreamName\": \"%s\",\"DataRetentionInHours\": %d}"
+/*-----------------------------------------------------------*/
+
+#define DESCRIBE_STREAM_HTTP_BODY_TEMPLATE "{\"StreamName\": \"%s\"}"
+
+#define CREATE_STREAM_HTTP_BODY_TEMPLATE "{\"StreamName\": \"%s\",\"DataRetentionInHours\": %d}"
 
 #define GET_DATA_ENDPOINT_HTTP_BODY_TEMPLATE "{\"StreamName\": \"%s\",\"APIName\":\"PUT_MEDIA\"}"
 
@@ -74,17 +75,18 @@ typedef struct PutMedia
     unsigned int uLastErrorId;
 } PutMedia_t;
 
-#define JSON_KEY_EVENT_TYPE             "EventType"
-#define JSON_KEY_FRAGMENT_TIMECODE      "FragmentTimecode"
-#define JSON_KEY_ERROR_ID               "ErrorId"
+#define JSON_KEY_EVENT_TYPE "EventType"
+#define JSON_KEY_FRAGMENT_TIMECODE "FragmentTimecode"
+#define JSON_KEY_ERROR_ID "ErrorId"
 
-#define EVENT_TYPE_BUFFERING            "\"BUFFERING\""
-#define EVENT_TYPE_RECEIVED             "\"RECEIVED\""
-#define EVENT_TYPE_PERSISTED            "\"PERSISTED\""
-#define EVENT_TYPE_ERROR                "\"ERROR\""
-#define EVENT_TYPE_IDLE                 "\"IDLE\""
+#define EVENT_TYPE_BUFFERING "\"BUFFERING\""
+#define EVENT_TYPE_RECEIVED "\"RECEIVED\""
+#define EVENT_TYPE_PERSISTED "\"PERSISTED\""
+#define EVENT_TYPE_ERROR "\"ERROR\""
+#define EVENT_TYPE_IDLE "\"IDLE\""
 
-typedef enum {
+typedef enum
+{
     EVENT_UNKNOWN = 0,
     EVENT_BUFFERING,
     EVENT_RECEIVED,
@@ -104,11 +106,7 @@ typedef struct
 
 static int prvValidateServiceParameter(KvsServiceParameter_t *pServPara)
 {
-    if (pServPara == NULL ||
-        pServPara->pcAccessKey == NULL ||
-        pServPara->pcSecretKey == NULL ||
-        pServPara->pcRegion == NULL ||
-        pServPara->pcService == NULL ||
+    if (pServPara == NULL || pServPara->pcAccessKey == NULL || pServPara->pcSecretKey == NULL || pServPara->pcRegion == NULL || pServPara->pcService == NULL ||
         pServPara->pcHost == NULL)
     {
         return KVS_ERRNO_FAIL;
@@ -121,8 +119,7 @@ static int prvValidateServiceParameter(KvsServiceParameter_t *pServPara)
 
 static int prvValidateDescribeStreamParameter(KvsDescribeStreamParameter_t *pDescPara)
 {
-    if (pDescPara == NULL ||
-        pDescPara->pcStreamName == NULL)
+    if (pDescPara == NULL || pDescPara->pcStreamName == NULL)
     {
         return KVS_ERRNO_FAIL;
     }
@@ -134,8 +131,7 @@ static int prvValidateDescribeStreamParameter(KvsDescribeStreamParameter_t *pDes
 
 static int prvValidateCreateStreamParameter(KvsCreateStreamParameter_t *pCreatePara)
 {
-    if (pCreatePara == NULL ||
-        pCreatePara->pcStreamName == NULL)
+    if (pCreatePara == NULL || pCreatePara->pcStreamName == NULL)
     {
         return KVS_ERRNO_FAIL;
     }
@@ -147,8 +143,7 @@ static int prvValidateCreateStreamParameter(KvsCreateStreamParameter_t *pCreateP
 
 static int prvValidateGetDataEndpointParameter(KvsGetDataEndpointParameter_t *pGetDataEpPara)
 {
-    if (pGetDataEpPara == NULL ||
-        pGetDataEpPara->pcStreamName == NULL)
+    if (pGetDataEpPara == NULL || pGetDataEpPara->pcStreamName == NULL)
     {
         return KVS_ERRNO_FAIL;
     }
@@ -160,8 +155,7 @@ static int prvValidateGetDataEndpointParameter(KvsGetDataEndpointParameter_t *pG
 
 static int prvValidatePutMediaParameter(KvsPutMediaParameter_t *pPutMediaPara)
 {
-    if (pPutMediaPara == NULL ||
-        pPutMediaPara->pcStreamName == NULL)
+    if (pPutMediaPara == NULL || pPutMediaPara->pcStreamName == NULL)
     {
         return KVS_ERRNO_FAIL;
     }
@@ -183,53 +177,57 @@ static AwsSigV4Handle prvSign(KvsServiceParameter_t *pServPara, char *pcUri, cha
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_CONNECTION)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_CONNECTION, pcVal) != KVS_ERRNO_NONE)
+    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_CONNECTION)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_CONNECTION, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_HOST)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_HOST, pcVal) != KVS_ERRNO_NONE)
+    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_HOST)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_HOST, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_TRANSFER_ENCODING)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_TRANSFER_ENCODING, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_TRANSFER_ENCODING)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_TRANSFER_ENCODING, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_USER_AGENT)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_USER_AGENT, pcVal) != KVS_ERRNO_NONE)
+    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_USER_AGENT)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_USER_AGENT, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcXAmzDate = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_DATE)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_DATE, pcXAmzDate) != KVS_ERRNO_NONE)
+    else if (
+        (pcXAmzDate = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_DATE)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_DATE, pcXAmzDate) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_SECURITY_TOKEN)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_SECURITY_TOKEN, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_SECURITY_TOKEN)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_SECURITY_TOKEN, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_ACK_REQUIRED)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_ACK_REQUIRED, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_ACK_REQUIRED)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_ACK_REQUIRED, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_T_TYPE)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_T_TYPE, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_T_TYPE)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_T_TYPE, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_PRODUCER_START_T)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_PRODUCER_START_T, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_PRODUCER_START_T)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_PRODUCER_START_T, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_STREAM_NAME)) != NULL &&
-            AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_STREAM_NAME, pcVal) != KVS_ERRNO_NONE)
+    else if (
+        (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_STREAM_NAME)) != NULL &&
+        AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_STREAM_NAME, pcVal) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -237,8 +235,7 @@ static AwsSigV4Handle prvSign(KvsServiceParameter_t *pServPara, char *pcUri, cha
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if (AwsSigV4_Sign(xAwsSigV4Handle, pServPara->pcAccessKey, pServPara->pcSecretKey, pServPara->pcRegion,
-                           pServPara->pcService, pcXAmzDate) != KVS_ERRNO_NONE)
+    else if (AwsSigV4_Sign(xAwsSigV4Handle, pServPara->pcAccessKey, pServPara->pcSecretKey, pServPara->pcRegion, pServPara->pcService, pcXAmzDate) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -262,10 +259,14 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
     STRING_HANDLE xStJson = NULL;
     JSON_Value *pxRootValue = NULL;
     JSON_Object *pxRootObject = NULL;
-    char * pcDataEndpoint = NULL;
+    char *pcDataEndpoint = NULL;
     size_t uEndpointLen = 0;
 
-    json_set_escape_slashes( 0 );
+#ifdef KVS_USE_POOL_ALLOCATOR
+    json_set_allocation_functions(poolAllocatorMalloc, poolAllocatorFree);
+#endif
+
+    json_set_escape_slashes(0);
 
     if (pcJsonSrc == NULL || uJsonSrcLen == 0 || ppcEndpoint == NULL)
     {
@@ -277,9 +278,9 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
         LogError("OOM: parse data endpoint");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pxRootValue = json_parse_string(STRING_c_str(xStJson))) == NULL ||
-             (pxRootObject = json_value_get_object( pxRootValue)) == NULL ||
-             (pcDataEndpoint = json_object_dotget_serialize_to_string( pxRootObject, "DataEndpoint", true)) == NULL)
+    else if (
+        (pxRootValue = json_parse_string(STRING_c_str(xStJson))) == NULL || (pxRootObject = json_value_get_object(pxRootValue)) == NULL ||
+        (pcDataEndpoint = json_object_dotget_serialize_to_string(pxRootObject, "DataEndpoint", true)) == NULL)
     {
         LogError("Failed to parse data endpoint");
         xRes = KVS_ERRNO_FAIL;
@@ -291,14 +292,14 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
         if (uEndpointLen > 8)
         {
             uEndpointLen -= 8;
-            *ppcEndpoint = (char *)malloc(uEndpointLen + 1);
+            *ppcEndpoint = (char *)KVS_MALLOC(uEndpointLen + 1);
             if (*ppcEndpoint != NULL)
             {
                 memcpy(*ppcEndpoint, pcDataEndpoint + 8, uEndpointLen);
                 (*ppcEndpoint)[uEndpointLen] = '\0';
             }
         }
-        free(pcDataEndpoint);
+        KVS_FREE(pcDataEndpoint);
     }
 
     if (pxRootValue != NULL)
@@ -342,23 +343,23 @@ static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen,
     }
     else
     {
-        for (i=0; i<uLen-1; i++)
+        for (i = 0; i < uLen - 1; i++)
         {
             c = toupper(pcSrc[i]);
             if (isxdigit(c))
             {
                 if (c >= '0' && c <= '9')
                 {
-                    uMsgLen = uMsgLen * 16 + (c-'0');
+                    uMsgLen = uMsgLen * 16 + (c - '0');
                 }
                 else
                 {
-                    uMsgLen = uMsgLen * 16 + (c-'A') + 10;
+                    uMsgLen = uMsgLen * 16 + (c - 'A') + 10;
                 }
             }
             else if (c == '\r')
             {
-                if (pcSrc[i+1] == '\n')
+                if (pcSrc[i + 1] == '\n')
                 {
                     uBytesRead = i + 2;
                     break;
@@ -393,23 +394,23 @@ static EVENT_TYPE prvGetEventType(char *pcEventType)
 
     if (pcEventType != NULL)
     {
-        if (strncmp(pcEventType, EVENT_TYPE_BUFFERING, sizeof(EVENT_TYPE_BUFFERING)-1) == 0)
+        if (strncmp(pcEventType, EVENT_TYPE_BUFFERING, sizeof(EVENT_TYPE_BUFFERING) - 1) == 0)
         {
             ev = EVENT_BUFFERING;
         }
-        else if (strncmp(pcEventType, EVENT_TYPE_RECEIVED, sizeof(EVENT_TYPE_RECEIVED)-1) == 0)
+        else if (strncmp(pcEventType, EVENT_TYPE_RECEIVED, sizeof(EVENT_TYPE_RECEIVED) - 1) == 0)
         {
             ev = EVENT_RECEIVED;
         }
-        else if (strncmp(pcEventType, EVENT_TYPE_PERSISTED, sizeof(EVENT_TYPE_PERSISTED)-1) == 0)
+        else if (strncmp(pcEventType, EVENT_TYPE_PERSISTED, sizeof(EVENT_TYPE_PERSISTED) - 1) == 0)
         {
             ev = EVENT_PERSISTED;
         }
-        else if (strncmp(pcEventType, EVENT_TYPE_ERROR, sizeof(EVENT_TYPE_ERROR)-1) == 0)
+        else if (strncmp(pcEventType, EVENT_TYPE_ERROR, sizeof(EVENT_TYPE_ERROR) - 1) == 0)
         {
             ev = EVENT_ERROR;
         }
-        else if (strncmp(pcEventType, EVENT_TYPE_IDLE, sizeof(EVENT_TYPE_IDLE)-1) == 0)
+        else if (strncmp(pcEventType, EVENT_TYPE_IDLE, sizeof(EVENT_TYPE_IDLE) - 1) == 0)
         {
             ev = EVENT_IDLE;
         }
@@ -432,11 +433,10 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pxRootValue = json_parse_string(pcFragmentMsg)) == NULL ||
-             (pxRootObject = json_value_get_object(pxRootValue)) == NULL)
+    else if ((pxRootValue = json_parse_string(pcFragmentMsg)) == NULL || (pxRootObject = json_value_get_object(pxRootValue)) == NULL)
     {
         LogInfo("Failed to parse fragment msg:%s\r\n", pcFragmentMsg);
-        xRes = KVS_ERRNO_FAIL;        
+        xRes = KVS_ERRNO_FAIL;
     }
     else if ((pcEventType = json_object_dotget_serialize_to_string(pxRootObject, JSON_KEY_EVENT_TYPE, false)) == NULL)
     {
@@ -446,11 +446,9 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
     else
     {
         pxFragmentAck->eventType = prvGetEventType(pcEventType);
-        free(pcEventType);
+        KVS_FREE(pcEventType);
 
-        if (pxFragmentAck->eventType == EVENT_BUFFERING ||
-            pxFragmentAck->eventType == EVENT_RECEIVED ||
-            pxFragmentAck->eventType == EVENT_PERSISTED ||
+        if (pxFragmentAck->eventType == EVENT_BUFFERING || pxFragmentAck->eventType == EVENT_RECEIVED || pxFragmentAck->eventType == EVENT_PERSISTED ||
             pxFragmentAck->eventType == EVENT_ERROR)
         {
             pxFragmentAck->uFragmentTimecode = json_object_dotget_uint64(pxRootObject, JSON_KEY_FRAGMENT_TIMECODE, 10);
@@ -486,8 +484,7 @@ static int prvParseFragmentAck(char *pcSrc, size_t uLen, FragmentAck_t *pxFragAc
         LogInfo("Unknown fragment ack:%.*s", (int)uLen, pcSrc);
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStFragMsg = STRING_construct_n(pcSrc + uBytesRead, uMsgLen)) == NULL || 
-             parseFragmentMsg(STRING_c_str(xStFragMsg), pxFragAck) != KVS_ERRNO_NONE)
+    else if ((xStFragMsg = STRING_construct_n(pcSrc + uBytesRead, uMsgLen)) == NULL || parseFragmentMsg(STRING_c_str(xStFragMsg), pxFragAck) != KVS_ERRNO_NONE)
     {
         LogInfo("Failed to parse fragment ack");
         xRes = KVS_ERRNO_FAIL;
@@ -504,7 +501,7 @@ static int prvParseFragmentAck(char *pcSrc, size_t uLen, FragmentAck_t *pxFragAc
 
 static void prvLogFragmentAck(FragmentAck_t *pFragmentAck)
 {
-    if (pFragmentAck != NULL )
+    if (pFragmentAck != NULL)
     {
         if (pFragmentAck->eventType == EVENT_BUFFERING)
         {
@@ -533,14 +530,13 @@ static void prvLogFragmentAck(FragmentAck_t *pFragmentAck)
     }
 }
 
-
-int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParameter_t *pDescPara, unsigned int* puHttpStatusCode)
+int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParameter_t *pDescPara, unsigned int *puHttpStatusCode)
 {
     int xRes = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
-    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = { 0 };
+    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = {0};
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
 
@@ -551,8 +547,7 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
 
     NetIoHandle xNetIoHandle = NULL;
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE ||
-        prvValidateDescribeStreamParameter(pDescPara) != KVS_ERRNO_NONE)
+    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateDescribeStreamParameter(pDescPara) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -562,32 +557,33 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStHttpBody = STRING_construct_sprintf(DESCRIBE_STREAM_HTTP_BODY_TEMPLATE, pDescPara->pcStreamName)) == NULL ||
-             (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
+    else if (
+        (xStHttpBody = STRING_construct_sprintf(DESCRIBE_STREAM_HTTP_BODY_TEMPLATE, pDescPara->pcStreamName)) == NULL ||
+        (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
         LogError("Failed to allocate HTTP body");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
-             (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
+    else if (
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
+        (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
         LogError("Failed to generate HTTP headers");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xAwsSigV4Handle = prvSign(pServPara, KVS_URI_DESCRIBE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
+    else if (
+        (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_DESCRIBE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL ||
-            NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -618,13 +614,13 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
     return xRes;
 }
 
-int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_t *pCreatePara, unsigned int* puHttpStatusCode)
+int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_t *pCreatePara, unsigned int *puHttpStatusCode)
 {
     int xRes = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
-    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = { 0 };
+    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = {0};
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
 
@@ -635,8 +631,7 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
 
     NetIoHandle xNetIoHandle = NULL;
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE ||
-        prvValidateCreateStreamParameter(pCreatePara) != KVS_ERRNO_NONE)
+    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateCreateStreamParameter(pCreatePara) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -646,32 +641,33 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStHttpBody = STRING_construct_sprintf(CREATE_STREAM_HTTP_BODY_TEMPLATE, pCreatePara->pcStreamName, pCreatePara->uDataRetentionInHours)) == NULL ||
-             (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
+    else if (
+        (xStHttpBody = STRING_construct_sprintf(CREATE_STREAM_HTTP_BODY_TEMPLATE, pCreatePara->pcStreamName, pCreatePara->uDataRetentionInHours)) == NULL ||
+        (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
         LogError("Failed to allocate HTTP body");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
-            (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
+    else if (
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
+        (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
         LogError("Failed to generate HTTP headers");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xAwsSigV4Handle = prvSign(pServPara, KVS_URI_CREATE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
+    else if (
+        (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_CREATE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL ||
-            NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -691,7 +687,6 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         *puHttpStatusCode = uHttpStatusCode;
     }
 
-
     NetIo_Disconnect(xNetIoHandle);
     NetIo_Terminate(xNetIoHandle);
     SAFE_FREE(pRspBody);
@@ -703,13 +698,13 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
     return xRes;
 }
 
-int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointParameter_t *pGetDataEpPara, unsigned int* puHttpStatusCode, char **ppcDataEndpoint)
+int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointParameter_t *pGetDataEpPara, unsigned int *puHttpStatusCode, char **ppcDataEndpoint)
 {
     int xRes = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
-    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = { 0 };
+    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = {0};
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
 
@@ -720,8 +715,7 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
 
     NetIoHandle xNetIoHandle = NULL;
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE ||
-        prvValidateGetDataEndpointParameter(pGetDataEpPara) != KVS_ERRNO_NONE)
+    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateGetDataEndpointParameter(pGetDataEpPara) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -731,32 +725,33 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xStHttpBody = STRING_construct_sprintf(GET_DATA_ENDPOINT_HTTP_BODY_TEMPLATE, pGetDataEpPara->pcStreamName)) == NULL ||
-             (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
+    else if (
+        (xStHttpBody = STRING_construct_sprintf(GET_DATA_ENDPOINT_HTTP_BODY_TEMPLATE, pGetDataEpPara->pcStreamName)) == NULL ||
+        (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
         LogError("Failed to allocate HTTP body");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
-             (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
+    else if (
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
+        (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
         LogError("Failed to generate HTTP headers");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xAwsSigV4Handle = prvSign(pServPara, KVS_URI_GET_DATA_ENDPOINT, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
+    else if (
+        (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_GET_DATA_ENDPOINT, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL ||
-            NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -804,12 +799,12 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
     return xRes;
 }
 
-int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *pPutMediaPara, unsigned int* puHttpStatusCode, PutMediaHandle *pPutMediaHandle)
+int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *pPutMediaPara, unsigned int *puHttpStatusCode, PutMediaHandle *pPutMediaHandle)
 {
     int xRes = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = NULL;
 
-    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = { 0 };
+    char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = {0};
     STRING_HANDLE xStProducerStartTimestamp = NULL;
     uint64_t uProducerStartTimestamp = 0;
 
@@ -823,9 +818,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
     NetIoHandle xNetIoHandle = NULL;
     bool bKeepNetIo = false;
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE ||
-        prvValidatePutMediaParameter(pPutMediaPara) != KVS_ERRNO_NONE ||
-        pPutMediaHandle == NULL)
+    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidatePutMediaParameter(pPutMediaPara) != KVS_ERRNO_NONE || pPutMediaHandle == NULL)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -835,38 +828,39 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         LogError("Failed to get time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if (((uProducerStartTimestamp = (pPutMediaPara->uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : pPutMediaPara->uProducerStartTimestampMs) == 0) ||
+    else if (
+        ((uProducerStartTimestamp = (pPutMediaPara->uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : pPutMediaPara->uProducerStartTimestampMs) == 0) ||
         (xStProducerStartTimestamp = STRING_construct_sprintf("%." PRIu64 ".%03d", uProducerStartTimestamp / 1000, uProducerStartTimestamp % 1000)) == NULL)
     {
         LogError("Failed to get epoch time");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcPutMediaEndpoint) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONNECTION, VAL_KEEP_ALIVE) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_TRANSFER_ENCODING, VAL_TRANSFER_ENCODING_CHUNKED) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
-             (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)) ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_FRAG_ACK_REQUIRED, VAL_FRAGMENT_ACK_REQUIRED_TRUE) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_FRAG_T_TYPE, prvGetTimecodeValue(pPutMediaPara->xTimecodeType)) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_PRODUCER_START_T, STRING_c_str(xStProducerStartTimestamp)) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_STREAM_NAME, pPutMediaPara->pcStreamName) != HTTP_HEADERS_OK ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "expect", "100-continue") != HTTP_HEADERS_OK)
+    else if (
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcPutMediaEndpoint) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONNECTION, VAL_KEEP_ALIVE) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_TRANSFER_ENCODING, VAL_TRANSFER_ENCODING_CHUNKED) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_USER_AGENT, VAL_USER_AGENT) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
+        (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)) ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_FRAG_ACK_REQUIRED, VAL_FRAGMENT_ACK_REQUIRED_TRUE) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_FRAG_T_TYPE, prvGetTimecodeValue(pPutMediaPara->xTimecodeType)) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_PRODUCER_START_T, STRING_c_str(xStProducerStartTimestamp)) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_STREAM_NAME, pPutMediaPara->pcStreamName) != HTTP_HEADERS_OK ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "expect", "100-continue") != HTTP_HEADERS_OK)
     {
         LogError("Failed to generate HTTP headers");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xAwsSigV4Handle = prvSign(pServPara, KVS_URI_PUT_MEDIA, URI_QUERY_EMPTY, xHttpReqHeaders, HTTP_BODY_EMPTY)) == NULL ||
-             HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
+    else if (
+        (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_PUT_MEDIA, URI_QUERY_EMPTY, xHttpReqHeaders, HTTP_BODY_EMPTY)) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL ||
-            NetIo_Connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcPutMediaEndpoint);
         xRes = KVS_ERRNO_FAIL;
@@ -887,7 +881,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
         if (uHttpStatusCode == 200)
         {
-            if ((pPutMedia = (PutMedia_t *)malloc(sizeof(PutMedia_t))) == NULL)
+            if ((pPutMedia = (PutMedia_t *)KVS_MALLOC(sizeof(PutMedia_t))) == NULL)
             {
                 LogError("OOM: pPutMedia");
                 xRes = KVS_ERRNO_FAIL;
@@ -920,7 +914,7 @@ int Kvs_putMediaUpdate(PutMediaHandle xPutMediaHandle, uint8_t *pMkvHeader, size
     int xRes = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     int xChunkedHeaderLen = 0;
-    char pcChunkedHeader[sizeof(size_t)*2+3];
+    char pcChunkedHeader[sizeof(size_t) * 2 + 3];
     const char *pcChunkedEnd = "\r\n";
 
     if (pData == NULL)
@@ -966,7 +960,7 @@ int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t 
     int xRes = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     int xChunkedHeaderLen = 0;
-    char pcChunkedHeader[sizeof(size_t)*2+3];
+    char pcChunkedHeader[sizeof(size_t) * 2 + 3];
     const char *pcChunkedEnd = "\r\n";
 
     if (pPutMedia == NULL || pBuf == NULL || uLen == 0)
@@ -985,8 +979,7 @@ int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t 
         else
         {
             if (NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
-                NetIo_Send(pPutMedia->xNetIoHandle, pBuf, uLen) != 0 ||
-                NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
+                NetIo_Send(pPutMedia->xNetIoHandle, pBuf, uLen) != 0 || NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
             {
                 LogError("Failed to send data frame");
                 xRes = KVS_ERRNO_FAIL;
@@ -1032,7 +1025,8 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
                 break;
             }
 
-            if (NetIo_Recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) != KVS_ERRNO_NONE)
+            if (NetIo_Recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) !=
+                KVS_ERRNO_NONE)
             {
                 LogError("Failed to receive");
                 xRes = KVS_ERRNO_FAIL;
@@ -1048,7 +1042,8 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
             while (uBytesReceived < uBytesTotalReceived)
             {
                 memset(&xFragmentAck, 0, sizeof(FragmentAck_t));
-                if (prvParseFragmentAck((char *)BUFFER_u_char(xBufRecv) + uBytesReceived, uBytesTotalReceived - uBytesReceived, &xFragmentAck, &uFragAckLen) != KVS_ERRNO_NONE || uFragAckLen == 0)
+                if (prvParseFragmentAck((char *)BUFFER_u_char(xBufRecv) + uBytesReceived, uBytesTotalReceived - uBytesReceived, &xFragmentAck, &uFragAckLen) != KVS_ERRNO_NONE ||
+                    uFragAckLen == 0)
                 {
                     break;
                 }
@@ -1083,6 +1078,6 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
             NetIo_Disconnect(pPutMedia->xNetIoHandle);
             NetIo_Terminate(pPutMedia->xNetIoHandle);
         }
-        free(pPutMedia);
+        KVS_FREE(pPutMedia);
     }
 }
