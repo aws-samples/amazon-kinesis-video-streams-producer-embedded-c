@@ -25,6 +25,23 @@ set(LIB_SRC
     source/stream.c
 )
 
+set(LINK_LIBS
+    mbedtls
+    mbedcrypto
+    mbedx509
+    llhttp
+    parson
+    aziotsharedutil)
+
+if(USE_POOL_ALLOCATOR)
+    set(LIB_SRC ${LIB_SRC}
+        source/pool_allocator.c
+    )
+    set(LINK_LIBS ${LINK_LIBS}
+        tlsf
+    )
+endif()
+
 if(UNIX)
     set(LIB_SRC ${LIB_SRC}
         port/port_linux.c
@@ -35,11 +52,8 @@ add_library(${LIB_NAME} STATIC
     ${LIB_SRC}
 )
 
-
 target_include_directories(${LIB_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(${LIB_NAME}
-    mbedtls mbedcrypto mbedx509 llhttp parson aziotsharedutil
-)
+target_link_libraries(${LIB_NAME} ${LINK_LIBS})

@@ -4,6 +4,7 @@ project(kvs-embedded-c)
 # Options
 option(BUILD_SAMPLES "Build samples" ON)
 option(BOARD "The target board" "OFF")
+option(USE_POOL_ALLOCATOR "Use pool allocator" OFF)
 
 # Make warning as error
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -39,15 +40,28 @@ add_library(parson
     ${PARSON_DIR}/parson.h
 )
 
+target_include_directories(parson PUBLIC
+    ${PARSON_DIR}
+)
+
+# Add thirdparty library tlsf
+if(USE_POOL_ALLOCATOR)
+    add_definitions(-DKVS_USE_POOL_ALLOCATOR)
+    set(TLSF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/tlsf)
+    add_library(tlsf
+        ${TLSF_DIR}/tlsf.c
+        ${TLSF_DIR}/tlsf.h
+    )
+    target_include_directories(tlsf PUBLIC
+        ${TLSF_DIR}
+    )
+endif()
+
 # Add FDK AAC for Ingentic T31
 if("${BOARD}" STREQUAL "INGENTIC_T31")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
     add_subdirectory(libraries/3rdparty/fdk-aac)
 endif()
-
-target_include_directories(parson PUBLIC
-    ${PARSON_DIR}
-)
 
 # build azure c shared utility
 set(AZURE_C_SHARED_UTILITY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/c-utility)

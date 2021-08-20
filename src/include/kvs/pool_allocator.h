@@ -13,23 +13,16 @@
  * permissions and limitations under the License.
  */
 
-#ifndef KVS_ALLOCATOR_H
-#define KVS_ALLOCATOR_H
+#ifndef KVS_POOL_ALLOCATOR_H
+#define KVS_POOL_ALLOCATOR_H
 
-#ifndef KVS_USE_POOL_ALLOCATOR
-#include <stdlib.h>
+#include <stddef.h>
 
-#define KVS_MALLOC          malloc
-#define KVS_REALLOC         realloc
-#define KVS_CALLOC          calloc
-#define KVS_FREE            free
-#else
-#include "kvs/pool_allocator.h"
+int poolAllocatorInit(size_t bytes);
+void poolAllocatorDeinit(void);
+void *poolAllocatorMalloc(size_t bytes);
+void *poolAllocatorRealloc(void *ptr, size_t bytes);
+void *poolAllocatorCalloc(size_t num, size_t bytes);
+void poolAllocatorFree(void *ptr);
 
-#define KVS_MALLOC          poolAllocatorMalloc
-#define KVS_REALLOC         poolAllocatorRealloc
-#define KVS_CALLOC          poolAllocatorCalloc
-#define KVS_FREE            poolAllocatorFree
-#endif /* KVS_USE_POOL_ALLOCATOR */
-
-#endif /* KVS_ALLOCATOR_H */
+#endif

@@ -11,3 +11,6 @@
 [submodule "libraries/3rdparty/fdk-aac"]
 	path = libraries/3rdparty/fdk-aac
 	url = https://github.com/mstorsjo/fdk-aac.git
+[submodule "libraries/3rdparty/tlsf"]
+	path = libraries/3rdparty/tlsf
+	url = https://github.com/mattconte/tlsf.git
