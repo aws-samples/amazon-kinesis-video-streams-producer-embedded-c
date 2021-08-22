@@ -226,7 +226,7 @@ static void streamFlushToNextCluster(StreamHandle xStreamHandle)
     }
 }
 
-static int putMediaSendData(Kvs_t *pKvs)
+static int putMediaSendData(Kvs_t *pKvs, int *pxSendCnt)
 {
     int res = 0;
     DataFrameHandle xDataFrameHandle = NULL;
@@ -235,6 +235,7 @@ static int putMediaSendData(Kvs_t *pKvs)
     size_t uDataLen = 0;
     uint8_t *pMkvHeader = NULL;
     size_t uMkvHeaderLen = 0;
+    int xSendCnt = 0;
 
     if (Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO)
 #if ENABLE_AUDIO_TRACK
@@ -267,6 +268,7 @@ static int putMediaSendData(Kvs_t *pKvs)
                 pKvs->fp = NULL;
             }
 #endif
+            xSendCnt++;
         }
 
         if (xDataFrameHandle != NULL)
@@ -275,6 +277,11 @@ static int putMediaSendData(Kvs_t *pKvs)
             KVS_FREE(pDataFrameIn->pData);
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
+    }
+
+    if (pxSendCnt != NULL)
+    {
+        *pxSendCnt = xSendCnt;
     }
 
     return res;
@@ -326,7 +333,7 @@ static int putMedia(Kvs_t *pKvs)
             {
                 break;
             }
-            if (Kvs_streamIsEmpty(pKvs->xStreamHandle))
+            if (xSendCnt == 0)
             {
                 sleepInMs(50);
             }
