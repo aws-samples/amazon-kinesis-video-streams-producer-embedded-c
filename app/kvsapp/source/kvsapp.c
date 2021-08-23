@@ -1089,6 +1089,7 @@ int KvsApp_doWork(KvsAppHandle handle)
 {
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
+    int xSendCnt = 0;
 
     if (pKvs == NULL)
     {
