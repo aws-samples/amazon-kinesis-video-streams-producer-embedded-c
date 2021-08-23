@@ -13,5 +13,5 @@ target_include_directories(aac_encoder PUBLIC
 )
 
 target_link_libraries(aac_encoder
-    fdk-aac
+    fdk-aac kvs-embedded-c
 )

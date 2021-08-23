@@ -580,7 +580,7 @@ static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, 
     return res;
 }
 
-static int prvPutMediaSendData(KvsApp_t *pKvs)
+static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
 {
     int res = 0;
     DataFrameHandle xDataFrameHandle = NULL;
@@ -589,6 +589,7 @@ static int prvPutMediaSendData(KvsApp_t *pKvs)
     size_t uDataLen = 0;
     uint8_t *pMkvHeader = NULL;
     size_t uMkvHeaderLen = 0;
+    int xSendCnt = 0;
 
     if (Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO) && (!pKvs->isAudioTrackPresent || Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)))
     {
@@ -611,6 +612,8 @@ static int prvPutMediaSendData(KvsApp_t *pKvs)
         {
             pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
             pKvs->uEarliestTimestamp = pDataFrameIn->uTimestampMs;
+
+            xSendCnt++;
         }
 
         if (xDataFrameHandle != NULL)
@@ -619,6 +622,11 @@ static int prvPutMediaSendData(KvsApp_t *pKvs)
             KVS_FREE(pDataFrameIn->pData);
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
+    }
+
+    if (pxSendCnt != NULL)
+    {
+        *pxSendCnt = xSendCnt;
     }
 
     return res;
@@ -1102,17 +1110,15 @@ int KvsApp_doWork(KvsAppHandle handle)
                 break;
             }
 
-            if (Kvs_streamIsEmpty(pKvs->xStreamHandle))
+            if (prvPutMediaSendData(pKvs, &xSendCnt) != ERRNO_NONE)
+            {
+                res = ERRNO_FAIL;
+                break;
+            }
+
+            if (xSendCnt == 0)
             {
                 prvSleepInMs(50);
-            }
-            else
-            {
-                if (prvPutMediaSendData(pKvs) != ERRNO_NONE)
-                {
-                    res = ERRNO_FAIL;
-                    break;
-                }
             }
         } while (false);
     }

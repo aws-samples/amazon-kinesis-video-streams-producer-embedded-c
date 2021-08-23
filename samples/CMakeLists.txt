@@ -1,18 +1,18 @@
 message("BOARD=${BOARD}")
 
-if(NOT "${BOARD}")
+if("${BOARD}" STREQUAL "OFF")
     add_subdirectory(common)
 endif()
 
-if(NOT "${BOARD}")
+if("${BOARD}" STREQUAL "OFF")
     add_subdirectory(kvs-linux)
 endif()
 
-if(NOT "${BOARD}")
+if("${BOARD}" STREQUAL "OFF")
     add_subdirectory(mkv_uploader)
 endif()
 
-if(NOT "${BOARD}")
+if("${BOARD}" STREQUAL "OFF")
     add_subdirectory(kvsapp)
 endif()
 

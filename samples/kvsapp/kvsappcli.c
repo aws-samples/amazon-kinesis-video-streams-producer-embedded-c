@@ -13,12 +13,13 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+/* Headers for KVS */
+#include "kvs/allocator.h"
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
