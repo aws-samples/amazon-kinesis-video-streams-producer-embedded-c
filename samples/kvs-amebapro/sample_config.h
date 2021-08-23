@@ -13,6 +13,8 @@
 #define AWS_KVS_SERVICE                 "kinesisvideo"
 #define AWS_KVS_HOST                    AWS_KVS_SERVICE "." AWS_KVS_REGION ".amazonaws.com"
 
+#define STREAM_MAX_BUFFERING_SIZE       (1 * 1024 * 1024)
+
 /* KVS optional configuration */
 #define ENABLE_AUDIO_TRACK              1
 #define ENABLE_IOT_CREDENTIAL           0
@@ -26,8 +28,8 @@
     #define VIDEO_HEIGHT    VIDEO_1440SQR_HEIGHT
     #define VIDEO_WIDTH     VIDEO_1440SQR_WIDTH
 #else
-    #define VIDEO_HEIGHT    VIDEO_720P_HEIGHT   //VIDEO_1080P_HEIGHT
-    #define VIDEO_WIDTH     VIDEO_720P_WIDTH    //VIDEO_1080P_WIDTH
+    #define VIDEO_HEIGHT    VIDEO_1080P_HEIGHT   //VIDEO_720P_HEIGHT
+    #define VIDEO_WIDTH     VIDEO_1080P_WIDTH    //VIDEO_720P_WIDTH
 #endif
 #define VIDEO_NAME                          "my video"
 
