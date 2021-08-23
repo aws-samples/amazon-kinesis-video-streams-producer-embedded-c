@@ -28,15 +28,15 @@
 #include "sample_config.h"
 
 #if ENABLE_AUDIO_TRACK
-#include "aac_file_loader.h"
+#    include "aac_file_loader.h"
 #endif /* ENABLE_AUDIO_TRACK */
 
 #if ENABLE_IOT_CREDENTIAL
-#include "kvs/iot_credential_provider.h"
+#    include "kvs/iot_credential_provider.h"
 #endif /* ENABLE_IOT_CREDENTIAL */
 
-#define ERRNO_NONE      0
-#define ERRNO_FAIL      __LINE__
+#define ERRNO_NONE 0
+#define ERRNO_FAIL __LINE__
 
 typedef struct Kvs
 {
@@ -572,6 +572,13 @@ void Kvs_run(Kvs_t *pKvs)
 
 int main(int argc, char *argv[])
 {
+#ifdef KVS_USE_POOL_ALLOCATOR
+    if (poolAllocatorInit(POOL_ALLOCATOR_SIZE))
+    {
+        printf("Failed to create pool allocator\r\n");
+        return 0;
+    }
+#endif
     Kvs_t xKvs;
 
     platformInit();

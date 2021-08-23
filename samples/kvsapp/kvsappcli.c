@@ -193,6 +193,14 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 
 int main(int argc, char *argv[])
 {
+#ifdef KVS_USE_POOL_ALLOCATOR
+    if(poolAllocatorInit(POOL_ALLOCATOR_SIZE))
+    {
+        printf("Failed to create pool allocator\r\n");
+        return 0;
+    }
+#endif
+
     KvsAppHandle kvsAppHandle;
     FileLoaderPara_t xVideoFileLoaderParam = {0};
     FileLoaderPara_t xAudioFileLoaderParam = {0};
@@ -281,6 +289,10 @@ int main(int argc, char *argv[])
 #endif /* ENABLE_AUDIO_TRACK */
 
     KvsApp_terminate(kvsAppHandle);
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorDeinit();
+#endif
 
     return 0;
 }

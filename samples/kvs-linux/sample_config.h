@@ -81,4 +81,8 @@
 #define MEDIA_FILENAME                  "temp.mkv"
 #endif /* DEBUG_STORE_MEDIA_TO_FILE */
 
+#ifdef KVS_USE_POOL_ALLOCATOR
+#define POOL_ALLOCATOR_SIZE             (2 * 1024 * 1024)
+#endif
+
 #endif /* SAMPLE_CONFIG_H */
