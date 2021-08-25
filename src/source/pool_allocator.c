@@ -29,9 +29,10 @@ static void *mem = NULL;
 int poolAllocatorInit(size_t bytes)
 {
     pthread_mutex_lock(&mutex);
-    mem = malloc(bytes);
+    mem = __real_malloc(bytes);
     if (!mem)
     {
+        pthread_mutex_unlock(&mutex);
         return -ENOMEM;
     }
     tlsf = tlsf_create_with_pool(mem, bytes);
@@ -85,4 +86,24 @@ void poolAllocatorDeinit(void)
         mem = NULL;
     }
     pthread_mutex_unlock(&mutex);
+}
+
+void *__wrap_malloc(size_t size)
+{
+    return poolAllocatorMalloc(size);
+}
+
+void *__wrap_realloc(void *ptr, size_t bytes)
+{
+    return poolAllocatorRealloc(ptr, bytes);
+}
+
+void *__wrap_calloc(size_t num, size_t bytes)
+{
+    return poolAllocatorCalloc(num, bytes);
+}
+
+void __wrap_free(void *ptr)
+{
+    poolAllocatorFree(ptr);
 }

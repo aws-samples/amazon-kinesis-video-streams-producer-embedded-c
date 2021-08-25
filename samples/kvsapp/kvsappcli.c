@@ -199,6 +199,7 @@ int main(int argc, char *argv[])
         printf("Failed to create pool allocator\r\n");
         return 0;
     }
+    printf("Created pool allocator\r\n");
 #endif
 
     KvsAppHandle kvsAppHandle;

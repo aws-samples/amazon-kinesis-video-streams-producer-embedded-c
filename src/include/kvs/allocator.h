@@ -26,6 +26,16 @@
 #else
 #include "kvs/pool_allocator.h"
 
+void *__wrap_malloc(size_t bytes);
+void *__wrap_realloc(void *ptr, size_t bytes);
+void *__wrap_calloc(size_t num, size_t bytes);
+void __wrap_free(void *ptr);
+
+void *__real_malloc(size_t);
+void *__real_realloc(void *ptr, size_t bytes);
+void *__real_calloc(size_t num, size_t bytes);
+void __real_free(void *ptr);
+
 #define KVS_MALLOC          poolAllocatorMalloc
 #define KVS_REALLOC         poolAllocatorRealloc
 #define KVS_CALLOC          poolAllocatorCalloc

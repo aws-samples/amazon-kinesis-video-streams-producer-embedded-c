@@ -14,6 +14,21 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
+# Add thirdparty library tlsf
+if(USE_POOL_ALLOCATOR)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
+    add_definitions(-DKVS_USE_POOL_ALLOCATOR)
+    set(TLSF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/tlsf)
+    add_library(tlsf
+        ${TLSF_DIR}/tlsf.c
+        ${TLSF_DIR}/tlsf.h
+    )
+    target_include_directories(tlsf PUBLIC
+        ${TLSF_DIR}
+    )
+endif()
+
 if("${BOARD}" STREQUAL "INGENTIC_T31")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -Wall -march=mips32r2 -muclibc")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces -Wno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -Wno-unused-function")
@@ -43,19 +58,6 @@ add_library(parson
 target_include_directories(parson PUBLIC
     ${PARSON_DIR}
 )
-
-# Add thirdparty library tlsf
-if(USE_POOL_ALLOCATOR)
-    add_definitions(-DKVS_USE_POOL_ALLOCATOR)
-    set(TLSF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/tlsf)
-    add_library(tlsf
-        ${TLSF_DIR}/tlsf.c
-        ${TLSF_DIR}/tlsf.h
-    )
-    target_include_directories(tlsf PUBLIC
-        ${TLSF_DIR}
-    )
-endif()
 
 # Add FDK AAC for Ingentic T31
 if("${BOARD}" STREQUAL "INGENTIC_T31")
