@@ -1,10 +1,27 @@
 cmake_minimum_required(VERSION 3.2.0)
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 project(kvs-embedded-c)
 
 # Options
-option(BUILD_SAMPLES "Build samples" ON)
-option(BOARD "The target board" "OFF")
-option(USE_POOL_ALLOCATOR "Use pool allocator" OFF)
+option(BUILD_SHARED_SAMPLES     "Build shared samples"      ON)
+option(BUILD_STATIC_SAMPLES     "Build static samples"      ON)
+option(BUILD_AAC_ENCODER        "Build aac-encoder"         OFF)
+option(BOARD_INGENTIC_T31       "Build board Ingentic T31"  OFF)
+option(USE_POOL_ALLOCATOR       "Use pool allocator"        OFF)
+
+# Verify and resolve options
+if(${BOARD_INGENTIC_T31})
+    set(BUILD_SHARED_SAMPLES    OFF)
+    set(BUILD_STATIC_SAMPLES    OFF)
+    set(BUILD_AAC_ENCODER       ON)
+endif()
+
+# Print option values
+message(STATUS "BUILD_SHARED_SAMPLES        = ${BUILD_SHARED_SAMPLES}")
+message(STATUS "BUILD_STATIC_SAMPLES        = ${BUILD_STATIC_SAMPLES}")
+message(STATUS "BUILD_AAC_ENCODER           = ${BUILD_AAC_ENCODER}")
+message(STATUS "BOARD_INGENTIC_T31          = ${BOARD_INGENTIC_T31}")
+message(STATUS "USE_POOL_ALLOCATOR          = ${USE_POOL_ALLOCATOR}")
 
 # Make warning as error
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -14,82 +31,28 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
 
-# Add thirdparty library tlsf
-if(USE_POOL_ALLOCATOR)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
-    add_definitions(-DKVS_USE_POOL_ALLOCATOR)
-    set(TLSF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/tlsf)
-    add_library(tlsf
-        ${TLSF_DIR}/tlsf.c
-        ${TLSF_DIR}/tlsf.h
-    )
-    target_include_directories(tlsf PUBLIC
-        ${TLSF_DIR}
-    )
-endif()
-
-if("${BOARD}" STREQUAL "INGENTIC_T31")
+# Compile flags for Ingentic T31
+if(${BOARD_INGENTIC_T31})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Os -Wall -march=mips32r2 -muclibc")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces -Wno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -Wno-unused-function")
-
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -Wall -march=mips32r2 -muclibc")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-braces -Wno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-int-to-pointer-cast -Wno-maybe-uninitialized -Wno-unused-function")
 endif()
 
-# Add thirdparty library mbedtls
-set(ENABLE_PROGRAMS OFF CACHE BOOL "")
-set(ENABLE_TESTING OFF CACHE BOOL "")
-set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "")
-set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "")
-add_subdirectory(libraries/3rdparty/mbedtls)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+set(LIBRARY_OUTPUT_PATH  ${PROJECT_BINARY_DIR}/lib)
 
-# Add thirdparty library llhttp
-add_subdirectory(libraries/3rdparty/llhttp)
-
-# Add thirdparty library parson
-set(PARSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/parson)
-
-add_library(parson
-    ${PARSON_DIR}/parson.c
-    ${PARSON_DIR}/parson.h
-)
-
-target_include_directories(parson PUBLIC
-    ${PARSON_DIR}
-)
-
-# Add FDK AAC for Ingentic T31
-if("${BOARD}" STREQUAL "INGENTIC_T31")
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
-    add_subdirectory(libraries/3rdparty/fdk-aac)
+# Add thirdparty libraries
+include(libmbedtls)
+include(libllhttp)
+include(libparson)
+include(libaziotsharedutil)
+if(USE_POOL_ALLOCATOR)
+    include(libtlsf)
 endif()
-
-# build azure c shared utility
-set(AZURE_C_SHARED_UTILITY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libraries/3rdparty/c-utility)
-
-add_library(aziotsharedutil
-    ${AZURE_C_SHARED_UTILITY_DIR}/adapters/lock_pthreads.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/buffer.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/consolelogger.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/crt_abstractions.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/doublylinkedlist.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/httpheaders.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/map.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/strings.c
-    ${AZURE_C_SHARED_UTILITY_DIR}/src/xlogging.c
-)
-
-target_include_directories(aziotsharedutil PUBLIC
-    ${AZURE_C_SHARED_UTILITY_DIR}/inc
-    ${AZURE_C_SHARED_UTILITY_DIR}/deps/azure-macro-utils-c/inc
-    ${AZURE_C_SHARED_UTILITY_DIR}/deps/umock-c/inc
-)
-
-target_link_libraries(aziotsharedutil
-    mbedtls mbedcrypto mbedx509
-    m
-)
+if(${BUILD_AAC_ENCODER})
+    include(libfdkaac)
+endif()
 
 # Add sources
 add_subdirectory(src)
@@ -97,7 +60,5 @@ add_subdirectory(src)
 # Add application
 add_subdirectory(app)
 
-if(BUILD_SAMPLES)
-    # Add samples
-    add_subdirectory(samples)
-endif()
+# Add samples
+add_subdirectory(samples)

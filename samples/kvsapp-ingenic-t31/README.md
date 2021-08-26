@@ -113,7 +113,7 @@ Setup cmake project
 
     cmake -DCMAKE_C_COMPILER=mips-linux-gnu-gcc \
         -DCMAKE_CXX_COMPILER=mips-linux-gnu-g++ \
-        -DBOARD=INGENTIC_T31 \
+        -DBOARD_INGENTIC_T31=ON \
         ..
 
 Build project.
@@ -127,7 +127,7 @@ After build complete, there will be a exectuable file named "kvsappcli-ingentic-
 Now the executable is on the device, use the following command to run this sample.
 
     cd /mnt
-    ./kvsappcli-ingentic-t31
+    ./kvsappcli-ingenic-t31
 
 You wold see following log if everythins works fine.
 

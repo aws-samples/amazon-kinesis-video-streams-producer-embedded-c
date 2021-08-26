@@ -1,21 +1,19 @@
-message("BOARD=${BOARD}")
-
-if("${BOARD}" STREQUAL "OFF")
+if(${BUILD_SHARED_SAMPLES} OR ${BUILD_STATIC_SAMPLES})
     add_subdirectory(common)
 endif()
 
-if("${BOARD}" STREQUAL "OFF")
+if(${BUILD_SHARED_SAMPLES} OR ${BUILD_STATIC_SAMPLES})
     add_subdirectory(kvs-linux)
 endif()
 
-if("${BOARD}" STREQUAL "OFF")
+if(${BUILD_SHARED_SAMPLES} OR ${BUILD_STATIC_SAMPLES})
     add_subdirectory(mkv_uploader)
 endif()
 
-if("${BOARD}" STREQUAL "OFF")
+if(${BUILD_SHARED_SAMPLES} OR ${BUILD_STATIC_SAMPLES})
     add_subdirectory(kvsapp)
 endif()
 
-if("${BOARD}" STREQUAL "INGENTIC_T31")
+if(${BOARD_INGENTIC_T31})
     add_subdirectory(kvsapp-ingenic-t31)
 endif()

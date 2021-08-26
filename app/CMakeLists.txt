@@ -1,4 +1,4 @@
-if("${BOARD}" STREQUAL "INGENTIC_T31")
+if(${BUILD_AAC_ENCODER})
     add_subdirectory(aac-encoder)
 endif()
 add_subdirectory(kvsapp)
