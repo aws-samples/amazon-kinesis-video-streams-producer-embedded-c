@@ -1,6 +1,17 @@
-# Amazon Kinesis Video Streams Producer SDK for FreeRTOS
+<h1 style = "text-align: center;">
+  Amazon Kinesis Video Streams Producer Embedded C SDK
+  <br>
+</h1>
 
-This project demonstrates how to port Amazon Kinesis Video Streams Producer to FreeRTOS. In case of using the following platforms the reference examples can securely stream video to Kinesis Video Streams.
+<h4 style = "text-align: center;">
+  Light-wight Amazon Kinesis Video Streams Producer SDK For FreeRTOS/Embedded Linux
+</h4>
+
+<p style = "text-align: center;">
+  <a href="https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c/actions/workflows/cmake.yml"> <img src="https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c/actions/workflows/cmake.yml/badge.svg?branch=main" alt="Build Status"> </a>
+</p>
+
+This project demonstrates how to port Amazon Kinesis Video Streams Producer to Embedded devices(FreeRTOS/Embedded Linux). In case of using the following platforms the reference examples can securely stream video to Kinesis Video Streams.
 
 - [Espressif ESP-WROVER-KIT](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c#esp-wrover-kit-example)
 - [Realtek AmebaPro](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c#realtek-amebapro-example)
