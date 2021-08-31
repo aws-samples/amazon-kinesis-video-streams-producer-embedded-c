@@ -13,7 +13,6 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -132,7 +131,7 @@ static void kvsTerminate(Kvs_t *pKvs)
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
-            KVS_FREE(pKvs->xServicePara.pcPutMediaEndpoint);
+            free(pKvs->xServicePara.pcPutMediaEndpoint);
             pKvs->xServicePara.pcPutMediaEndpoint = NULL;
         }
     }
@@ -193,7 +192,7 @@ static void streamFlush(StreamHandle xStreamHandle)
     while ((xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
     {
         pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        KVS_FREE(pDataFrameIn->pData);
+        free(pDataFrameIn->pData);
         Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
@@ -221,7 +220,7 @@ static void streamFlushToNextCluster(StreamHandle xStreamHandle)
             {
                 xDataFrameHandle = Kvs_streamPop(xStreamHandle);
                 pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-                KVS_FREE(pDataFrameIn->pData);
+                free(pDataFrameIn->pData);
                 Kvs_dataFrameTerminate(xDataFrameHandle);
             }
         }
@@ -276,7 +275,7 @@ static int putMediaSendData(Kvs_t *pKvs, int *pxSendCnt)
         if (xDataFrameHandle != NULL)
         {
             pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            KVS_FREE(pDataFrameIn->pData);
+            free(pDataFrameIn->pData);
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
     }
@@ -587,7 +586,7 @@ KvsHandle Kvs_create(void)
 {
     Kvs_t *pKvs = NULL;
 
-    if ((pKvs = (Kvs_t *)KVS_MALLOC(sizeof(Kvs_t))) != NULL)
+    if ((pKvs = (Kvs_t *)malloc(sizeof(Kvs_t))) != NULL)
     {
         memset(pKvs, 0, sizeof(Kvs_t));
     }
@@ -601,6 +600,6 @@ void Kvs_terminate(KvsHandle xKvsHandle)
 
     if (pKvs != NULL)
     {
-        KVS_FREE(pKvs);
+        free(pKvs);
     }
 }

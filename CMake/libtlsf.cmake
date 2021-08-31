@@ -9,9 +9,9 @@ set(TLSF_INC
     ${TLSF_DIR}
 )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--wrap,malloc -Wl,--wrap,free -Wl,--wrap,realloc -Wl,--wrap,calloc")
-add_definitions(-DKVS_USE_POOL_ALLOCATOR)
+# setup library interface
+add_library(tlsf INTERFACE)
+target_include_directories(tlsf INTERFACE ${TLSF_INC})
 
 # setup shared library
 add_library(tlsf-shared SHARED ${TLSF_SRC})

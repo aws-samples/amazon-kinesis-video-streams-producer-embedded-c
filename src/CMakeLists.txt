@@ -14,52 +14,70 @@ set(CMAKE_C_FLAGS "-D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L ${CMAKE_C_FLAGS
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(LIB_SRC
+    ${LIB_DIR}/include/kvs/errors.h
+    ${LIB_DIR}/include/kvs/iot_credential_provider.h
+    ${LIB_DIR}/include/kvs/mkv_generator.h
+    ${LIB_DIR}/include/kvs/mkv_parser.h
+    ${LIB_DIR}/include/kvs/nalu.h
+    ${LIB_DIR}/include/kvs/pool_allocator.h
+    ${LIB_DIR}/include/kvs/port.h
+    ${LIB_DIR}/include/kvs/restapi.h
+    ${LIB_DIR}/include/kvs/stream.h
+    ${LIB_DIR}/source/allocator.c
+    ${LIB_DIR}/source/allocator.h
     ${LIB_DIR}/source/aws_signer_v4.c
+    ${LIB_DIR}/source/aws_signer_v4.h
+    ${LIB_DIR}/source/endian.h
     ${LIB_DIR}/source/http_helper.c
+    ${LIB_DIR}/source/http_helper.h
     ${LIB_DIR}/source/iot_credential_provider.c
     ${LIB_DIR}/source/json_helper.c
+    ${LIB_DIR}/source/json_helper.h
     ${LIB_DIR}/source/mkv_generator.c
     ${LIB_DIR}/source/mkv_parser.c
     ${LIB_DIR}/source/nalu.c
     ${LIB_DIR}/source/netio.c
+    ${LIB_DIR}/source/netio.h
+    ${LIB_DIR}/source/pool_allocator.c
     ${LIB_DIR}/source/restapi.c
     ${LIB_DIR}/source/sps_decode.c
+    ${LIB_DIR}/source/sps_decode.h
     ${LIB_DIR}/source/stream.c
 )
 
 set(LIB_INC
-    ${LIB_DIR}//include
+    ${LIB_DIR}/include
 )
 
-set(LINK_STATIC_LIBS
-    mbedtls_static
-    mbedcrypto_static
-    mbedx509_static
-    llhttp-static
-    parson-static
-    aziotsharedutil-static
-)
-
-set(LINK_SHARED_LIBS
+set(LINK_INTERFACE_LIBS
     mbedtls
     mbedcrypto
     mbedx509
+    llhttp
+    parson
+    aziotsharedutil
+    tlsf
+)
+
+set(LINK_SHARED_LIBS
+    mbedtls-shared
+    mbedcrypto-shared
+    mbedx509-shared
     llhttp-shared
     parson-shared
     aziotsharedutil-shared
+    tlsf-shared
 )
 
-if(USE_POOL_ALLOCATOR)
-    set(LIB_SRC ${LIB_SRC}
-        ${LIB_DIR}/source/pool_allocator.c
-    )
-    set(LINK_STATIC_LIBS ${LINK_STATIC_LIBS}
-        tlsf-static
-    )
-    set(LINK_SHARED_LIBS ${LINK_SHARED_LIBS}
-        tlsf-shared
-    )
-endif()
+set(LINK_STATIC_LIBS
+    mbedtls-static
+    mbedcrypto-static
+    mbedx509-static
+    llhttp-static
+    parson-static
+    aziotsharedutil-static
+    tlsf-static
+)
 
 if(UNIX)
     set(LIB_SRC ${LIB_SRC}
@@ -67,19 +85,23 @@ if(UNIX)
     )
 endif()
 
-# setup shared library
-add_library(${LIB_NAME}-shared SHARED ${LIB_SRC})
-set_target_properties(${LIB_NAME}-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(${LIB_NAME}-shared PROPERTIES OUTPUT_NAME ${LIB_NAME})
-target_include_directories(${LIB_NAME}-shared PUBLIC ${LIB_INC})
-target_link_libraries(${LIB_NAME}-shared PUBLIC
+# setup static library
+add_library(${LIB_NAME} STATIC ${LIB_SRC})
+target_include_directories(${LIB_NAME} PUBLIC ${LIB_INC})
+target_link_libraries(${LIB_NAME} PUBLIC
+    ${LINK_INTERFACE_LIBS}
+)
+
+# kvs-embedded-c with shared libraries
+add_library(${LIB_NAME}-shared INTERFACE)
+target_link_libraries(${LIB_NAME}-shared INTERFACE
+    ${LIB_NAME}
     ${LINK_SHARED_LIBS}
 )
 
-# setup static library
-add_library(${LIB_NAME}-static STATIC ${LIB_SRC})
-set_target_properties(${LIB_NAME}-static PROPERTIES OUTPUT_NAME ${LIB_NAME})
-target_include_directories(${LIB_NAME}-static PUBLIC ${LIB_INC})
-target_link_libraries(${LIB_NAME}-static PUBLIC
+# kvs-embedded-c with static libraries
+add_library(${LIB_NAME}-static INTERFACE)
+target_link_libraries(${LIB_NAME}-static INTERFACE
+    ${LIB_NAME}
     ${LINK_STATIC_LIBS}
 )

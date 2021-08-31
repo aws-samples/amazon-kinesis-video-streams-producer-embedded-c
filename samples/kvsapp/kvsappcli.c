@@ -19,7 +19,7 @@
 #include <unistd.h>
 
 /* Headers for KVS */
-#include "kvs/allocator.h"
+#include "kvs/pool_allocator.h"
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
@@ -32,6 +32,11 @@
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+#include "kvs/pool_allocator.h"
+static char pMemPool[POOL_ALLOCATOR_SIZE];
+#endif
 
 static pthread_t videoTid;
 static H264FileLoaderHandle xVideoFileLoader = NULL;
@@ -193,18 +198,13 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 
 int main(int argc, char *argv[])
 {
-#ifdef KVS_USE_POOL_ALLOCATOR
-    if(poolAllocatorInit(POOL_ALLOCATOR_SIZE))
-    {
-        printf("Failed to create pool allocator\r\n");
-        return 0;
-    }
-    printf("Created pool allocator\r\n");
-#endif
-
     KvsAppHandle kvsAppHandle;
     FileLoaderPara_t xVideoFileLoaderParam = {0};
     FileLoaderPara_t xAudioFileLoaderParam = {0};
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
+#endif
 
     xVideoFileLoaderParam.pcTrackName = VIDEO_TRACK_NAME;
     xVideoFileLoaderParam.pcFileFormat = H264_FILE_FORMAT;

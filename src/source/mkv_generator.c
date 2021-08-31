@@ -22,13 +22,13 @@
 #include "azure_c_shared_utility/xlogging.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/mkv_generator.h"
 #include "kvs/nalu.h"
 #include "kvs/port.h"
 
 /* Internal headers */
+#include "allocator.h"
 #include "endian.h"
 
 #define MKV_LENGTH_INDICATOR_1_BYTE (0x80)
@@ -381,7 +381,7 @@ static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t *
             uHeaderLen += pVideoTrackInfo->uCodecPrivateLen;
         }
 
-        if ((pHeader = (uint8_t *)KVS_MALLOC(uHeaderLen)) == NULL)
+        if ((pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
         {
             LogError("OOM: video track entry header");
             xRes = KVS_ERRNO_FAIL;
@@ -473,7 +473,7 @@ static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t *
             uHeaderLen += pAudioTrackInfo->uCodecPrivateLen;
         }
 
-        if ((pHeader = (uint8_t *)KVS_MALLOC(uHeaderLen)) == NULL)
+        if ((pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
         {
             LogError("OOM: audio track entry header");
             xRes = KVS_ERRNO_FAIL;
@@ -589,7 +589,7 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
             uHeaderLen += (bHasAudioTrack) ? uSegmentAudioLen : 0;
 
             /* Allocate memory for EBML and Segment header. */
-            if ((pMkvHeader->pHeader = (uint8_t *)KVS_MALLOC(uHeaderLen)) == NULL)
+            if ((pMkvHeader->pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
             {
                 LogError("OOM: MKV Header");
                 xRes = KVS_ERRNO_FAIL;
@@ -633,12 +633,12 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
 
     if (pSegmentVideo != NULL)
     {
-        KVS_FREE(pSegmentVideo);
+        kvsFree(pSegmentVideo);
     }
 
     if (pSegmentAudio != NULL)
     {
-        KVS_FREE(pSegmentAudio);
+        kvsFree(pSegmentAudio);
     }
 
     return xRes;
@@ -652,7 +652,7 @@ void Mkv_terminateHeaders(MkvHeader_t *pMkvHeader)
     {
         if (pMkvHeader->pHeader != NULL)
         {
-            KVS_FREE(pMkvHeader->pHeader);
+            kvsFree(pMkvHeader->pHeader);
             pMkvHeader->pHeader = NULL;
         }
         pMkvHeader->uHeaderLen = 0;
@@ -755,7 +755,7 @@ int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t 
     {
         uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
 
-        if ((pCodecPrivateData = (uint8_t *)KVS_MALLOC(uCodecPrivateLen)) == NULL)
+        if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
             LogError("OOM: H264 codec private data");
             xRes = KVS_ERRNO_FAIL;
@@ -817,7 +817,7 @@ int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvc
     {
         uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
 
-        if ((pCodecPrivateData = (uint8_t *)KVS_MALLOC(uCodecPrivateLen)) == NULL)
+        if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
             LogError("OOM: H264 codec private data");
             xRes = KVS_ERRNO_FAIL;
@@ -869,7 +869,7 @@ int Mkv_generateH264CodecPrivateDataFromSpsPps(uint8_t *pSps, size_t uSpsLen, ui
     {
         uCodecPrivateLen = MKV_VIDEO_H264_CODEC_PRIVATE_DATA_HEADER_SIZE + uSpsLen + uPpsLen;
 
-        if ((pCodecPrivateData = (uint8_t *)KVS_MALLOC(uCodecPrivateLen)) == NULL)
+        if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
             LogError("OOM: H264 codec private data");
             xRes = KVS_ERRNO_FAIL;
@@ -937,7 +937,7 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
             LogError("Invalid audio sampling frequency");
             xRes = KVS_ERRNO_FAIL;
         }
-        else if ((pCodecPrivateData = (uint8_t *)KVS_MALLOC(MKV_AAC_CPD_SIZE_BYTE)) == NULL)
+        else if ((pCodecPrivateData = (uint8_t *)kvsMalloc(MKV_AAC_CPD_SIZE_BYTE)) == NULL)
         {
             LogError("OOM: AAC codec private data");
             xRes = KVS_ERRNO_FAIL;
@@ -972,7 +972,7 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pCodecPrivateData = (uint8_t *)KVS_MALLOC(MKV_PCM_CPD_SIZE_BYTE)) == NULL)
+    else if ((pCodecPrivateData = (uint8_t *)kvsMalloc(MKV_PCM_CPD_SIZE_BYTE)) == NULL)
     {
         LogError("OOM: PCM codec private data");
         xRes = KVS_ERRNO_FAIL;

@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -26,14 +27,9 @@
 
 #include "sample-common.h"
 
-/* Third-party headers */
-#include "azure_c_shared_utility/lock.h"
-#include "azure_c_shared_utility/xlogging.h"
-
 /* KVS headers */
-#include "kvs/allocator.h"
 #include "kvs/kvsapp.h"
-#include <kvs/port.h>
+#include "kvs/port.h"
 
 #include "sample_config.h"
 #include "t31_video.h"
@@ -43,7 +39,7 @@
 
 typedef struct T31Video
 {
-    LOCK_HANDLE lock;
+    pthread_mutex_t lock;
 
     pthread_t tid;
     bool isTerminating;
@@ -65,12 +61,12 @@ static int getPacket(IMPEncoderStream *pStream, IMPEncoderPack *pPack, uint8_t *
 
     if (pStream == NULL || pPack == NULL || pPacketBuf == NULL || uPacketSize == 0)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else if (pPack->length == 0)
     {
-        LogError("Invalid packet length");
+        printf("%s(): Invalid packet length\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -103,7 +99,7 @@ static int sendVideoFrame(T31Video_t *pVideo, IMPEncoderStream *pStream)
 
     if (pStream == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -114,9 +110,9 @@ static int sendVideoFrame(T31Video_t *pVideo, IMPEncoderStream *pStream)
             uPacketLen += pPack->length;
         }
 
-        if ((pPacketBuf = (uint8_t *)KVS_MALLOC(uPacketLen)) == NULL)
+        if ((pPacketBuf = (uint8_t *)malloc(uPacketLen)) == NULL)
         {
-            LogError("OOM: pPacketBuf");
+            printf("%s(): OOM: pPacketBuf\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else
@@ -142,7 +138,7 @@ static int doVideoStreaming(int chnNum, T31Video_t *pVideo)
 
     if (IMP_Encoder_StartRecvPic(chnNum) < 0)
     {
-        LogError("IMP_Encoder_StartRecvPic(%d) failed", chnNum);
+        printf("%s(): IMP_Encoder_StartRecvPic(%d) failed\n", __FUNCTION__, chnNum);
         res = ERRNO_FAIL;
     }
     else
@@ -155,12 +151,12 @@ static int doVideoStreaming(int chnNum, T31Video_t *pVideo)
             }
             else if (IMP_Encoder_PollingStream(chnNum, 1000) < 0)
             {
-                LogError("IMP_Encoder_PollingStream(%d) timeout\n", chnNum);
+                printf("%s(): IMP_Encoder_PollingStream(%d) timeout\n", __FUNCTION__, chnNum);
                 continue;
             }
             else if (IMP_Encoder_GetStream(chnNum, &stream, 1) < 0)
             {
-                LogError("IMP_Encoder_GetStream(%d) failed\n", chnNum);
+                printf("%s(): IMP_Encoder_GetStream(%d) failed\n", __FUNCTION__, chnNum);
                 res = ERRNO_FAIL;
                 break;
             }
@@ -168,7 +164,7 @@ static int doVideoStreaming(int chnNum, T31Video_t *pVideo)
             {
                 if (sendVideoFrame(pVideo, &stream) != 0)
                 {
-                    LogError("Failed to send video frame\n");
+                    printf("%s(): Failed to send video frame\n", __FUNCTION__);
                 }
                 IMP_Encoder_ReleaseStream(chnNum, &stream);
             }
@@ -176,7 +172,7 @@ static int doVideoStreaming(int chnNum, T31Video_t *pVideo)
 
         if (IMP_Encoder_StopRecvPic(chnNum) < 0)
         {
-            LogError("IMP_Encoder_StopRecvPic(%d) failed\n", chnNum);
+            printf("%s(): IMP_Encoder_StopRecvPic(%d) failed\n", __FUNCTION__, chnNum);
             res = ERRNO_FAIL;
         }
     }
@@ -195,12 +191,12 @@ static void *videoThread(void *arg)
 
     if (pVideo == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else if (sample_system_init() < 0 || sample_framesource_init() < 0)
     {
-        LogError("IMP_System_Init failed");
+        printf("%s(): IMP_System_Init failed\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -212,7 +208,7 @@ static void *videoThread(void *arg)
             {
                 if (IMP_Encoder_CreateGroup(chn[i].index) < 0)
                 {
-                    LogError("IMP_Encoder_CreateGroup(%d) error !", chn[i].index);
+                    printf("%s(): IMP_Encoder_CreateGroup(%d) error !\n", __FUNCTION__, chn[i].index);
                     res = ERRNO_FAIL;
                 }
                 else
@@ -225,25 +221,25 @@ static void *videoThread(void *arg)
 
         if (res != ERRNO_NONE)
         {
-            LogError("Encoder init failed");
+            printf("%s(): Encoder init failed\n", __FUNCTION__);
         }
         else if (sample_encoder_init() < 0 || IMP_System_Bind(&chn[selectedChannel].framesource_chn, &chn[selectedChannel].imp_encoder) < 0 || sample_framesource_streamon() < 0)
         {
-            LogError("Encoder init failed");
+            printf("%s(): Encoder init failed\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else
         {
             if (doVideoStreaming(selectedChannel, pVideo) != ERRNO_NONE)
             {
-                LogError("ImpStreamOn failed");
+                printf("%s(): ImpStreamOn failed\n", __FUNCTION__);
                 res = ERRNO_FAIL;
             }
 
             if (sample_framesource_streamoff() < 0 || IMP_System_UnBind(&chn[i].framesource_chn, &chn[i].imp_encoder) < 0 || sample_encoder_exit() < 0 ||
                 sample_framesource_exit() < 0 || sample_system_exit() < 0)
             {
-                LogError("Failed to release video resource");
+                printf("%s(): Failed to release video resource\n", __FUNCTION__);
                 res = ERRNO_FAIL;
             }
         }
@@ -262,9 +258,9 @@ T31VideoHandle T31Video_create(KvsAppHandle kvsAppHandle)
     int res = ERRNO_NONE;
     T31Video_t *pVideo = NULL;
 
-    if ((pVideo = (T31Video_t *)KVS_MALLOC(sizeof(T31Video_t))) == NULL)
+    if ((pVideo = (T31Video_t *)malloc(sizeof(T31Video_t))) == NULL)
     {
-        LogError("OOM: pVideo");
+        printf("%s(): OOM: pVideo\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -276,16 +272,16 @@ T31VideoHandle T31Video_create(KvsAppHandle kvsAppHandle)
 
         pVideo->kvsAppHandle = kvsAppHandle;
 
-        if ((pVideo->lock = Lock_Init()) == NULL)
+        if (pthread_mutex_init(&(pVideo->lock), NULL) != 0)
         {
-            LogError("Failed to initialize lock");
+            printf("%s(): Failed to initialize lock\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else
         {
             if (pthread_create(&(pVideo->tid), NULL, videoThread, pVideo) != 0)
             {
-                LogError("Failed to create video thread");
+                printf("%s(): Failed to create video thread\n", __FUNCTION__);
                 T31Video_terminate(pVideo);
                 pVideo = NULL;
             }
@@ -308,6 +304,7 @@ void T31Video_terminate(T31VideoHandle handle)
 
         pthread_join(pVideo->tid, NULL);
 
-        KVS_FREE(pVideo);
+        pthread_mutex_destroy(&(pVideo->lock));
+        free(pVideo);
     }
 }

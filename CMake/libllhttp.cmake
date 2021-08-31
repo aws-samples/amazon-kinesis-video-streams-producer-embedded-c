@@ -11,6 +11,10 @@ set(LLHTTP_INC
     ${LLHTTP_DIR}/include
 )
 
+# setup library interface
+add_library(llhttp INTERFACE)
+target_include_directories(llhttp INTERFACE ${LLHTTP_INC})
+
 # setup shared library
 add_library(llhttp-shared SHARED ${LLHTTP_SRC})
 set_target_properties(llhttp-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)

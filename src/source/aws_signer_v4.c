@@ -22,10 +22,10 @@
 #include "mbedtls/sha256.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
+#include "allocator.h"
 #include "aws_signer_v4.h"
 
 #define HTTP_METHOD_GET "GET"
@@ -150,7 +150,7 @@ AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
     {
         do
         {
-            pxAwsSigV4 = (AwsSigV4_t *)KVS_MALLOC(sizeof(AwsSigV4_t));
+            pxAwsSigV4 = (AwsSigV4_t *)kvsMalloc(sizeof(AwsSigV4_t));
             if (pxAwsSigV4 == NULL)
             {
                 xRes = KVS_ERRNO_FAIL;
@@ -193,7 +193,7 @@ void AwsSigV4_Terminate(AwsSigV4Handle xSigV4Handle)
         STRING_delete(pxAwsSigV4->xStScope);
         STRING_delete(pxAwsSigV4->xStHmacHexEncoded);
         STRING_delete(pxAwsSigV4->xStAuthorization);
-        KVS_FREE(pxAwsSigV4);
+        kvsFree(pxAwsSigV4);
     }
 }
 

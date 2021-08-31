@@ -389,6 +389,10 @@ set(libfdk_aac_PRV_INC
     ${FDKAAC_DIR}/libPCMutils/include
 )
 
+# setup library interface
+add_library(fdk-aac INTERFACE)
+target_include_directories(fdk-aac INTERFACE ${libfdk_aac_PUB_INC})
+
 # setup shared library
 add_library(fdk-aac-shared SHARED ${libfdk_aac_SOURCES})
 set_target_properties(fdk-aac-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)

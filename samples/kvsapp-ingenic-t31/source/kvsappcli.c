@@ -15,10 +15,10 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "kvs/allocator.h"
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
@@ -30,6 +30,11 @@
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+#include "kvs/pool_allocator.h"
+static char pMemPool[POOL_ALLOCATOR_SIZE];
+#endif
 
 static T31VideoHandle videoHandle = NULL;
 
@@ -111,6 +116,10 @@ int main(int argc, char *argv[])
     KvsAppHandle kvsAppHandle;
     uint64_t uLastPrintMemStatTimestamp = 0;
 
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
+#endif
+
     if ((kvsAppHandle = KvsApp_create(AWS_KVS_HOST, AWS_KVS_REGION, AWS_KVS_SERVICE, KVS_STREAM_NAME)) == NULL)
     {
         printf("Failed to initialize KVS\r\n");
@@ -169,6 +178,10 @@ int main(int argc, char *argv[])
 #endif
 
     KvsApp_terminate(kvsAppHandle);
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorDeinit();
+#endif
 
     return 0;
 }

@@ -14,9 +14,8 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-#include "kvs/allocator.h"
 
 #include "file_input_stream.h"
 
@@ -34,7 +33,7 @@ FileInputStream_t *FIS_create(const char *pcFilename)
     {
         res = ERRNO_FAIL;
     }
-    else if ((pFis = (FileInputStream_t *)KVS_MALLOC(sizeof(FileInputStream_t))) == NULL)
+    else if ((pFis = (FileInputStream_t *)malloc(sizeof(FileInputStream_t))) == NULL)
     {
         res = ERRNO_FAIL;
     }
@@ -54,7 +53,7 @@ FileInputStream_t *FIS_create(const char *pcFilename)
             printf("Unable to identify the filesize\r\n");
             res = ERRNO_FAIL;
         }
-        else if ((pFis->pBuf = (uint8_t *)KVS_MALLOC(pFis->uBufSize)) == NULL)
+        else if ((pFis->pBuf = (uint8_t *)malloc(pFis->uBufSize)) == NULL)
         {
             printf("OOM: pBuf in File Stream\r\n");
             res = ERRNO_FAIL;
@@ -85,9 +84,9 @@ void FIS_terminate(FileInputStream_t *pFis)
         }
         if (pFis->pBuf != NULL)
         {
-            KVS_FREE(pFis->pBuf);
+            free(pFis->pBuf);
         }
-        KVS_FREE(pFis);
+        free(pFis);
     }
 }
 
@@ -111,7 +110,7 @@ int FIS_readIntoBuf(FileInputStream_t *pFis)
     {
         if (pFis->uDataLen == pFis->uBufSize)
         {
-            pBufTemp = KVS_REALLOC(pFis->pBuf, pFis->uBufSize * 2);
+            pBufTemp = (uint8_t *)realloc(pFis->pBuf, pFis->uBufSize * 2);
             if (pBufTemp == NULL)
             {
                 printf("OOM: pBufTemp in File Input Stream\r\n");

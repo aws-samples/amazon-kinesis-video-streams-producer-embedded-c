@@ -16,15 +16,18 @@
 #include <stddef.h>
 #include <string.h>
 
+/* Thirdparty headers */
 #include "azure_c_shared_utility/httpheaders.h"
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "parson.h"
 
-#include "kvs/allocator.h"
+/* Public headers */
 #include "kvs/errors.h"
 #include "kvs/iot_credential_provider.h"
 
+/* Internal headers */
+#include "allocator.h"
 #include "http_helper.h"
 #include "json_helper.h"
 #include "netio.h"
@@ -134,7 +137,7 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         }
         else
         {
-            if ((pToken = (IotCredentialToken_t *)KVS_MALLOC(sizeof(IotCredentialToken_t))) == NULL)
+            if ((pToken = (IotCredentialToken_t *)kvsMalloc(sizeof(IotCredentialToken_t))) == NULL)
             {
                 LogError("OOM: pToken");
                 xRes = KVS_ERRNO_FAIL;
@@ -159,7 +162,7 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
 
     if (pRspBody != NULL)
     {
-        KVS_FREE(pRspBody);
+        kvsFree(pRspBody);
     }
 
     NetIo_Disconnect(xNetIoHandle);
@@ -176,16 +179,16 @@ void Iot_credentialTerminate(IotCredentialToken_t *pToken)
     {
         if (pToken->pAccessKeyId != NULL)
         {
-            KVS_FREE(pToken->pAccessKeyId);
+            kvsFree(pToken->pAccessKeyId);
         }
         if (pToken->pSecretAccessKey != NULL)
         {
-            KVS_FREE(pToken->pSecretAccessKey);
+            kvsFree(pToken->pSecretAccessKey);
         }
         if (pToken->pSessionToken != NULL)
         {
-            KVS_FREE(pToken->pSessionToken);
+            kvsFree(pToken->pSessionToken);
         }
-        KVS_FREE(pToken);
+        kvsFree(pToken);
     }
 }

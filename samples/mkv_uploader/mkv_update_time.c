@@ -22,7 +22,6 @@
 #include <unistd.h>
 
 #include "file_input_stream.h"
-#include "kvs/allocator.h"
 #include "kvs/mkv_parser.h"
 
 #include "mkv_update_time.h"

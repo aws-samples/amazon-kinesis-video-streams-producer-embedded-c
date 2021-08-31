@@ -18,6 +18,10 @@ set(AZURE_C_SHARED_UTILITY_INC
     ${AZURE_C_SHARED_UTILITY_DIR}/deps/umock-c/inc
 )
 
+# setup library interface
+add_library(aziotsharedutil INTERFACE)
+target_include_directories(aziotsharedutil INTERFACE ${AZURE_C_SHARED_UTILITY_INC})
+
 # setup shared library
 add_library(aziotsharedutil-shared SHARED ${AZURE_C_SHARED_UTILITY_SRC})
 set_target_properties(aziotsharedutil-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
@@ -33,6 +37,6 @@ add_library(aziotsharedutil-static STATIC ${AZURE_C_SHARED_UTILITY_SRC})
 set_target_properties(aziotsharedutil-static PROPERTIES OUTPUT_NAME aziotsharedutil)
 target_include_directories(aziotsharedutil-static PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
 target_link_libraries(aziotsharedutil-static PUBLIC
-    mbedtls_static mbedcrypto_static mbedx509_static
+    mbedtls mbedcrypto mbedx509
     m
 )
