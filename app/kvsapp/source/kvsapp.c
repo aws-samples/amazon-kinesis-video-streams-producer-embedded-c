@@ -39,6 +39,7 @@
 #define VIDEO_CODEC_NAME "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME "kvs video track"
 
+#define DEFAULT_DATA_RETENTION_IN_HOURS (2)
 #define DEFAULT_RING_BUFFER_MEM_LIMIT (1 * 1024 * 1024)
 
 typedef struct PolicyRingBufferParameter
@@ -676,7 +677,7 @@ KvsAppHandle KvsApp_create(char *pcHost, char *pcRegion, char *pcService, char *
             pKvs->pIotX509PrivateKey = NULL;
             pKvs->pToken = NULL;
 
-            pKvs->uDataRetentionInHours = 0;
+            pKvs->uDataRetentionInHours = DEFAULT_DATA_RETENTION_IN_HOURS;
 
             pKvs->uEarliestTimestamp = 0;
             pKvs->xStreamHandle = NULL;
