@@ -16,9 +16,9 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 
-#include "kvs/allocator.h"
 #include "kvs/nalu.h"
 #include "kvs/port.h"
 #include "kvs/restapi.h"
@@ -37,6 +37,11 @@
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+#include "kvs/pool_allocator.h"
+static char pMemPool[POOL_ALLOCATOR_SIZE];
+#endif
 
 typedef struct Kvs
 {
@@ -130,7 +135,7 @@ static void kvsTerminate(Kvs_t *pKvs)
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
-            KVS_FREE(pKvs->xServicePara.pcPutMediaEndpoint);
+            free(pKvs->xServicePara.pcPutMediaEndpoint);
             pKvs->xServicePara.pcPutMediaEndpoint = NULL;
         }
     }
@@ -191,7 +196,7 @@ static void streamFlush(StreamHandle xStreamHandle)
     while ((xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
     {
         pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        KVS_FREE(pDataFrameIn->pData);
+        free(pDataFrameIn->pData);
         Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
@@ -219,7 +224,7 @@ static void streamFlushToNextCluster(StreamHandle xStreamHandle)
             {
                 xDataFrameHandle = Kvs_streamPop(xStreamHandle);
                 pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-                KVS_FREE(pDataFrameIn->pData);
+                free(pDataFrameIn->pData);
                 Kvs_dataFrameTerminate(xDataFrameHandle);
             }
         }
@@ -274,7 +279,7 @@ static int putMediaSendData(Kvs_t *pKvs, int *pxSendCnt)
         if (xDataFrameHandle != NULL)
         {
             pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            KVS_FREE(pDataFrameIn->pData);
+            free(pDataFrameIn->pData);
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
     }
@@ -572,18 +577,19 @@ void Kvs_run(Kvs_t *pKvs)
 
 int main(int argc, char *argv[])
 {
-#ifdef KVS_USE_POOL_ALLOCATOR
-    if (poolAllocatorInit(POOL_ALLOCATOR_SIZE))
-    {
-        printf("Failed to create pool allocator\r\n");
-        return 0;
-    }
-#endif
     Kvs_t xKvs;
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
+#endif
 
     platformInit();
 
     Kvs_run(&xKvs);
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorDeinit();
+#endif
 
     return 0;
 }

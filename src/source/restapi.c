@@ -26,7 +26,6 @@
 #include "parson.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/restapi.h"
 
@@ -34,6 +33,7 @@
 #include "kvs/port.h"
 
 /* Internal headers */
+#include "allocator.h"
 #include "aws_signer_v4.h"
 #include "http_helper.h"
 #include "json_helper.h"
@@ -43,7 +43,7 @@
 #    define SAFE_FREE(a)                                                                                                                                                           \
         do                                                                                                                                                                         \
         {                                                                                                                                                                          \
-            KVS_FREE(a);                                                                                                                                                           \
+            kvsFree(a);                                                                                                                                                           \
             a = NULL;                                                                                                                                                              \
         } while (0)
 #endif /* SAFE_FREE */
@@ -262,10 +262,6 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
     char *pcDataEndpoint = NULL;
     size_t uEndpointLen = 0;
 
-#ifdef KVS_USE_POOL_ALLOCATOR
-    json_set_allocation_functions(poolAllocatorMalloc, poolAllocatorFree);
-#endif
-
     json_set_escape_slashes(0);
 
     if (pcJsonSrc == NULL || uJsonSrcLen == 0 || ppcEndpoint == NULL)
@@ -292,14 +288,14 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
         if (uEndpointLen > 8)
         {
             uEndpointLen -= 8;
-            *ppcEndpoint = (char *)KVS_MALLOC(uEndpointLen + 1);
+            *ppcEndpoint = (char *)kvsMalloc(uEndpointLen + 1);
             if (*ppcEndpoint != NULL)
             {
                 memcpy(*ppcEndpoint, pcDataEndpoint + 8, uEndpointLen);
                 (*ppcEndpoint)[uEndpointLen] = '\0';
             }
         }
-        KVS_FREE(pcDataEndpoint);
+        kvsFree(pcDataEndpoint);
     }
 
     if (pxRootValue != NULL)
@@ -446,7 +442,7 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
     else
     {
         pxFragmentAck->eventType = prvGetEventType(pcEventType);
-        KVS_FREE(pcEventType);
+        kvsFree(pcEventType);
 
         if (pxFragmentAck->eventType == EVENT_BUFFERING || pxFragmentAck->eventType == EVENT_RECEIVED || pxFragmentAck->eventType == EVENT_PERSISTED ||
             pxFragmentAck->eventType == EVENT_ERROR)
@@ -881,7 +877,7 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
         if (uHttpStatusCode == 200)
         {
-            if ((pPutMedia = (PutMedia_t *)KVS_MALLOC(sizeof(PutMedia_t))) == NULL)
+            if ((pPutMedia = (PutMedia_t *)kvsMalloc(sizeof(PutMedia_t))) == NULL)
             {
                 LogError("OOM: pPutMedia");
                 xRes = KVS_ERRNO_FAIL;
@@ -1078,6 +1074,6 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
             NetIo_Disconnect(pPutMedia->xNetIoHandle);
             NetIo_Terminate(pPutMedia->xNetIoHandle);
         }
-        KVS_FREE(pPutMedia);
+        kvsFree(pPutMedia);
     }
 }

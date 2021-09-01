@@ -13,16 +13,56 @@
  * permissions and limitations under the License.
  */
 
-#ifndef KVS_POOL_ALLOCATOR_H
-#define KVS_POOL_ALLOCATOR_H
+#ifndef POOL_ALLOCATOR_H
+#define POOL_ALLOCATOR_H
 
 #include <stddef.h>
 
-int poolAllocatorInit(size_t bytes);
-void poolAllocatorDeinit(void);
+/**
+ * Init pool allocator with specified size. The pool is allocated from default malloc.
+ *
+ * @param[in] pMemBuf Pointer of memory pool
+ * @param[in] bytes Memory pool size
+ * @return 0 on success, negative value otherwise
+ */
+int poolAllocatorInit(void *pMemPool, size_t bytes);
+
+/**
+ * Allocate memory from memory pool. If pool allocator hasn't been initialized, then it'll be initialized here with default size.
+ *
+ * @param bytes Size of memory
+ * @return Newly allocated memory on success, NULL otherwise
+ */
 void *poolAllocatorMalloc(size_t bytes);
+
+/**
+ * Re-allocate memory from memory pool. If pool allocator hasn't been initialized, then it'll be initialized here with default size.
+ *
+ * @param ptr Pointer to be re-allocate
+ * @param bytes New memory size
+ * @return Newly allocated memory on success, NULL otherwise
+ */
 void *poolAllocatorRealloc(void *ptr, size_t bytes);
+
+/**
+ * Allocate and clear memory from memory pool. If pool allocator hasn't been initialized, then it'll be initialized here with default size.
+ *
+ * @param num Number of elements
+ * @param bytes Element size
+ * @return Newly allocated memory on success, NULL otherwise
+ */
 void *poolAllocatorCalloc(size_t num, size_t bytes);
+
+/**
+ * Free memory from memory pool.
+ *
+ * @param ptr Pointer to be freed
+ */
 void poolAllocatorFree(void *ptr);
 
-#endif
+/**
+ * Deinit pool allocator.
+ */
+void poolAllocatorDeinit(void);
+
+#endif /* POOL_ALLOCATOR_H */

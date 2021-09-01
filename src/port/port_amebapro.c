@@ -13,7 +13,6 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <inttypes.h>
 #include <stddef.h>
 #include <sys/time.h>

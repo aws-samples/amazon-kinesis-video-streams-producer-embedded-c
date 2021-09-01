@@ -13,11 +13,11 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -26,20 +26,12 @@
 
 #include "aac_encoder/aac_encoder.h"
 
-/* Thirdparty headers */
-#include "azure_c_shared_utility/lock.h"
-#include "azure_c_shared_utility/xlogging.h"
-
 /* KVS headers */
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
 #include "sample_config.h"
 #include "t31_audio.h"
-
-/* Thirdparty headers */
-#include "azure_c_shared_utility/lock.h"
-#include "azure_c_shared_utility/xlogging.h"
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
@@ -64,7 +56,7 @@ typedef struct AudioConfiguration
 
 typedef struct T31Audio
 {
-    LOCK_HANDLE lock;
+    pthread_mutex_t lock;
 
     pthread_t tid;
     bool isTerminating;
@@ -98,7 +90,7 @@ static int audioConfigurationInit(AudioConfiguration_t *pConf)
 
     if (pConf == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -141,14 +133,14 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
 
     if (pAudio == NULL || pFrame == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
     {
         int xFrameOffset = 0;
         size_t uCopySize = 0;
-        // LogInfo("xFrameOffset:%d xPcmBufSize:%d len:%d", xFrameOffset, pAudio->xPcmBufSize, pFrame->len);
+        // printf("%s(): xFrameOffset:%d xPcmBufSize:%d len:%d\n", __FUNCTION__, xFrameOffset, pAudio->xPcmBufSize, pFrame->len);
         if (pAudio->uPcmOffset == 0)
         {
             pAudio->uPcmTimestamp = getEpochTimestampInMs();
@@ -179,14 +171,14 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
 
                 if (AacEncoder_encode(pAudio->xAacEncHandle, pAudio->pPcmBuf, pAudio->uPcmBufSize, pAudio->pFrameBuf, &xFrameLen) != 0)
                 {
-                    LogError("aac encode failed");
+                    printf("%s(): aac encode failed\n", __FUNCTION__);
                 }
                 else
                 {
                     uDataLen = xFrameLen;
-                    if (uDataLen == 0 || (pData = (uint8_t *)KVS_MALLOC(uDataLen)) == NULL)
+                    if (uDataLen == 0 || (pData = (uint8_t *)malloc(uDataLen)) == NULL)
                     {
-                        LogError("OOM: pData");
+                        printf("%s(): OOM: pData\n", __FUNCTION__);
                     }
                     else
                     {
@@ -212,7 +204,7 @@ static void *audioThread(void *arg)
 
     if (pAudio == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else if (
@@ -222,7 +214,7 @@ static void *audioThread(void *arg)
         IMP_AI_SetVol(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID, pAudio->xAudioConf.chnVol) != 0 ||
         IMP_AI_SetGain(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID, pAudio->xAudioConf.aigain) != 0)
     {
-        LogError("Failed to setup audio");
+        printf("%s(): Failed to setup audio\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -231,12 +223,12 @@ static void *audioThread(void *arg)
         {
             if (IMP_AI_PollingFrame(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID, 1000) != 0)
             {
-                LogError("Audio Polling Frame Data error");
+                printf("%s(): Audio Polling Frame Data error\n", __FUNCTION__);
                 continue;
             }
             else if (IMP_AI_GetFrame(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID, &frm, BLOCK) != 0)
             {
-                LogError("Audio Get Frame Data error");
+                printf("%s(): Audio Get Frame Data error\n", __FUNCTION__);
                 res = ERRNO_FAIL;
                 break;
             }
@@ -245,12 +237,12 @@ static void *audioThread(void *arg)
                 // Compress and send frame
                 if (sendAudioFrame(pAudio, &frm) != 0)
                 {
-                    LogError("Failed to send Audio frame");
+                    printf("%s(): Failed to send Audio frame\n", __FUNCTION__);
                 }
 
                 if (IMP_AI_ReleaseFrame(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID, &frm) != 0)
                 {
-                    LogError("Audio release frame data error");
+                    printf("%s(): Audio release frame data error\n", __FUNCTION__);
                     break;
                 }
             }
@@ -263,7 +255,7 @@ static void *audioThread(void *arg)
 
         if (IMP_AI_DisableChn(pAudio->xAudioConf.devID, pAudio->xAudioConf.chnID) != 0 || IMP_AI_Disable(pAudio->xAudioConf.devID) != 0)
         {
-            LogError("Audio device disable error");
+            printf("%s(): Audio device disable error\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
     }
@@ -282,16 +274,16 @@ static int initAudioTrackInfo(T31Audio_t *pAudio)
 
     if (pAudio == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
     {
         if (pAudio->pAudioTrackInfo == NULL)
         {
-            if ((pAudioTrackInfo = (AudioTrackInfo_t *)KVS_MALLOC(sizeof(AudioTrackInfo_t))) == NULL)
+            if ((pAudioTrackInfo = (AudioTrackInfo_t *)malloc(sizeof(AudioTrackInfo_t))) == NULL)
             {
-                LogError("OOM: pAudioTrackInfo");
+                printf("%s(): OOM: pAudioTrackInfo\n", __FUNCTION__);
                 res = ERRNO_FAIL;
             }
             else
@@ -305,7 +297,7 @@ static int initAudioTrackInfo(T31Audio_t *pAudio)
                 if (Mkv_generateAacCodecPrivateData(
                         AUDIO_MPEG_OBJECT_TYPE, pAudioTrackInfo->uFrequency, pAudioTrackInfo->uChannelNumber, &pCodecPrivateData, &uCodecPrivateDataLen) != 0)
                 {
-                    LogError("Failed to generate codec private data");
+                    printf("%s(): Failed to generate codec private data\n", __FUNCTION__);
                     res = ERRNO_FAIL;
                 }
                 else
@@ -323,7 +315,7 @@ static int initAudioTrackInfo(T31Audio_t *pAudio)
     {
         if (pAudioTrackInfo != NULL)
         {
-            KVS_FREE(pAudioTrackInfo);
+            free(pAudioTrackInfo);
         }
     }
 
@@ -337,14 +329,14 @@ static int initAacEncoder(T31Audio_t *pAudio)
 
     if (pAudio == NULL)
     {
-        LogError("Invalid parameter");
+        printf("%s(): Invalid parameter\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else if (
         (xAacEncHandle =
              AacEncoder_create(pAudio->xAudioConf.sampleRate, pAudio->xAudioConf.channel, pAudio->xAudioConf.bitRate, AAC_OBJECT_TYPE_AAC_LC, &(pAudio->uPcmBufSize))) == NULL)
     {
-        LogError("Failed to init aac encoder");
+        printf("%s(): Failed to init aac encoder\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -352,14 +344,14 @@ static int initAacEncoder(T31Audio_t *pAudio)
         pAudio->uPcmTimestamp = 0;
         pAudio->uPcmOffset = 0;
 
-        if ((pAudio->pPcmBuf = (uint8_t *)KVS_MALLOC(pAudio->uPcmBufSize)) == NULL)
+        if ((pAudio->pPcmBuf = (uint8_t *)malloc(pAudio->uPcmBufSize)) == NULL)
         {
-            LogError("OOM: pPcmBuf");
+            printf("%s(): OOM: pPcmBuf\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
-        else if ((pAudio->pFrameBuf = (uint8_t *)KVS_MALLOC(pAudio->xFrameBufSize)) == NULL)
+        else if ((pAudio->pFrameBuf = (uint8_t *)malloc(pAudio->xFrameBufSize)) == NULL)
         {
-            LogError("OOM: pFrameBuf");
+            printf("%s(): OOM: pFrameBuf\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else
@@ -378,9 +370,9 @@ T31AudioHandle T31Audio_create(KvsAppHandle kvsAppHandle)
     int res = ERRNO_NONE;
     T31Audio_t *pAudio = NULL;
 
-    if ((pAudio = (T31Audio_t *)KVS_MALLOC(sizeof(T31Audio_t))) == NULL)
+    if ((pAudio = (T31Audio_t *)malloc(sizeof(T31Audio_t))) == NULL)
     {
-        LogError("OOM: pAudio");
+        printf("%s(): OOM: pAudio\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
@@ -393,29 +385,29 @@ T31AudioHandle T31Audio_create(KvsAppHandle kvsAppHandle)
         pAudio->kvsAppHandle = kvsAppHandle;
         pAudio->xFrameBufSize = 8 * 1024;
 
-        if ((pAudio->lock = Lock_Init()) == NULL)
+        if (pthread_mutex_init(&(pAudio->lock), NULL) != 0)
         {
-            LogError("Failed to initialize lock");
+            printf("%s(): Failed to initialize lock\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else if (audioConfigurationInit(&(pAudio->xAudioConf)) != ERRNO_NONE)
         {
-            LogError("failed to init audio configuration");
+            printf("%s(): failed to init audio configuration\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else if (initAudioTrackInfo(pAudio) != ERRNO_NONE)
         {
-            LogError("Failed to init audio track info");
+            printf("%s(): Failed to init audio track info\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else if (initAacEncoder(pAudio) != ERRNO_NONE)
         {
-            LogError("Failed to init aac encoder");
+            printf("%s(): Failed to init aac encoder\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
         else if (pthread_create(&(pAudio->tid), NULL, audioThread, pAudio) != 0)
         {
-            LogError("Failed to create video thread");
+            printf("%s(): Failed to create video thread\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
     }
@@ -443,7 +435,8 @@ void T31Audio_terminate(T31AudioHandle handle)
 
         pthread_join(pAudio->tid, NULL);
 
-        KVS_FREE(pAudio);
+        pthread_mutex_destroy(&(pAudio->lock));
+        free(pAudio);
     }
 }
 
@@ -457,18 +450,18 @@ AudioTrackInfo_t *T31Audio_getAudioTrackInfoClone(T31AudioHandle handle)
     {
         res = ERRNO_FAIL;
     }
-    else if (Lock(pAudio->lock) != LOCK_OK)
+    else if (pthread_mutex_lock(&(pAudio->lock)) != 0)
     {
-        LogError("Failed to lock");
+        printf("%s(): Failed to lock\n", __FUNCTION__);
         res = ERRNO_FAIL;
     }
     else
     {
         if (pAudio->pAudioTrackInfo != NULL)
         {
-            if ((pAudioTrackInfo = (AudioTrackInfo_t *)KVS_MALLOC(sizeof(AudioTrackInfo_t))) == NULL)
+            if ((pAudioTrackInfo = (AudioTrackInfo_t *)malloc(sizeof(AudioTrackInfo_t))) == NULL)
             {
-                LogError("OOM: pAudioTrackInfo");
+                printf("%s(): OOM: pAudioTrackInfo\n", __FUNCTION__);
                 res = ERRNO_FAIL;
             }
             else
@@ -477,7 +470,7 @@ AudioTrackInfo_t *T31Audio_getAudioTrackInfoClone(T31AudioHandle handle)
             }
         }
 
-        Unlock(pAudio->lock);
+        pthread_mutex_unlock(&(pAudio->lock));
     }
 
     return pAudioTrackInfo;

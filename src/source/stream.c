@@ -22,10 +22,12 @@
 #include "azure_c_shared_utility/xlogging.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/mkv_generator.h"
 #include "kvs/stream.h"
+
+/* Internal headers */
+#include "allocator.h"
 
 typedef struct DataFrame
 {
@@ -115,7 +117,7 @@ StreamHandle Kvs_streamCreate(VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_
     {
         LogError("Invalid argument");
     }
-    else if ((pxStream = (Stream_t *)KVS_MALLOC(sizeof(Stream_t))) == NULL)
+    else if ((pxStream = (Stream_t *)kvsMalloc(sizeof(Stream_t))) == NULL)
     {
         LogError("OOM: pxStream");
     }
@@ -129,13 +131,13 @@ StreamHandle Kvs_streamCreate(VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_
         if (Mkv_initializeHeaders(&xMkvHeader, pVideoTrackInfo, pAudioTrackInfo) != KVS_ERRNO_NONE)
         {
             LogError("Failed to initialize mkv headers");
-            KVS_FREE(pxStream);
+            kvsFree(pxStream);
             pxStream = NULL;
         }
         else if ((pxStream->xLock = Lock_Init()) == NULL)
         {
             LogError("Failed to initialize lock");
-            KVS_FREE(pxStream);
+            kvsFree(pxStream);
             pxStream = NULL;
         }
         else
@@ -156,9 +158,9 @@ void Kvs_streamTermintate(StreamHandle xStreamHandle)
 
     if (pxStream != NULL)
     {
-        KVS_FREE(pxStream->pMkvEbmlSeg);
+        kvsFree(pxStream->pMkvEbmlSeg);
         Lock_Deinit(pxStream->xLock);
-        KVS_FREE(pxStream);
+        kvsFree(pxStream);
     }
 }
 
@@ -204,7 +206,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0 || (pxDataFrame = (DataFrame_t *)KVS_MALLOC(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
+    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0 || (pxDataFrame = (DataFrame_t *)kvsMalloc(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
     {
         LogError("Failed to create data frame");
         xRes = KVS_ERRNO_FAIL;
@@ -266,7 +268,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
     {
         if (pxDataFrame != NULL)
         {
-            KVS_FREE(pxDataFrame);
+            kvsFree(pxDataFrame);
             pxDataFrame = NULL;
         }
     }
@@ -410,6 +412,6 @@ void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
 
     if (pxDataFrame != NULL)
     {
-        KVS_FREE(pxDataFrame);
+        kvsFree(pxDataFrame);
     }
 }

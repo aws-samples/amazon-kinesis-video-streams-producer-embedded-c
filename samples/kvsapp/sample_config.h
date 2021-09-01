@@ -82,7 +82,7 @@
 #endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
 
 #ifdef KVS_USE_POOL_ALLOCATOR
-#define POOL_ALLOCATOR_SIZE             (2 * 1024 * 1024)
+#define POOL_ALLOCATOR_SIZE             (2 * 1024 * 1024 + 512 * 1024)
 #endif
 
 #endif /* SAMPLE_CONFIG_H */

@@ -1,11 +1,5 @@
 set(APP_NAME "kvsappcli-ingenic-t31")
 
-# support usleep
-set(CMAKE_C_FLAGS "-D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L ${CMAKE_C_FLAGS}")
-
-# link flags
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -muclibc -Wl,-gc-sections")
-
 # t31 library
 set(INGENIC_T31_SRC
     sdk/samples/libimp-samples/sample-common.c
@@ -16,16 +10,11 @@ set(INGENIC_T31_INC
     sdk/include
 )
 
-# setup shared library
-add_library(ingenic-t31-shared SHARED ${INGENIC_T31_SRC})
-set_target_properties(ingenic-t31-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(ingenic-t31-shared PROPERTIES OUTPUT_NAME ingenic-t31)
-target_include_directories(ingenic-t31-shared PUBLIC ${INGENIC_T31_INC})
-
 # setup static library
-add_library(ingenic-t31-static STATIC ${INGENIC_T31_SRC})
-set_target_properties(ingenic-t31-static PROPERTIES OUTPUT_NAME ingenic-t31)
-target_include_directories(ingenic-t31-static PUBLIC ${INGENIC_T31_INC})
+add_library(ingenic-t31 STATIC ${INGENIC_T31_SRC})
+target_compile_definitions(ingenic-t31 PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
+set_target_properties(ingenic-t31 PROPERTIES OUTPUT_NAME ingenic-t31)
+target_include_directories(ingenic-t31 PUBLIC ${INGENIC_T31_INC})
 
 # kvsappcli executable
 set(${APP_NAME}_SRC
@@ -38,40 +27,56 @@ set(${APP_NAME}_INC
     include
 )
 
+unset(COMPILE_FLAGS_FOR_POOL_ALLOCATOR)
+if(${USE_POOL_ALLOCATOR_LIB})
+    set(COMPILE_FLAGS_FOR_POOL_ALLOCATOR -DKVS_USE_POOL_ALLOCATOR)
+endif()
+
+unset(LINKER_FLAGS_FOR_MEM_WRAPPER)
+if(${USE_POOL_ALLOCATOR_ALL})
+    set(${APP_NAME}_SRC ${${APP_NAME}_SRC}
+        source/mem_wrapper.c
+    )
+    set(LINKER_FLAGS_FOR_MEM_WRAPPER -Wl,--wrap,malloc -Wl,--wrap,realloc -Wl,--wrap,calloc -Wl,--wrap,free)
+endif()
+
 # build shared executable
 add_executable(${APP_NAME} ${${APP_NAME}_SRC})
 set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
+# support usleep
+target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
+target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
 target_include_directories(${APP_NAME} PUBLIC ${${APP_NAME}_INC})
 target_link_directories(${APP_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/uclibc)
 target_link_libraries(${APP_NAME}
     rt
     dl
-    ingenic-t31-shared
+    ingenic-t31
     aac-encoder-shared
     imp
     alog
-    fdk-aac-shared
-    aziotsharedutil-shared
-    kvs-embedded-c-shared
-    kvsapp-shared
     pthread
+    kvsapp-shared
 )
 
 # build static executable
 add_executable(${APP_NAME}-static ${${APP_NAME}_SRC})
 set_target_properties(${APP_NAME}-static PROPERTIES OUTPUT_NAME ${APP_NAME}-static)
+# support usleep
+target_compile_definitions(${APP_NAME}-static PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
+target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
+target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
 target_include_directories(${APP_NAME}-static PUBLIC ${${APP_NAME}_INC})
 target_link_directories(${APP_NAME}-static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/uclibc)
 target_link_libraries(${APP_NAME}-static
     rt
     dl
-    ingenic-t31-static
+    ingenic-t31
     aac-encoder-static
     imp.a
     alog.a
-    fdk-aac-static
-    aziotsharedutil-static
-    kvs-embedded-c-static
-    kvsapp-static
     pthread
+    kvsapp-static
+    ${LINKER_FLAGS_FOR_MEM_WRAPPER}
 )

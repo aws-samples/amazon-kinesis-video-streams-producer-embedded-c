@@ -13,10 +13,12 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+
+/* Internal headers */
+#include "allocator.h"
 
 typedef struct BitStream
 {

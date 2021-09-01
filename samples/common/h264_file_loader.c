@@ -16,9 +16,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "kvs/allocator.h"
 #include "kvs/mkv_generator.h"
 #include "kvs/nalu.h"
 
@@ -32,7 +32,7 @@
 #define SAFE_FREE(a)    \
     do                  \
     {                   \
-        KVS_FREE(a);    \
+        free(a);        \
         a = NULL;       \
     } while (0)
 #endif /* SAFE_FREE */
@@ -75,14 +75,14 @@ static int loadFrame(H264FileLoader_t *pLoader, char **ppData, size_t *puDataLen
         res = ERRNO_FAIL;
     }
     else if (
-        (uFilenameLen = snprintf(NULL, 0, pLoader->pcFileFormat, pLoader->xFileCurrentIdx)) == 0 || (pcFilename = (char *)KVS_MALLOC(uFilenameLen + 1)) == NULL ||
+        (uFilenameLen = snprintf(NULL, 0, pLoader->pcFileFormat, pLoader->xFileCurrentIdx)) == 0 || (pcFilename = (char *)malloc(uFilenameLen + 1)) == NULL ||
         snprintf(pcFilename, uFilenameLen + 1, pLoader->pcFileFormat, pLoader->xFileCurrentIdx) != uFilenameLen)
     {
         printf("Unable to setup filename\r\n");
         res = ERRNO_FAIL;
     }
     else if (
-        getFileSize(pcFilename, &uDataLen) != 0 || (pData = (char *)KVS_MALLOC(uDataLen + ANNEXB_TO_AVCC_EXTRA_MEMSIZE)) == NULL ||
+        getFileSize(pcFilename, &uDataLen) != 0 || (pData = (char *)malloc(uDataLen + ANNEXB_TO_AVCC_EXTRA_MEMSIZE)) == NULL ||
         readFile(pcFilename, pData, uDataLen + ANNEXB_TO_AVCC_EXTRA_MEMSIZE, &uDataLen) != 0)
     {
         printf("Unable to load data frame: %s\r\n", pcFilename);
@@ -157,7 +157,7 @@ static int initializeVideoTrackInfo(H264FileLoader_t *pLoader)
                     bVideoTrackInfoInitialized = true;
                 }
 
-                KVS_FREE(pData);
+                free(pData);
             }
         }
 
@@ -178,7 +178,7 @@ H264FileLoaderHandle H264FileLoaderCreate(FileLoaderPara_t *pFileLoaderPara)
         printf("Invalid H264 File Loader arguments while creating\r\n");
         res = ERRNO_FAIL;
     }
-    else if ((pLoader = (H264FileLoader_t *)KVS_MALLOC(sizeof(H264FileLoader_t))) == NULL)
+    else if ((pLoader = (H264FileLoader_t *)malloc(sizeof(H264FileLoader_t))) == NULL)
     {
         printf("OOM: pLoader in H264 File Loader\r\n");
         res = ERRNO_FAIL;
@@ -187,14 +187,14 @@ H264FileLoaderHandle H264FileLoaderCreate(FileLoaderPara_t *pFileLoaderPara)
     {
         memset(pLoader, 0, sizeof(H264FileLoader_t));
 
-        if ((uStLen = strlen(pFileLoaderPara->pcTrackName)) == 0 || (pLoader->pcTrackName = (char *)KVS_MALLOC(uStLen + 1)) == NULL ||
+        if ((uStLen = strlen(pFileLoaderPara->pcTrackName)) == 0 || (pLoader->pcTrackName = (char *)malloc(uStLen + 1)) == NULL ||
             snprintf(pLoader->pcTrackName, uStLen + 1, "%s", pFileLoaderPara->pcTrackName) != uStLen)
         {
             printf("Failed to init track name in H264 File Loader\r\n");
             res = ERRNO_FAIL;
         }
         else if (
-            (uStLen = strlen(pFileLoaderPara->pcFileFormat)) == 0 || (pLoader->pcFileFormat = (char *)KVS_MALLOC(uStLen + 1)) == NULL ||
+            (uStLen = strlen(pFileLoaderPara->pcFileFormat)) == 0 || (pLoader->pcFileFormat = (char *)malloc(uStLen + 1)) == NULL ||
             snprintf(pLoader->pcFileFormat, uStLen + 1, "%s", pFileLoaderPara->pcFileFormat) != uStLen)
         {
             printf("Failed to init file format in H264 File Loader\r\n");
@@ -233,7 +233,7 @@ void H264FileLoaderTerminate(H264FileLoaderHandle xLoader)
         SAFE_FREE(pLoader->xVideoTrackInfo.pCodecPrivate);
         SAFE_FREE(pLoader->pcTrackName);
         SAFE_FREE(pLoader->pcFileFormat);
-        KVS_FREE(pLoader);
+        free(pLoader);
     }
 }
 

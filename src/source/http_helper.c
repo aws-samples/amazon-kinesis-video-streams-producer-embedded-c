@@ -24,10 +24,10 @@
 #include "llhttp.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
+#include "allocator.h"
 #include "http_helper.h"
 #include "netio.h"
 
@@ -224,7 +224,7 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                     *puHttpStatus = uHttpStatusCode;
                     if (uHttpStatusCode == 200)
                     {
-                        if ((pRspBody = (char *)KVS_MALLOC(uBodyLen + 1)) == NULL)
+                        if ((pRspBody = (char *)kvsMalloc(uBodyLen + 1)) == NULL)
                         {
                             LogError("OOM: ppBodyLoc");
                             xRes = KVS_ERRNO_NONE;

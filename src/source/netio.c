@@ -28,10 +28,10 @@
 #include "mbedtls/net_sockets.h"
 
 /* Public headers */
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 
 /* Internal headers */
+#include "allocator.h"
 #include "netio.h"
 
 typedef struct NetIo
@@ -53,9 +53,9 @@ static int prvCreateX509Cert(NetIo_t *pxNet)
 {
     int xRes = KVS_ERRNO_NONE;
 
-    if (pxNet == NULL || (pxNet->pRootCA = (mbedtls_x509_crt *)KVS_MALLOC(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pCert = (mbedtls_x509_crt *)KVS_MALLOC(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pPrivKey = (mbedtls_pk_context *)KVS_MALLOC(sizeof(mbedtls_pk_context))) == NULL)
+    if (pxNet == NULL || (pxNet->pRootCA = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pCert = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pPrivKey = (mbedtls_pk_context *)kvsMalloc(sizeof(mbedtls_pk_context))) == NULL)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -171,7 +171,7 @@ NetIoHandle NetIo_Create(void)
 {
     NetIo_t *pxNet = NULL;
 
-    if ((pxNet = (NetIo_t *)KVS_MALLOC(sizeof(NetIo_t))) != NULL)
+    if ((pxNet = (NetIo_t *)kvsMalloc(sizeof(NetIo_t))) != NULL)
     {
         memset(pxNet, 0, sizeof(NetIo_t));
 
@@ -206,24 +206,24 @@ void NetIo_Terminate(NetIoHandle xNetIoHandle)
         if (pxNet->pRootCA != NULL)
         {
             mbedtls_x509_crt_free(pxNet->pRootCA);
-            KVS_FREE(pxNet->pRootCA);
+            kvsFree(pxNet->pRootCA);
             pxNet->pRootCA = NULL;
         }
 
         if (pxNet->pCert != NULL)
         {
             mbedtls_x509_crt_free(pxNet->pCert);
-            KVS_FREE(pxNet->pCert);
+            kvsFree(pxNet->pCert);
             pxNet->pCert = NULL;
         }
 
         if (pxNet->pPrivKey != NULL)
         {
             mbedtls_pk_free(pxNet->pPrivKey);
-            KVS_FREE(pxNet->pPrivKey);
+            kvsFree(pxNet->pPrivKey);
             pxNet->pPrivKey = NULL;
         }
-        KVS_FREE(pxNet);
+        kvsFree(pxNet);
     }
 }
 

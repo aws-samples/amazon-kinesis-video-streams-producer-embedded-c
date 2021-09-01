@@ -13,10 +13,10 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <getopt.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -33,6 +33,11 @@
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+#include "kvs/pool_allocator.h"
+static char pMemPool[POOL_ALLOCATOR_SIZE];
+#endif
 
 typedef struct Kvs
 {
@@ -134,7 +139,7 @@ static void kvsTerminate(Kvs_t *pKvs)
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
-            KVS_FREE(pKvs->xServicePara.pcPutMediaEndpoint);
+            free(pKvs->xServicePara.pcPutMediaEndpoint);
             pKvs->xServicePara.pcPutMediaEndpoint = NULL;
         }
         if (pKvs->fp != NULL)
@@ -206,7 +211,7 @@ static int putMedia(Kvs_t *pKvs)
         printf("Invalid argument: pKvs\r\n");
         res = ERRNO_FAIL;
     }
-    else if ((pBuf = (char *)KVS_MALLOC(uBufSize)) == NULL)
+    else if ((pBuf = (char *)malloc(uBufSize)) == NULL)
     {
         printf("OOM: pBuf\r\n");
     }
@@ -243,7 +248,7 @@ static int putMedia(Kvs_t *pKvs)
     pKvs->xPutMediaHandle = NULL;
     if (pBuf != NULL)
     {
-        KVS_FREE(pBuf);
+        free(pBuf);
     }
 
     return res;
@@ -321,6 +326,10 @@ int main(int argc, char *argv[])
 
     char *pcMkvFilename = NULL;
 
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
+#endif
+
     while ((c = getopt(argc, argv, optstring)) != -1)
     {
         switch (c)
@@ -349,6 +358,10 @@ int main(int argc, char *argv[])
     }
 
     printf("\r\n");
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+    poolAllocatorDeinit();
+#endif
 
     return res;
 }

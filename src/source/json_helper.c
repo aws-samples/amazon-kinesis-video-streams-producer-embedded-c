@@ -13,12 +13,13 @@
  * permissions and limitations under the License.
  */
 
-#include "kvs/allocator.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
+/* Internal headers */
+#include "allocator.h"
 #include "json_helper.h"
 
 char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char *pcName, bool bRemoveQuotes)
@@ -34,19 +35,24 @@ char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, co
         {
             if ((pcVal = json_serialize_to_string(pxJsonValue)) != NULL)
             {
+                uValLen = strlen(pcVal);
                 if (bRemoveQuotes)
                 {
-                    uValLen = strlen(pcVal);
-                    if (uValLen > 2 && (pcRes = KVS_MALLOC(uValLen - 1)) != NULL)
+                    if (uValLen > 2 && (pcRes = kvsMalloc(uValLen - 1)) != NULL)
                     {
                         memcpy(pcRes, pcVal + 1, uValLen - 2);
                         pcRes[uValLen - 2] = '\0';
                     }
-                    KVS_FREE(pcVal);
+                    json_free_serialized_string(pcVal);
                 }
                 else
                 {
-                    pcRes = pcVal;
+                    if (uValLen > 0 && (pcRes = kvsMalloc(uValLen + 1)) != NULL)
+                    {
+                        memcpy(pcRes, pcVal, uValLen);
+                        pcRes[uValLen] = '\0';
+                    }
+                    json_free_serialized_string(pcVal);
                 }
             }
         }
@@ -71,7 +77,7 @@ uint64_t json_object_dotget_uint64(const JSON_Object *pxRootObject, const char *
             {
                 /* We have a valid string value here. */
                 uVal = strtoull(pcValue, NULL, xBase);
-                KVS_FREE(pcValue);
+                json_free_serialized_string(pcValue);
             }
         }
     }

@@ -18,7 +18,6 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "kvs/allocator.h"
 #include "kvs/errors.h"
 #include "kvs/port.h"
 
