@@ -113,25 +113,25 @@ Setup cmake project
 
     cmake -DCMAKE_C_COMPILER=mips-linux-gnu-gcc \
         -DCMAKE_CXX_COMPILER=mips-linux-gnu-g++ \
-        -DBOARD_INGENTIC_T31=ON \
+        -DBOARD_INGENIC_T31=ON \
         ..
 
 Build project.
 
     cmake --build .
 
-After build complete, there will be a exectuable file named "kvsappcli-ingentic-t31" in the "build" folder. Copy this file to T31 SD card.  To copy this file, you can either using some network tools to send this file or use a SD card reader to do that.
+After build completed, there will be exectuable files named "kvsappcli-ingenic-t31" and "kvsappcli-ingenic-t31-static" in the "build/bin/" folder.  Executable "kvsappcli-ingenic-t31" using shared library under "build/lib/" folder.  Executable "kvsappcli-ingenic-t31-static" is a static build and it doesn't need any other library except common runtime library like "libc" or "pthread".  Copy these file to T31 SD card.  To copy these files, you can either using some network tools to send this file or use a SD card reader to do that.
 
 # Run sample
 
 Now the executable is on the device, use the following command to run this sample.
 
     cd /mnt
-    ./kvsappcli-ingenic-t31
+    ./kvsappcli-ingenic-t31-static
 
 You wold see following log if everythins works fine.
 
-    [root@Ingenic-uc1_1:mnt]# ./kvsappcli-ingentic-t31
+    [root@Ingenic-uc1_1:mnt]# ./kvsappcli-ingenic-t31
     AACEncoderInit   channels = 1, pcm_frame_len = 2048
     [ 5577.435278] gc2053 chip found @ 0x37 (i2c0) version H20210315a
     ---- FPGA board is ready ----
@@ -165,3 +165,6 @@ You wold see following log if everythins works fine.
     Info: Fragment buffering, timecode:1628131224975
     Info: Fragment persisted, timecode:1628131220975
 
+# KVS sample for Ingenic T31
+
+After build, there will be a folder named "ingenic_t31_kvs_sample" under "build" folder.  It's a sample with prebuilt libraries.  It can ease the impelemntation without re-build all libraries.

@@ -80,3 +80,20 @@ target_link_libraries(${APP_NAME}-static
     kvsapp-static
     ${LINKER_FLAGS_FOR_MEM_WRAPPER}
 )
+
+# create sample patch
+set(INGENIC_T31_KVS_SAMPLE_DIR ${PROJECT_BINARY_DIR}/ingenic_t31_kvs_sample)
+
+add_custom_command(TARGET ${APP_NAME} POST_BUILD 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${INGENIC_T31_KVS_SAMPLE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy           ${CMAKE_CURRENT_SOURCE_DIR}/res/CMakeLists.txt ${INGENIC_T31_KVS_SAMPLE_DIR}/CMakeLists.txt
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${LIBRARY_OUTPUT_PATH} ${INGENIC_T31_KVS_SAMPLE_DIR}/lib
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/uclibc ${INGENIC_T31_KVS_SAMPLE_DIR}/uclibc
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include/imp ${INGENIC_T31_KVS_SAMPLE_DIR}/include/imp
+    COMMAND ${CMAKE_COMMAND} -E copy           ${CMAKE_CURRENT_SOURCE_DIR}/sdk/samples/libimp-samples/sample-common.h ${INGENIC_T31_KVS_SAMPLE_DIR}/include/sample-common.h
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/source ${INGENIC_T31_KVS_SAMPLE_DIR}/source
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/app/aac-encoder/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/app/kvsapp/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/src/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
+)
