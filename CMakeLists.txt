@@ -7,6 +7,7 @@ option(BUILD_SHARED_SAMPLES             "Build shared samples"                  
 option(BUILD_STATIC_SAMPLES             "Build static samples"                              ON)
 option(BUILD_AAC_ENCODER                "Build aac-encoder"                                 OFF)
 option(BOARD_INGENIC_T31                "Build board Ingenic T31"                           OFF)
+option(BOARD_RPI                        "Build board Raspberry Pi"                          OFF)
 option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"                OFF)
 option(USE_POOL_ALLOCATOR_ALL           "Apply pool allocator on KVS lib and executable"    OFF)
 
@@ -65,6 +66,9 @@ include(libaziotsharedutil)
 include(libtlsf)
 if(${BUILD_AAC_ENCODER})
     include(libfdkaac)
+endif()
+if(${BOARD_RPI})
+   include(libv4l2capturer)
 endif()
 
 # Add sources
