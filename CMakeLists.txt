@@ -20,6 +20,10 @@ if(${USE_POOL_ALLOCATOR_ALL})
     set(USE_POOL_ALLOCATOR_LIB   ON)
 endif()
 
+if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+
 # Print option values
 message(STATUS "BUILD_SHARED_SAMPLES            = ${BUILD_SHARED_SAMPLES}")
 message(STATUS "BUILD_STATIC_SAMPLES            = ${BUILD_STATIC_SAMPLES}")
@@ -27,6 +31,7 @@ message(STATUS "BUILD_AAC_ENCODER               = ${BUILD_AAC_ENCODER}")
 message(STATUS "BOARD_INGENIC_T31               = ${BOARD_INGENIC_T31}")
 message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
+message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
 
 # Make warning as error
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -45,7 +50,6 @@ if(${BOARD_INGENIC_T31})
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -muclibc")
 endif()
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -s")
 if(${USE_POOL_ALLOCATOR_LIB})
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap,kvsMalloc -Wl,--wrap,kvsRealloc -Wl,--wrap,kvsCalloc -Wl,--wrap,kvsFree")
 endif()
