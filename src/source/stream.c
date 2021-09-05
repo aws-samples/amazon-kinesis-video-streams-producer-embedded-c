@@ -198,6 +198,8 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
     PDLIST_ENTRY pxListHead = NULL;
     PDLIST_ENTRY pxListItem = NULL;
     bool bListAdded = false;
+    bool bNeedCorrectDeltaTimestamp = false;
+    bool bCorrectDeltaTimestampStarted = false;
     uint64_t uClusterTimestamp = 0;
     uint16_t uDeltaTimestampMs = 0;
 
@@ -231,10 +233,18 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         while (pxListItem != pxListHead)
         {
             pxDataFrameCurrent = containingRecord(pxListItem, DataFrame_t, xDataFrameEntry);
-            if (pxDataFrame->xDataFrameIn.uTimestampMs < pxDataFrameCurrent->xDataFrameIn.uTimestampMs)
+            if (pxDataFrame->xDataFrameIn.uTimestampMs < pxDataFrameCurrent->xDataFrameIn.uTimestampMs ||
+                pxDataFrame->xDataFrameIn.uTimestampMs == pxDataFrameCurrent->xDataFrameIn.uTimestampMs && pxDataFrame->xDataFrameIn.xTrackType == TRACK_VIDEO)
             {
                 DList_InsertTailList(pxListItem, &(pxDataFrame->xDataFrameEntry));
                 uDeltaTimestampMs = (uint16_t)(pxDataFrame->xDataFrameIn.uTimestampMs - uClusterTimestamp);
+                if (pxDataFrame->xDataFrameIn.xClusterType == MKV_CLUSTER)
+                {
+                    uDeltaTimestampMs = 0;
+
+                    /* If we insert a cluster head, then the following frames's delta timestamp needs updates. */
+                    bNeedCorrectDeltaTimestamp = true;
+                }
                 bListAdded = true;
                 break;
             }
@@ -260,6 +270,36 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
             pxDataFrameIn->bIsKeyFrame,
             pxDataFrameIn->uTimestampMs,
             uDeltaTimestampMs);
+
+        if (bNeedCorrectDeltaTimestamp)
+        {
+            bCorrectDeltaTimestampStarted = false;
+            pxListHead = &(pxStream->xDataFramePending);
+            pxListItem = pxListHead->Flink;
+            while (pxListItem != pxListHead)
+            {
+                pxDataFrameCurrent = containingRecord(pxListItem, DataFrame_t, xDataFrameEntry);
+                if (pxDataFrameCurrent->xDataFrameIn.xClusterType == MKV_CLUSTER)
+                {
+                    uClusterTimestamp = pxDataFrameCurrent->xDataFrameIn.uTimestampMs;
+                    bCorrectDeltaTimestampStarted = true;
+                }
+                if (bCorrectDeltaTimestampStarted)
+                {
+                    uDeltaTimestampMs = (uint16_t)(pxDataFrameCurrent->xDataFrameIn.uTimestampMs - uClusterTimestamp);
+                    Mkv_initializeClusterHdr(
+                        (uint8_t *)(pxDataFrameCurrent->pMkvHdr),
+                        pxDataFrameCurrent->uMkvHdrLen,
+                        pxDataFrameCurrent->xDataFrameIn.xClusterType,
+                        pxDataFrameCurrent->xDataFrameIn.uDataLen,
+                        pxDataFrameCurrent->xDataFrameIn.xTrackType,
+                        pxDataFrameCurrent->xDataFrameIn.bIsKeyFrame,
+                        pxDataFrameCurrent->xDataFrameIn.uTimestampMs,
+                        uDeltaTimestampMs);
+                }
+                pxListItem = pxListItem->Flink;
+            }
+        }
 
         Unlock(pxStream->xLock);
     }
