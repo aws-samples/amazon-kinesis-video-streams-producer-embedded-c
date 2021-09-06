@@ -112,7 +112,7 @@ static int sendVideoFrame(T31Video_t *pVideo, IMPEncoderStream *pStream)
 
         if ((pPacketBuf = (uint8_t *)malloc(uPacketLen)) == NULL)
         {
-            printf("%s(): OOM: pPacketBuf\n", __FUNCTION__);
+            printf("%s(): OOM: pPacketBuf, size:%zu\n", __FUNCTION__, uPacketLen);
             res = ERRNO_FAIL;
         }
         else

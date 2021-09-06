@@ -73,7 +73,31 @@
 #endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
 
 #ifdef KVS_USE_POOL_ALLOCATOR
-#define POOL_ALLOCATOR_SIZE             (2 * 1024 * 1024 + 512 * 1024)
+
+/**
+ * KVS LIB and its 3rd party dependencies use 48K bytes which is measured on RPi. Make it 128K for safety.
+ */
+#define POOL_ALLOCATOR_SIZE_FOR_KVS     (128 * 1024)
+
+/**
+ * This sample use 1M measured on T31. Make it 1.5M for safety. Please increase it depends on real application.
+ */
+#define POOL_ALLOCATOR_SIZE_FOR_APP     (1536 * 1024)
+
+/**
+ * Get the size of stream buffer.  If there is no buffer limit, then assume it's 2M bytes.
+ */
+#ifdef ENABLE_RING_BUFFER_MEM_LIMIT
+#define BUFFER_MEM_LIMIT        RING_BUFFER_MEM_LIMIT
+#else
+#define BUFFER_MEM_LIMIT        (2 * 1024 * 1024)
 #endif
+
+/**
+ * Total size for pool equals the sum of KVS and its libraries usage, the stream buffer usage, and application usage.
+ */
+#define POOL_ALLOCATOR_SIZE     (BUFFER_MEM_LIMIT + POOL_ALLOCATOR_SIZE_FOR_KVS + POOL_ALLOCATOR_SIZE_FOR_APP)
+
+#endif /* KVS_USE_POOL_ALLOCATOR */
 
 #endif /* SAMPLE_CONFIG_H */

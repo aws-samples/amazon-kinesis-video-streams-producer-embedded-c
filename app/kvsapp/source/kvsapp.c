@@ -198,8 +198,9 @@ static void prvStreamFlush(KvsApp_t *pKvs)
     }
 }
 
-static void prvStreamFlushToNextCluster(KvsApp_t *pKvs)
+static int prvStreamFlushToNextCluster(KvsApp_t *pKvs)
 {
+    int res = ERRNO_NONE;
     StreamHandle xStreamHandle = pKvs->xStreamHandle;
     DataFrameHandle xDataFrameHandle = NULL;
     DataFrameIn_t *pDataFrameIn = NULL;
@@ -209,7 +210,7 @@ static void prvStreamFlushToNextCluster(KvsApp_t *pKvs)
         xDataFrameHandle = Kvs_streamPeek(xStreamHandle);
         if (xDataFrameHandle == NULL)
         {
-            prvSleepInMs(50);
+            res = ERRNO_FAIL;
         }
         else
         {
@@ -228,6 +229,8 @@ static void prvStreamFlushToNextCluster(KvsApp_t *pKvs)
             }
         }
     }
+
+    return res;
 }
 
 static void prvStreamFlushHeadUntilMem(KvsApp_t *pKvs, size_t uMemLimit)
@@ -467,9 +470,12 @@ static int updateEbmlHeader(KvsApp_t *pKvs)
     if (pKvs->xPutMediaHandle != NULL && !pKvs->isEbmlHeaderUpdated)
     {
         LogInfo("Flush to next cluster");
-        prvStreamFlushToNextCluster(pKvs);
-
-        if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
+        if (prvStreamFlushToNextCluster(pKvs) != ERRNO_NONE)
+        {
+            LogInfo("No cluster frame is found");
+            res = ERRNO_FAIL;
+        }
+        else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
         {
             LogError("Failed to update ebml header");
             res = ERRNO_FAIL;
@@ -937,7 +943,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
             }
             else
             {
-                size_t uMemLimit = *((size_t *)pKvs);
+                size_t uMemLimit = *((size_t *)pValue);
                 pKvs->xStrategy.xRingBufferPara.uMemLimit = uMemLimit;
             }
         }
