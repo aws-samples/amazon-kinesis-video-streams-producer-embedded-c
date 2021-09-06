@@ -338,7 +338,7 @@ You can also check the streaming video in the console of [Kinesis Video](https:/
 
 ## Raspberry Pi V4L2 Example
 
-[Raspberry Pi V4L2 Example](https://github.com/awslabs/amazon-kinesis-video-streams-producer-c/tree/main/samples/kvsapp-raspberry-pi) provides an out-of-box sample that allows user to capture frames from v4l2 camera(i.e. Pi Camera) to KVS. It can be used on Raspberry Pi and other Linux based machine that with v4l2 camera supports.
+[Raspberry Pi V4L2 Example](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c/tree/main/samples/kvsapp-raspberry-pi) provides an out-of-box sample that allows user to capture frames from v4l2 camera(i.e. Pi Camera) to KVS. It can be used on Raspberry Pi and other Linux based machine that with v4l2 camera supports.
 
 ### Check Camera Capabilities
 
