@@ -234,7 +234,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         {
             pxDataFrameCurrent = containingRecord(pxListItem, DataFrame_t, xDataFrameEntry);
             if (pxDataFrame->xDataFrameIn.uTimestampMs < pxDataFrameCurrent->xDataFrameIn.uTimestampMs ||
-                pxDataFrame->xDataFrameIn.uTimestampMs == pxDataFrameCurrent->xDataFrameIn.uTimestampMs && pxDataFrame->xDataFrameIn.xTrackType == TRACK_VIDEO)
+                ((pxDataFrame->xDataFrameIn.uTimestampMs == pxDataFrameCurrent->xDataFrameIn.uTimestampMs) && (pxDataFrame->xDataFrameIn.xTrackType == TRACK_VIDEO)))
             {
                 DList_InsertTailList(pxListItem, &(pxDataFrame->xDataFrameEntry));
                 uDeltaTimestampMs = (uint16_t)(pxDataFrame->xDataFrameIn.uTimestampMs - uClusterTimestamp);
@@ -455,3 +455,4 @@ void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
         kvsFree(pxDataFrame);
     }
 }
+

@@ -119,3 +119,37 @@ void poolAllocatorDeinit(void)
     }
     pthread_mutex_unlock(&memPoolMutex);
 }
+
+static void prvTlsfPoolWalker(void *ptr, size_t size, int used, void *pUser)
+{
+    PoolStats_t *pStats = (PoolStats_t *)pUser;
+    if (used)
+    {
+        pStats->uNumberOfUsedBlocks++;
+        pStats->uSumOfUsedMemory += size;
+        if (size > pStats->uSizeOfLargestUsedBlock)
+        {
+            pStats->uSizeOfLargestUsedBlock = size;
+        }
+    }
+    else
+    {
+        pStats->uNumberOfFreeBlocks++;
+        pStats->uSumOfFreeMemory += size;
+        if (size > pStats->uSizeOfLargestFreeBlock)
+        {
+            pStats->uSizeOfLargestFreeBlock = size;
+        }
+    }
+}
+
+void poolAllocatorGetStats(PoolStats_t *pPoolStats)
+{
+    pthread_mutex_lock(&memPoolMutex);
+    if (tlsf != NULL && pMem != NULL)
+    {
+        tlsf_walk_pool(tlsf_get_pool(tlsf), prvTlsfPoolWalker, pPoolStats);
+    }
+    pthread_mutex_unlock(&memPoolMutex);
+}
+

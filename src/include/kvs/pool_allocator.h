@@ -18,6 +18,16 @@
 
 #include <stddef.h>
 
+typedef struct PoolStats
+{
+    size_t uNumberOfUsedBlocks;
+    size_t uNumberOfFreeBlocks;
+    size_t uSumOfUsedMemory;
+    size_t uSumOfFreeMemory;
+    size_t uSizeOfLargestUsedBlock;
+    size_t uSizeOfLargestFreeBlock;
+} PoolStats_t;
+
 /**
  * Init pool allocator with specified size. The pool is allocated from default malloc.
  *
@@ -38,8 +48,8 @@ void *poolAllocatorMalloc(size_t bytes);
 /**
  * Re-allocate memory from memory pool. If pool allocator hasn't been initialized, then it'll be initialized here with default size.
  *
- * @param ptr Pointer to be re-allocate
- * @param bytes New memory size
+ * @param[in] ptr Pointer to be re-allocate
+ * @param[in] bytes New memory size
  * @return Newly allocated memory on success, NULL otherwise
  */
 void *poolAllocatorRealloc(void *ptr, size_t bytes);
@@ -47,8 +57,8 @@ void *poolAllocatorRealloc(void *ptr, size_t bytes);
 /**
  * Allocate and clear memory from memory pool. If pool allocator hasn't been initialized, then it'll be initialized here with default size.
  *
- * @param num Number of elements
- * @param bytes Element size
+ * @param[in] num Number of elements
+ * @param[in] bytes Element size
  * @return Newly allocated memory on success, NULL otherwise
  */
 void *poolAllocatorCalloc(size_t num, size_t bytes);
@@ -56,7 +66,7 @@ void *poolAllocatorCalloc(size_t num, size_t bytes);
 /**
  * Free memory from memory pool.
  *
- * @param ptr Pointer to be freed
+ * @param[in] ptr Pointer to be freed
  */
 void poolAllocatorFree(void *ptr);
 
@@ -64,5 +74,12 @@ void poolAllocatorFree(void *ptr);
  * Deinit pool allocator.
  */
 void poolAllocatorDeinit(void);
+
+/**
+ * Get statistics of pool allocator.
+ *
+ * @param[in] pPoolStats Pool statistics
+ */
+void poolAllocatorGetStats(PoolStats_t *pPoolStats);
 
 #endif /* POOL_ALLOCATOR_H */

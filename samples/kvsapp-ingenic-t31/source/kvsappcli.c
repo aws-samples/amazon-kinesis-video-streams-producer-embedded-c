@@ -25,7 +25,7 @@
 #include "sample_config.h"
 #include "t31_video.h"
 #if ENABLE_AUDIO_TRACK
-#    include "t31_audio.h"
+#include "t31_audio.h"
 #endif /* ENABLE_AUDIO_TRACK */
 
 #define ERRNO_NONE 0
@@ -159,6 +159,16 @@ int main(int argc, char *argv[])
                 {
                     printf("Buffer memory used: %zu\r\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
                     uLastPrintMemStatTimestamp = getEpochTimestampInMs();
+
+#ifdef KVS_USE_POOL_ALLOCATOR
+                    PoolStats_t stats = {0};
+                    poolAllocatorGetStats(&stats);
+                    printf("Sum of used/free memory:%zu/%zu, size of larget used/free block:%zu/%zu, number of used/free blocks:%zu/%zu\n",
+                        stats.uSumOfUsedMemory, stats.uSumOfFreeMemory,
+                        stats.uSizeOfLargestUsedBlock, stats.uSizeOfLargestFreeBlock,
+                        stats.uNumberOfUsedBlocks, stats.uNumberOfFreeBlocks
+                    );
+#endif
                 }
             }
 
