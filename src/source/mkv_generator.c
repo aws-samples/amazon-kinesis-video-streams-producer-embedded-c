@@ -964,7 +964,8 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
     uint8_t *pCodecPrivateData = NULL;
     size_t uCodecPrivateLen = 0;
     uint8_t *pIdx = NULL;
-    uint32_t uBitrate = 0;
+    uint32_t uAvgBytesPerSecond = 0;
+    uint16_t uBitsPerSample = 0;
 
     if (ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL || (uSamplingRate < MIN_PCM_SAMPLING_RATE || uSamplingRate > MAX_PCM_SAMPLING_RATE) ||
         (channels != 1 && channels != 2))
@@ -980,8 +981,10 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
     else
     {
         uCodecPrivateLen = MKV_PCM_CPD_SIZE_BYTE;
+        memset(pCodecPrivateData, 0, uCodecPrivateLen);
 
-        uBitrate = channels * uSamplingRate / 8;
+        uAvgBytesPerSecond = channels * uSamplingRate;
+        uBitsPerSample = channels * 8;
 
         pIdx = pCodecPrivateData;
         PUT_UNALIGNED_2_byte_LE(pIdx, format);
@@ -990,9 +993,13 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
         pIdx += 2;
         PUT_UNALIGNED_4_byte_LE(pIdx, uSamplingRate);
         pIdx += 4;
-        PUT_UNALIGNED_4_byte_LE(pIdx, uBitrate);
+        PUT_UNALIGNED_4_byte_LE(pIdx, uAvgBytesPerSecond);
         pIdx += 4;
-        PUT_UNALIGNED_2_byte_LE(pIdx, channels);
+        PUT_UNALIGNED_2_byte_LE(pIdx, 0);
+        pIdx += 2;
+        PUT_UNALIGNED_2_byte_LE(pIdx, uBitsPerSample);
+        pIdx += 2;
+        PUT_UNALIGNED_2_byte_LE(pIdx, 0);
         pIdx += 2;
 
         *ppCodecPrivateData = pCodecPrivateData;

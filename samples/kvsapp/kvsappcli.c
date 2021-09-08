@@ -27,7 +27,12 @@
 #include "sample_config.h"
 
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
 #include "aac_file_loader.h"
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+#include "g711_file_loader.h"
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
 #define ERRNO_NONE 0
@@ -43,7 +48,12 @@ static H264FileLoaderHandle xVideoFileLoader = NULL;
 
 #if ENABLE_AUDIO_TRACK
 static pthread_t audioTid;
+#if USE_AUDIO_AAC_SAMPLE
 static AacFileLoaderHandle xAudioFileLoader = NULL;
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+static G711FileLoaderHandle xAudioFileLoader = NULL;
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
 static void sleepInMs(uint32_t ms)
@@ -81,7 +91,7 @@ static void *videoThread(void *arg)
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp += 1000 / uFps;
+            uTimestamp = getEpochTimestampInMs();
         }
     }
 
@@ -108,7 +118,12 @@ static void *audioThread(void *arg)
     {
         while (1)
         {
+#if USE_AUDIO_AAC_SAMPLE
             if (AacFileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+            if (G711FileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
+#endif /* USE_AUDIO_G711_SAMPLE */
             {
                 printf("Failed to load data frame\r\n");
                 break;
@@ -119,7 +134,7 @@ static void *audioThread(void *arg)
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp += 1000 / uFps;
+            uTimestamp = getEpochTimestampInMs();
         }
     }
 
@@ -174,7 +189,12 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     }
 
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
     if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)AacFileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)G711FileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
+#endif /* USE_AUDIO_G711_SAMPLE */
     {
         printf("Failed to set video track info\r\n");
     }
@@ -214,11 +234,20 @@ int main(int argc, char *argv[])
     xVideoFileLoaderParam.bKeepRotate = true;
 
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
     xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
     xAudioFileLoaderParam.pcFileFormat = AAC_FILE_FORMAT;
     xAudioFileLoaderParam.xFileStartIdx = AAC_FILE_IDX_BEGIN;
     xAudioFileLoaderParam.xFileEndIdx = AAC_FILE_IDX_END;
     xAudioFileLoaderParam.bKeepRotate = true;
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
+    xAudioFileLoaderParam.pcFileFormat = G711_FILE_FORMAT;
+    xAudioFileLoaderParam.xFileStartIdx = G711_FILE_IDX_BEGIN;
+    xAudioFileLoaderParam.xFileEndIdx = G711_FILE_IDX_END;
+    xAudioFileLoaderParam.bKeepRotate = true;
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
     if ((kvsAppHandle = KvsApp_create(AWS_KVS_HOST, AWS_KVS_REGION, AWS_KVS_SERVICE, KVS_STREAM_NAME)) == NULL)
@@ -230,9 +259,14 @@ int main(int argc, char *argv[])
         printf("Failed to initialize H264 file loader\r\n");
     }
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
     else if ((xAudioFileLoader = AacFileLoaderCreate(&xAudioFileLoaderParam, AUDIO_MPEG_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    else if ((xAudioFileLoader = G711FileLoaderCreate(&xAudioFileLoaderParam, AUDIO_PCM_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
+#endif /* USE_AUDIO_G711_SAMPLE */
     {
-        printf("Failed to initialize AAC file loader\r\n");
+        printf("Failed to initialize audio file loader\r\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
     else if (setKvsAppOptions(kvsAppHandle) != ERRNO_NONE)
@@ -296,7 +330,12 @@ int main(int argc, char *argv[])
     xVideoFileLoader = NULL;
 
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
     AacFileLoaderTerminate(xAudioFileLoader);
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    G711FileLoaderTerminate(xAudioFileLoader);
+#endif /* USE_AUDIO_G711_SAMPLE */
     xAudioFileLoader = NULL;
 #endif /* ENABLE_AUDIO_TRACK */
 

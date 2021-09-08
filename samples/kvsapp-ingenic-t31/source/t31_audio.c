@@ -24,14 +24,16 @@
 /* T31 headers */
 #include <imp/imp_audio.h>
 
-#include "aac_encoder/aac_encoder.h"
-
 /* KVS headers */
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
 #include "sample_config.h"
 #include "t31_audio.h"
+
+#if USE_AUDIO_AAC
+#include "aac_encoder/aac_encoder.h"
+#endif /* USE_AUDIO_AAC */
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
@@ -68,6 +70,7 @@ typedef struct T31Audio
 
     AudioConfiguration_t xAudioConf;
 
+#if USE_AUDIO_AAC
     AacEncoderHandle xAacEncHandle;
 
     uint64_t uPcmTimestamp;
@@ -77,6 +80,7 @@ typedef struct T31Audio
 
     uint8_t *pFrameBuf;
     int xFrameBufSize;
+#endif /* USE_AUDIO_AAC */
 } T31Audio_t;
 
 static void sleepInMs(uint32_t ms)
@@ -101,7 +105,7 @@ static int audioConfigurationInit(AudioConfiguration_t *pConf)
 
         pConf->chnID = 0;
 
-        pConf->attr.samplerate = AUDIO_SAMPLE_RATE_16000;
+        pConf->attr.samplerate = AUDIO_SAMPLE_RATE_8000;
         pConf->attr.bitwidth = AUDIO_BIT_WIDTH_16;
         pConf->attr.soundmode = AUDIO_SOUND_MODE_MONO;
         pConf->attr.frmNum = 40;
@@ -116,13 +120,56 @@ static int audioConfigurationInit(AudioConfiguration_t *pConf)
 
         pConf->channelNumber = 1;
 
-        pConf->sampleRate = 16000;
+        pConf->sampleRate = 8000;
         pConf->channel = 1;
-        pConf->bitRate = 128000;
+        pConf->bitRate = 64000;
     }
 
     return res;
 }
+
+#if USE_AUDIO_G711
+static int16_t xSegmentAlawEnd[8] = {0x1F, 0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF};
+
+uint8_t prvEncodePcmToAlaw(int16_t xPcmVal)
+{
+    uint8_t uMask = 0x55;
+    size_t uSegIdx = 0;
+    uint8_t uAlawVal = 0;
+
+    xPcmVal = xPcmVal >> 3;
+
+    if (xPcmVal >= 0)
+    {
+        uMask |= 0x80;
+    }
+    else
+    {
+        xPcmVal = -xPcmVal - 1;
+    }
+
+    for (uSegIdx = 0; uSegIdx<8; uSegIdx++)
+    {
+        if (xPcmVal <= xSegmentAlawEnd[uSegIdx])
+        {
+            break;
+        }
+    }
+
+    if (uSegIdx >= 8)
+    {
+        uAlawVal = 0x7F ^ uMask;
+    }
+    else
+    {
+        uAlawVal = uSegIdx << 4;
+        uAlawVal |= (uSegIdx < 2) ? ((xPcmVal >> 1) & 0x0F) : ((xPcmVal >> uSegIdx) & 0x0F);
+        uAlawVal ^= uMask;
+    }
+
+    return uAlawVal;
+}
+#endif /* USE_AUDIO_G711 */
 
 int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
 {
@@ -130,6 +177,8 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
     int xFrameLen = 0;
     uint8_t *pData = NULL;
     size_t uDataLen = 0;
+    int xFrameOffset = 0;
+    size_t uCopySize = 0;
 
     if (pAudio == NULL || pFrame == NULL)
     {
@@ -138,15 +187,29 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
     }
     else
     {
-        int xFrameOffset = 0;
-        size_t uCopySize = 0;
-        // printf("%s(): xFrameOffset:%d xPcmBufSize:%d len:%d\n", __FUNCTION__, xFrameOffset, pAudio->xPcmBufSize, pFrame->len);
+#if USE_AUDIO_G711
+        if (pFrame->len <= 0 || (pData = (uint8_t *)malloc(pFrame->len / 2)) == NULL)
+        {
+            printf("%s(): OOM: pData\n", __FUNCTION__);
+        }
+        else
+        {
+            uDataLen = pFrame->len / 2;
+            uint8_t *p = (uint8_t *)(pFrame->virAddr);
+            int16_t *pPcmData = (int16_t *)(pFrame->virAddr);
+            for (size_t i = 0; i < uDataLen; i++)
+            {
+                pData[i] = prvEncodePcmToAlaw(pPcmData[i]);
+            }
+            KvsApp_addFrame(pAudio->kvsAppHandle, pData, uDataLen, uDataLen, getEpochTimestampInMs(), TRACK_AUDIO);
+        }
+#endif /* USE_AUDIO_G711 */
+
+#if USE_AUDIO_AAC
         if (pAudio->uPcmOffset == 0)
         {
             pAudio->uPcmTimestamp = getEpochTimestampInMs();
         }
-
-        // FIXME: log audio here
 
         while (xFrameOffset < pFrame->len)
         {
@@ -191,6 +254,7 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
                 pAudio->uPcmTimestamp += timediff;
             }
         }
+#endif /* USE_AUDIO_AAC */
     }
 
     return res;
@@ -294,19 +358,25 @@ static int initAudioTrackInfo(T31Audio_t *pAudio)
                 pAudioTrackInfo->uFrequency = pAudio->xAudioConf.sampleRate;
                 pAudioTrackInfo->uChannelNumber = pAudio->xAudioConf.channelNumber;
 
-                if (Mkv_generateAacCodecPrivateData(
-                        AUDIO_MPEG_OBJECT_TYPE, pAudioTrackInfo->uFrequency, pAudioTrackInfo->uChannelNumber, &pCodecPrivateData, &uCodecPrivateDataLen) != 0)
-                {
-                    printf("%s(): Failed to generate codec private data\n", __FUNCTION__);
-                    res = ERRNO_FAIL;
-                }
-                else
-                {
-                    pAudioTrackInfo->pCodecPrivate = pCodecPrivateData;
-                    pAudioTrackInfo->uCodecPrivateLen = (uint32_t)uCodecPrivateDataLen;
+#if USE_AUDIO_G711
+                if (Mkv_generatePcmCodecPrivateData(
+                        AUDIO_PCM_OBJECT_TYPE, pAudioTrackInfo->uFrequency, pAudioTrackInfo->uChannelNumber, &pCodecPrivateData, &uCodecPrivateDataLen) != 0)
+#endif
+#if USE_AUDIO_AAC
+                    if (Mkv_generateAacCodecPrivateData(
+                            AUDIO_MPEG_OBJECT_TYPE, pAudioTrackInfo->uFrequency, pAudioTrackInfo->uChannelNumber, &pCodecPrivateData, &uCodecPrivateDataLen) != 0)
+#endif /* USE_AUDIO_AAC */
+                    {
+                        printf("%s(): Failed to generate codec private data\n", __FUNCTION__);
+                        res = ERRNO_FAIL;
+                    }
+                    else
+                    {
+                        pAudioTrackInfo->pCodecPrivate = pCodecPrivateData;
+                        pAudioTrackInfo->uCodecPrivateLen = (uint32_t)uCodecPrivateDataLen;
 
-                    pAudio->pAudioTrackInfo = pAudioTrackInfo;
-                }
+                        pAudio->pAudioTrackInfo = pAudioTrackInfo;
+                    }
             }
         }
     }
@@ -322,6 +392,7 @@ static int initAudioTrackInfo(T31Audio_t *pAudio)
     return res;
 }
 
+#if USE_AUDIO_AAC
 static int initAacEncoder(T31Audio_t *pAudio)
 {
     int res = ERRNO_NONE;
@@ -341,6 +412,7 @@ static int initAacEncoder(T31Audio_t *pAudio)
     }
     else
     {
+        pAudio->xFrameBufSize = 8 * 1024;
         pAudio->uPcmTimestamp = 0;
         pAudio->uPcmOffset = 0;
 
@@ -364,6 +436,7 @@ static int initAacEncoder(T31Audio_t *pAudio)
 
     return res;
 }
+#endif /* USE_AUDIO_AAC */
 
 T31AudioHandle T31Audio_create(KvsAppHandle kvsAppHandle)
 {
@@ -383,7 +456,6 @@ T31AudioHandle T31Audio_create(KvsAppHandle kvsAppHandle)
         pAudio->isTerminated = false;
 
         pAudio->kvsAppHandle = kvsAppHandle;
-        pAudio->xFrameBufSize = 8 * 1024;
 
         if (pthread_mutex_init(&(pAudio->lock), NULL) != 0)
         {
@@ -400,11 +472,13 @@ T31AudioHandle T31Audio_create(KvsAppHandle kvsAppHandle)
             printf("%s(): Failed to init audio track info\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
+#if USE_AUDIO_AAC
         else if (initAacEncoder(pAudio) != ERRNO_NONE)
         {
             printf("%s(): Failed to init aac encoder\n", __FUNCTION__);
             res = ERRNO_FAIL;
         }
+#endif /* USE_AUDIO_AAC */
         else if (pthread_create(&(pAudio->tid), NULL, audioThread, pAudio) != 0)
         {
             printf("%s(): Failed to create video thread\n", __FUNCTION__);
