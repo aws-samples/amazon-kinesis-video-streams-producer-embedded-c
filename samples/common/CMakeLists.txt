@@ -3,9 +3,16 @@ set(SAMPLES_COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SAMPLES_COMMON_SRC
     ${SAMPLES_COMMON_DIR}/aac_file_loader.c
-    ${SAMPLES_COMMON_DIR}/file_io.c
+    ${SAMPLES_COMMON_DIR}/aac_file_loader.h
     ${SAMPLES_COMMON_DIR}/file_input_stream.c
+    ${SAMPLES_COMMON_DIR}/file_input_stream.h
+    ${SAMPLES_COMMON_DIR}/file_io.c
+    ${SAMPLES_COMMON_DIR}/file_io.h
+    ${SAMPLES_COMMON_DIR}/file_loader.h
+    ${SAMPLES_COMMON_DIR}/g711_file_loader.c
+    ${SAMPLES_COMMON_DIR}/g711_file_loader.h
     ${SAMPLES_COMMON_DIR}/h264_file_loader.c
+    ${SAMPLES_COMMON_DIR}/h264_file_loader.h
 )
 
 set(SAMPLES_COMMON_INC

@@ -34,21 +34,21 @@
 #define DEBUG_STORE_MEDIA_TO_FILE       0
 
 /* Video configuration */
-#define H264_FILE_FORMAT                "/path/to/samples/h264SampleFrames/frame-%03d.h264"
+#define H264_FILE_FORMAT                "../res/media/h264_annexb/frame-%03d.h264"
 #define H264_FILE_IDX_BEGIN             1
-#define H264_FILE_IDX_END               403
+#define H264_FILE_IDX_END               240
 
 #define VIDEO_TRACK_NAME                "kvs video track"
-#define VIDEO_FPS                       25
+#define VIDEO_FPS                       30
 
 /* Audio configuration */
 #if ENABLE_AUDIO_TRACK
-#define AAC_FILE_FORMAT                 "/path/to/samples/aacSampleFrames/sample-%03d.aac"
+#define AAC_FILE_FORMAT                 "../res/media/aac_raw/audio-%03d.aac"
 #define AAC_FILE_IDX_BEGIN              1
-#define AAC_FILE_IDX_END                582
+#define AAC_FILE_IDX_END                325
 
 #define AUDIO_TRACK_NAME                "kvs audio track"
-#define AUDIO_FPS                       50
+#define AUDIO_FPS                       48
 #define AUDIO_MPEG_OBJECT_TYPE          AAC_LC
 #define AUDIO_FREQUENCY                 48000
 #define AUDIO_CHANNEL_NUMBER            2
