@@ -29,6 +29,9 @@ typedef struct
     char *pcHost;
 
     char *pcPutMediaEndpoint;
+
+    unsigned int uRecvTimeoutMs;
+    unsigned int uSendTimeoutMs;
 } KvsServiceParameter_t;
 
 typedef struct
@@ -58,6 +61,9 @@ typedef struct
     char *pcStreamName;
     FragmentTimecodeType_t xTimecodeType;
     uint64_t uProducerStartTimestampMs;
+
+    unsigned int uRecvTimeoutMs;
+    unsigned int uSendTimeoutMs;
 } KvsPutMediaParameter_t;
 
 typedef struct PutMedia *PutMediaHandle;
@@ -147,5 +153,27 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle);
  * @param[in] xPutMediaHandle The handle of PUT MEDIA
  */
 void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle);
+
+/**
+ * @brief Update the value of receive timeout.
+ *
+ * Receive timeout has been set in service parameters and is applied during connection setup. It can be altered during streaming.
+ *
+ * @param xPutMediaHandle The handle of PUT MEDIA
+ * @param uRecvTimeoutMs Receiving timeout in milliseconds
+ * @return 0 on success, non-zero value otherwise
+ */
+int Kvs_putMediaUpdateRecvTimeout(PutMediaHandle xPutMediaHandle, unsigned int uRecvTimeoutMs);
+
+/**
+* @brief Update the value of send timeout.
+*
+* Send timeout has been set in service parameters and is applied during connection setup. It can be altered during streaming.
+*
+* @param xPutMediaHandle The handle of PUT MEDIA
+* @param uSendTimeoutMs Receiving timeout in milliseconds
+* @return 0 on success, non-zero value otherwise
+*/
+int Kvs_putMediaUpdateSendTimeout(PutMediaHandle xPutMediaHandle, unsigned int uSendTimeoutMs);
 
 #endif /* KVS_REST_API_H */

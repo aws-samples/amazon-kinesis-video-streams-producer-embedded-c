@@ -149,7 +149,7 @@ int Http_executeHttpReq(NetIoHandle xNetIoHandle, const char *pcHttpMethod, cons
     {
         xRes = KVS_ERRNO_FAIL;
     }
-    else if (NetIo_Send(xNetIoHandle, (const unsigned char *)STRING_c_str(xStHttpReq), STRING_length(xStHttpReq)) != KVS_ERRNO_NONE)
+    else if (NetIo_send(xNetIoHandle, (const unsigned char *)STRING_c_str(xStHttpReq), STRING_length(xStHttpReq)) != KVS_ERRNO_NONE)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -198,7 +198,7 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                     break;
                 }
             }
-            if (NetIo_Recv(xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) != KVS_ERRNO_NONE ||
+            if (NetIo_recv(xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) != KVS_ERRNO_NONE ||
                 uBytesReceived == 0)
             {
                 xRes = KVS_ERRNO_FAIL;

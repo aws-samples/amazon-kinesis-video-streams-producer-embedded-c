@@ -40,12 +40,12 @@
 #include "netio.h"
 
 #ifndef SAFE_FREE
-#    define SAFE_FREE(a)                                                                                                                                                           \
-        do                                                                                                                                                                         \
-        {                                                                                                                                                                          \
-            kvsFree(a);                                                                                                                                                           \
-            a = NULL;                                                                                                                                                              \
-        } while (0)
+#define SAFE_FREE(a)                                                                                                                                                               \
+    do                                                                                                                                                                             \
+    {                                                                                                                                                                              \
+        kvsFree(a);                                                                                                                                                                \
+        a = NULL;                                                                                                                                                                  \
+    } while (0)
 #endif /* SAFE_FREE */
 
 #define DEFAULT_RECV_BUFSIZE (1024)
@@ -579,7 +579,9 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if (
+        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
+        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -599,8 +601,8 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
         *puHttpStatusCode = uHttpStatusCode;
     }
 
-    NetIo_Disconnect(xNetIoHandle);
-    NetIo_Terminate(xNetIoHandle);
+    NetIo_disconnect(xNetIoHandle);
+    NetIo_terminate(xNetIoHandle);
     SAFE_FREE(pRspBody);
     HTTPHeaders_Free(xHttpReqHeaders);
     AwsSigV4_Terminate(xAwsSigV4Handle);
@@ -663,7 +665,9 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if (
+        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
+        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -683,8 +687,8 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         *puHttpStatusCode = uHttpStatusCode;
     }
 
-    NetIo_Disconnect(xNetIoHandle);
-    NetIo_Terminate(xNetIoHandle);
+    NetIo_disconnect(xNetIoHandle);
+    NetIo_terminate(xNetIoHandle);
     SAFE_FREE(pRspBody);
     HTTPHeaders_Free(xHttpReqHeaders);
     AwsSigV4_Terminate(xAwsSigV4Handle);
@@ -747,7 +751,9 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if (
+        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
+        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcHost);
         xRes = KVS_ERRNO_FAIL;
@@ -784,8 +790,8 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         }
     }
 
-    NetIo_Disconnect(xNetIoHandle);
-    NetIo_Terminate(xNetIoHandle);
+    NetIo_disconnect(xNetIoHandle);
+    NetIo_terminate(xNetIoHandle);
     SAFE_FREE(pRspBody);
     HTTPHeaders_Free(xHttpReqHeaders);
     AwsSigV4_Terminate(xAwsSigV4Handle);
@@ -856,7 +862,9 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         LogError("Failed to sign");
         xRes = KVS_ERRNO_FAIL;
     }
-    else if ((xNetIoHandle = NetIo_Create()) == NULL || NetIo_Connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS) != KVS_ERRNO_NONE)
+    else if (
+        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
+        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pServPara->pcPutMediaEndpoint);
         xRes = KVS_ERRNO_FAIL;
@@ -884,6 +892,10 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
             }
             else
             {
+                /* Change network I/O receiving timeout for streaming purpose. */
+                NetIo_setRecvTimeout(xNetIoHandle, pPutMediaPara->uRecvTimeoutMs);
+                NetIo_setSendTimeout(xNetIoHandle, pPutMediaPara->uSendTimeoutMs);
+
                 memset(pPutMedia, 0, sizeof(PutMedia_t));
                 pPutMedia->xNetIoHandle = xNetIoHandle;
                 *pPutMediaHandle = pPutMedia;
@@ -894,8 +906,8 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
     if (!bKeepNetIo)
     {
-        NetIo_Disconnect(xNetIoHandle);
-        NetIo_Terminate(xNetIoHandle);
+        NetIo_disconnect(xNetIoHandle);
+        NetIo_terminate(xNetIoHandle);
     }
     SAFE_FREE(pRspBody);
     HTTPHeaders_Free(xHttpReqHeaders);
@@ -933,10 +945,10 @@ int Kvs_putMediaUpdate(PutMediaHandle xPutMediaHandle, uint8_t *pMkvHeader, size
         }
         else
         {
-            if (NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
-                NetIo_Send(pPutMedia->xNetIoHandle, pMkvHeader, uMkvHeaderLen) != 0 ||
-                (pData != NULL && uDataLen > 0 && NetIo_Send(pPutMedia->xNetIoHandle, pData, uDataLen) != 0) ||
-                NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
+            if (NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
+                NetIo_send(pPutMedia->xNetIoHandle, pMkvHeader, uMkvHeaderLen) != 0 ||
+                (pData != NULL && uDataLen > 0 && NetIo_send(pPutMedia->xNetIoHandle, pData, uDataLen) != 0) ||
+                NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
             {
                 LogError("Failed to send data frame");
                 xRes = KVS_ERRNO_FAIL;
@@ -974,8 +986,8 @@ int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t 
         }
         else
         {
-            if (NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
-                NetIo_Send(pPutMedia->xNetIoHandle, pBuf, uLen) != 0 || NetIo_Send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
+            if (NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
+                NetIo_send(pPutMedia->xNetIoHandle, pBuf, uLen) != 0 || NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
             {
                 LogError("Failed to send data frame");
                 xRes = KVS_ERRNO_FAIL;
@@ -1021,7 +1033,7 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
                 break;
             }
 
-            if (NetIo_Recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) !=
+            if (NetIo_recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) !=
                 KVS_ERRNO_NONE)
             {
                 LogError("Failed to receive");
@@ -1071,9 +1083,51 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
     {
         if (pPutMedia->xNetIoHandle != NULL)
         {
-            NetIo_Disconnect(pPutMedia->xNetIoHandle);
-            NetIo_Terminate(pPutMedia->xNetIoHandle);
+            NetIo_disconnect(pPutMedia->xNetIoHandle);
+            NetIo_terminate(pPutMedia->xNetIoHandle);
         }
         kvsFree(pPutMedia);
     }
+}
+
+int Kvs_putMediaUpdateRecvTimeout(PutMediaHandle xPutMediaHandle, unsigned int uRecvTimeoutMs)
+{
+    int xRes = KVS_ERRNO_NONE;
+    PutMedia_t *pPutMedia = xPutMediaHandle;
+
+    if (pPutMedia == NULL || pPutMedia->xNetIoHandle == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if (NetIo_setRecvTimeout(pPutMedia->xNetIoHandle, uRecvTimeoutMs) != KVS_ERRNO_NONE)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        /* nop */
+    }
+
+    return xRes;
+}
+
+int Kvs_putMediaUpdateSendTimeout(PutMediaHandle xPutMediaHandle, unsigned int uSendTimeoutMs)
+{
+    int xRes = KVS_ERRNO_NONE;
+    PutMedia_t *pPutMedia = xPutMediaHandle;
+
+    if (pPutMedia == NULL || pPutMedia->xNetIoHandle == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if (NetIo_setSendTimeout(pPutMedia->xNetIoHandle, uSendTimeoutMs) != KVS_ERRNO_NONE)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        /* nop */
+    }
+
+    return xRes;
 }
