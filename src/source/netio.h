@@ -25,14 +25,14 @@ typedef struct NetIo *NetIoHandle;
  *
  * @return The network I/O handle
  */
-NetIoHandle NetIo_Create(void);
+NetIoHandle NetIo_create(void);
 
 /**
  * @brief Terminate a network I/O handle
  *
  * @param[in] xNetIoHandle The network I/O handle
  */
-void NetIo_Terminate(NetIoHandle xNetIoHandle);
+void NetIo_terminate(NetIoHandle xNetIoHandle);
 
 /**
  * @brief Connect to a host with port
@@ -42,7 +42,7 @@ void NetIo_Terminate(NetIoHandle xNetIoHandle);
  * @param[in] pcPort The port
  * @return 0 on success, non-zero value otherwise
  */
-int NetIo_Connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort);
+int NetIo_connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort);
 
 /**
  * @brief Connect to a host with port and X509 certificates
@@ -55,14 +55,14 @@ int NetIo_Connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPo
  * @param[in] pcPrivKey The x509 client private key
  * @return 0 on success, non-zero value otherwise
  */
-int NetIo_ConnectWithX509(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey);
+int NetIo_connectWithX509(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey);
 
 /**
  * @breif Disconnect from a host
  *
  * @param[in] xNetIoHandle The network I/O handle
  */
-void NetIo_Disconnect(NetIoHandle xNetIoHandle);
+void NetIo_disconnect(NetIoHandle xNetIoHandle);
 
 /**
  * @brief Send data
@@ -72,7 +72,7 @@ void NetIo_Disconnect(NetIoHandle xNetIoHandle);
  * @param[in] uBytesToSend The length of data
  * @return 0 on success, non-zero value otherwise
  */
-int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend);
+int NetIo_send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend);
 
 /**
  * @brief Receive data
@@ -83,7 +83,7 @@ int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uB
  * @param[out] puBytesReceived The actual bytes received
  * @return 0 on success, non-zero value otherwise
  */
-int NetIo_Recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived);
+int NetIo_recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived);
 
 /**
  * @brief Check if any data available
@@ -92,5 +92,23 @@ int NetIo_Recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferS
  * @return true if data available, false otherwise
  */
 bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle);
+
+/**
+ * @brief Configure receive timeout.
+ *
+ * @param xNetIoHandle The network I/O handle
+ * @param uRecvTimeoutMs Receive timeout in milliseconds
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_setRecvTimeout(NetIoHandle xNetIoHandle, unsigned int uRecvTimeoutMs);
+
+/**
+ * @brief Configure send timeout.
+ *
+ * @param xNetIoHandle The network I/O handle
+ * @param uSendTimeoutMs Send timeout in milliseconds
+ * @return 0 on success, non-zero value otherwise
+ */
+int NetIo_setSendTimeout(NetIoHandle xNetIoHandle, unsigned int uSendTimeoutMs);
 
 #endif /* NETIO_H */

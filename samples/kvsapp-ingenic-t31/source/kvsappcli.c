@@ -142,10 +142,16 @@ int main(int argc, char *argv[])
     {
         while (1)
         {
+            /* FIXME: Check if network is reachable before running KVS. */
+
             if (KvsApp_open(kvsAppHandle) != 0)
             {
                 printf("Failed to open KVS app\r\n");
                 break;
+            }
+            else
+            {
+                printf("KvsApp opened\n");
             }
 
             while (1)
@@ -176,6 +182,10 @@ int main(int argc, char *argv[])
             {
                 printf("Failed to close KVS app\r\n");
                 break;
+            }
+            else
+            {
+                printf("KvsApp closed\n");
             }
         }
     }

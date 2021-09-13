@@ -17,8 +17,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 
 /* Thirdparty headers */
 #include "azure_c_shared_utility/xlogging.h"
@@ -34,6 +34,8 @@
 #include "allocator.h"
 #include "netio.h"
 
+#define DEFAULT_CONNECTION_TIMEOUT_MS       (10 * 1000)
+
 typedef struct NetIo
 {
     /* Basic ssl connection parameters */
@@ -47,6 +49,10 @@ typedef struct NetIo
     mbedtls_x509_crt *pRootCA;
     mbedtls_x509_crt *pCert;
     mbedtls_pk_context *pPrivKey;
+
+    /* Options */
+    uint32_t uRecvTimeoutMs;
+    uint32_t uSendTimeoutMs;
 } NetIo_t;
 
 static int prvCreateX509Cert(NetIo_t *pxNet)
@@ -54,8 +60,7 @@ static int prvCreateX509Cert(NetIo_t *pxNet)
     int xRes = KVS_ERRNO_NONE;
 
     if (pxNet == NULL || (pxNet->pRootCA = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pCert = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pPrivKey = (mbedtls_pk_context *)kvsMalloc(sizeof(mbedtls_pk_context))) == NULL)
+        (pxNet->pCert = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL || (pxNet->pPrivKey = (mbedtls_pk_context *)kvsMalloc(sizeof(mbedtls_pk_context))) == NULL)
     {
         xRes = KVS_ERRNO_FAIL;
     }
@@ -79,7 +84,7 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
     }
     else
     {
-        mbedtls_ssl_set_bio(&(pxNet->xSsl), &(pxNet->xFd), mbedtls_net_send, mbedtls_net_recv, NULL);
+        mbedtls_ssl_set_bio(&(pxNet->xSsl), &(pxNet->xFd), mbedtls_net_send, NULL, mbedtls_net_recv_timeout);
 
         if (mbedtls_ssl_config_defaults(&(pxNet->xConf), MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0)
         {
@@ -89,6 +94,9 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
         else
         {
             mbedtls_ssl_conf_rng(&(pxNet->xConf), mbedtls_ctr_drbg_random, &(pxNet->xCtrDrbg));
+            mbedtls_ssl_conf_read_timeout(&(pxNet->xConf), pxNet->uRecvTimeoutMs);
+            NetIo_setSendTimeout(pxNet, pxNet->uSendTimeoutMs);
+
             if (pcRootCA != NULL && pcCert != NULL && pcPrivKey != NULL)
             {
                 if (mbedtls_x509_crt_parse(pxNet->pRootCA, (void *)pcRootCA, strlen(pcRootCA) + 1) != 0 ||
@@ -167,7 +175,7 @@ static int prvConnect(NetIo_t *pxNet, const char *pcHost, const char *pcPort, co
     return xRes;
 }
 
-NetIoHandle NetIo_Create(void)
+NetIoHandle NetIo_create(void)
 {
     NetIo_t *pxNet = NULL;
 
@@ -181,9 +189,12 @@ NetIoHandle NetIo_Create(void)
         mbedtls_ctr_drbg_init(&(pxNet->xCtrDrbg));
         mbedtls_entropy_init(&(pxNet->xEntropy));
 
+        pxNet->uRecvTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
+        pxNet->uSendTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
+
         if (mbedtls_ctr_drbg_seed(&(pxNet->xCtrDrbg), mbedtls_entropy_func, &(pxNet->xEntropy), NULL, 0) != 0)
         {
-            NetIo_Terminate(pxNet);
+            NetIo_terminate(pxNet);
             pxNet = NULL;
         }
     }
@@ -191,7 +202,7 @@ NetIoHandle NetIo_Create(void)
     return pxNet;
 }
 
-void NetIo_Terminate(NetIoHandle xNetIoHandle)
+void NetIo_terminate(NetIoHandle xNetIoHandle)
 {
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
 
@@ -227,17 +238,17 @@ void NetIo_Terminate(NetIoHandle xNetIoHandle)
     }
 }
 
-int NetIo_Connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort)
+int NetIo_connect(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort)
 {
     return prvConnect(xNetIoHandle, pcHost, pcPort, NULL, NULL, NULL);
 }
 
-int NetIo_ConnectWithX509(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
+int NetIo_connectWithX509(NetIoHandle xNetIoHandle, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
 {
     return prvConnect(xNetIoHandle, pcHost, pcPort, pcRootCA, pcCert, pcPrivKey);
 }
 
-void NetIo_Disconnect(NetIoHandle xNetIoHandle)
+void NetIo_disconnect(NetIoHandle xNetIoHandle)
 {
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
 
@@ -247,7 +258,7 @@ void NetIo_Disconnect(NetIoHandle xNetIoHandle)
     }
 }
 
-int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend)
+int NetIo_send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend)
 {
     int n = 0;
     int xRes = KVS_ERRNO_NONE;
@@ -278,7 +289,7 @@ int NetIo_Send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uB
     return xRes;
 }
 
-int NetIo_Recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived)
+int NetIo_recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived)
 {
     int n;
     int xRes = KVS_ERRNO_NONE;
@@ -340,4 +351,57 @@ bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle)
     }
 
     return bDataAvailable;
+}
+
+int NetIo_setRecvTimeout(NetIoHandle xNetIoHandle, unsigned int uRecvTimeoutMs)
+{
+    int xRes = KVS_ERRNO_NONE;
+    NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
+
+    if (pxNet == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        pxNet->uRecvTimeoutMs = (uint32_t)uRecvTimeoutMs;
+        mbedtls_ssl_conf_read_timeout(&(pxNet->xConf), pxNet->uRecvTimeoutMs);
+    }
+
+    return xRes;
+}
+
+int NetIo_setSendTimeout(NetIoHandle xNetIoHandle, unsigned int uSendTimeoutMs)
+{
+    int xRes = KVS_ERRNO_NONE;
+    NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
+    int fd = 0;
+    struct timeval tv = {0};
+
+    if (pxNet == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        pxNet->uSendTimeoutMs = (uint32_t)uSendTimeoutMs;
+        fd = pxNet->xFd.fd;
+        tv.tv_sec = uSendTimeoutMs / 1000;
+        tv.tv_usec = (uSendTimeoutMs % 1000) * 1000;
+
+        if (fd < 0)
+        {
+            /* Do nothing when connection hasn't established. */
+        }
+        else if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (void *)&tv, sizeof(tv)) != 0)
+        {
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            /* nop */
+        }
+    }
+
+    return xRes;
 }

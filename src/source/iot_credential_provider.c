@@ -112,8 +112,8 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         xRes = KVS_ERRNO_FAIL;
     }
     else if (
-        (xNetIoHandle = NetIo_Create()) == NULL ||
-        NetIo_ConnectWithX509(xNetIoHandle, pReq->pCredentialHost, "443", pReq->pRootCA, pReq->pCertificate, pReq->pPrivateKey) != KVS_ERRNO_NONE)
+        (xNetIoHandle = NetIo_create()) == NULL ||
+        NetIo_connectWithX509(xNetIoHandle, pReq->pCredentialHost, "443", pReq->pRootCA, pReq->pCertificate, pReq->pPrivateKey) != KVS_ERRNO_NONE)
     {
         LogError("Failed to connect to %s\r\n", pReq->pCredentialHost);
         xRes = KVS_ERRNO_FAIL;
@@ -165,8 +165,8 @@ IotCredentialToken_t *Iot_getCredential(IotCredentialRequest_t *pReq)
         kvsFree(pRspBody);
     }
 
-    NetIo_Disconnect(xNetIoHandle);
-    NetIo_Terminate(xNetIoHandle);
+    NetIo_disconnect(xNetIoHandle);
+    NetIo_terminate(xNetIoHandle);
     HTTPHeaders_Free(xHttpReqHeaders);
     STRING_delete(xStUri);
 

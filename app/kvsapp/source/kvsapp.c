@@ -38,7 +38,10 @@
 #define VIDEO_CODEC_NAME "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME "kvs video track"
 
+#define DEFAULT_CONNECTION_TIMEOUT_MS (10 * 1000)
 #define DEFAULT_DATA_RETENTION_IN_HOURS (2)
+#define DEFAULT_PUT_MEDIA_RECV_TIMEOUT_MS (1 * 1000)
+#define DEFAULT_PUT_MEDIA_SEND_TIMEOUT_MS (1 * 1000)
 #define DEFAULT_RING_BUFFER_MEM_LIMIT (1 * 1024 * 1024)
 
 typedef struct PolicyRingBufferParameter
@@ -372,6 +375,8 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
     pKvs->xServicePara.pcHost = pKvs->pHost;
     pKvs->xServicePara.pcRegion = pKvs->pRegion;
     pKvs->xServicePara.pcService = pKvs->pService;
+    pKvs->xServicePara.uRecvTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
+    pKvs->xServicePara.uSendTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
 
     if (pKvs->pToken != NULL)
     {
@@ -405,6 +410,8 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
 
         pKvs->xPutMediaPara.pcStreamName = pKvs->pStreamName;
         pKvs->xPutMediaPara.xTimecodeType = TIMECODE_TYPE_ABSOLUTE;
+        pKvs->xPutMediaPara.uRecvTimeoutMs = DEFAULT_PUT_MEDIA_RECV_TIMEOUT_MS;
+        pKvs->xPutMediaPara.uSendTimeoutMs = DEFAULT_PUT_MEDIA_SEND_TIMEOUT_MS;
     }
 
     return res;
@@ -805,7 +812,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
     }
     else
     {
-        if (strcmp(pcOptionName, OPTION_AWS_ACCESS_KEY_ID) == 0)
+        if (strncmp(pcOptionName, (const char *)OPTION_AWS_ACCESS_KEY_ID, sizeof(OPTION_AWS_ACCESS_KEY_ID)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pAwsAccessKeyId), pValue) != 0)
             {
@@ -813,7 +820,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_AWS_SECRET_ACCESS_KEY) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_AWS_SECRET_ACCESS_KEY, sizeof(OPTION_AWS_SECRET_ACCESS_KEY)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
             {
@@ -821,7 +828,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_CREDENTIAL_HOST) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_CREDENTIAL_HOST, sizeof(OPTION_IOT_CREDENTIAL_HOST)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotCredentialHost), pValue) != 0)
             {
@@ -829,7 +836,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_ROLE_ALIAS) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_ROLE_ALIAS, sizeof(OPTION_IOT_ROLE_ALIAS)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotRoleAlias), pValue) != 0)
             {
@@ -837,7 +844,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_THING_NAME) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_THING_NAME, sizeof(OPTION_IOT_THING_NAME)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotThingName), pValue) != 0)
             {
@@ -845,7 +852,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_X509_ROOTCA) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_ROOTCA, sizeof(OPTION_IOT_X509_ROOTCA)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509RootCa), pValue) != 0)
             {
@@ -853,7 +860,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_X509_CERT) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_CERT, sizeof(OPTION_IOT_X509_CERT)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509Certificate), pValue) != 0)
             {
@@ -861,7 +868,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_IOT_X509_KEY) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_KEY, sizeof(OPTION_IOT_X509_KEY)) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509PrivateKey), pValue) != 0)
             {
@@ -869,7 +876,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strcmp(pcOptionName, OPTION_KVS_DATA_RETENTION_IN_HOURS) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_DATA_RETENTION_IN_HOURS, sizeof(OPTION_KVS_DATA_RETENTION_IN_HOURS)) == 0)
         {
             if (pValue == NULL)
             {
@@ -881,7 +888,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 pKvs->uDataRetentionInHours = *((unsigned int *)(pValue));
             }
         }
-        else if (strcmp(pcOptionName, OPTION_KVS_VIDEO_TRACK_INFO) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_VIDEO_TRACK_INFO, sizeof(OPTION_KVS_VIDEO_TRACK_INFO)) == 0)
         {
             if (pValue == NULL)
             {
@@ -893,7 +900,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 LogError("failed to copy video track info");
             }
         }
-        else if (strcmp(pcOptionName, OPTION_KVS_AUDIO_TRACK_INFO) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_AUDIO_TRACK_INFO, sizeof(OPTION_KVS_AUDIO_TRACK_INFO)) == 0)
         {
             if (pValue == NULL)
             {
@@ -905,7 +912,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 LogError("failed to copy audio track info");
             }
         }
-        else if (strcmp(pcOptionName, OPTION_STREAM_POLICY) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_STREAM_POLICY, sizeof(OPTION_STREAM_POLICY)) == 0)
         {
             if (pValue == NULL)
             {
@@ -929,7 +936,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 }
             }
         }
-        else if (strcmp(pcOptionName, OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT) == 0)
+        else if (strncmp(pcOptionName, (const char *)OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT, sizeof(OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT)) == 0)
         {
             if (pValue == NULL)
             {
@@ -945,6 +952,52 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
             {
                 size_t uMemLimit = *((size_t *)pValue);
                 pKvs->xStrategy.xRingBufferPara.uMemLimit = uMemLimit;
+            }
+        }
+        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_CONNECTION_TIMEOUT, sizeof(OPTION_NETIO_CONNECTION_TIMEOUT)) == 0)
+        {
+            if (pValue == NULL)
+            {
+                LogError("Invalid value set to connection timeout");
+                res = ERRNO_FAIL;
+            }
+            else
+            {
+                unsigned int uConnectionTimeoutMs = *((unsigned int *)pValue);
+                pKvs->xServicePara.uRecvTimeoutMs = uConnectionTimeoutMs;
+                pKvs->xServicePara.uSendTimeoutMs = uConnectionTimeoutMs;
+            }
+        }
+        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_RECV_TIMEOUT, sizeof(OPTION_NETIO_CONNECTION_TIMEOUT)) == 0)
+        {
+            if (pValue == NULL)
+            {
+                LogError("Invalid value set to streaming recv timeout");
+                res = ERRNO_FAIL;
+            }
+            else
+            {
+                unsigned int uRecvTimeoutMs = *((unsigned int *)pValue);
+                pKvs->xPutMediaPara.uRecvTimeoutMs = uRecvTimeoutMs;
+
+                /* Try to update receive timeout if it's already streaming. */
+                Kvs_putMediaUpdateRecvTimeout(pKvs->xPutMediaHandle, uRecvTimeoutMs);
+            }
+        }
+        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_SEND_TIMEOUT, sizeof(OPTION_NETIO_STREAMING_SEND_TIMEOUT)) == 0)
+        {
+            if (pValue == NULL)
+            {
+                LogError("Invalid value set to streaming send timeout");
+                res = ERRNO_FAIL;
+            }
+            else
+            {
+                unsigned int uSendTimeoutMs = *((unsigned int *)pValue);
+                pKvs->xPutMediaPara.uRecvTimeoutMs = uSendTimeoutMs;
+
+                /* Try to update send timeout if it's already streaming. */
+                Kvs_putMediaUpdateSendTimeout(pKvs->xPutMediaHandle, uSendTimeoutMs);
             }
         }
         else

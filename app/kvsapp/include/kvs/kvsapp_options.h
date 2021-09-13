@@ -38,7 +38,10 @@ static const char * const OPTION_KVS_VIDEO_TRACK_INFO = "Kvs_videoTrackInfo";
 static const char * const OPTION_KVS_AUDIO_TRACK_INFO = "Kvs_audioTrackInfo";
 
 static const char * const OPTION_STREAM_POLICY = "Stream_policy";
-
 static const char * const OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT = "Stream_RbMemlimit";
+
+static const char * const OPTION_NETIO_CONNECTION_TIMEOUT = "NetIo_connTimeout";
+static const char * const OPTION_NETIO_STREAMING_RECV_TIMEOUT = "NetIo_recvTimeout";
+static const char * const OPTION_NETIO_STREAMING_SEND_TIMEOUT = "NetIo_sendTimeout";
 
 #endif
