@@ -994,7 +994,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
             else
             {
                 unsigned int uSendTimeoutMs = *((unsigned int *)pValue);
-                pKvs->xPutMediaPara.uRecvTimeoutMs = uSendTimeoutMs;
+                pKvs->xPutMediaPara.uSendTimeoutMs = uSendTimeoutMs;
 
                 /* Try to update send timeout if it's already streaming. */
                 Kvs_putMediaUpdateSendTimeout(pKvs->xPutMediaHandle, uSendTimeoutMs);
