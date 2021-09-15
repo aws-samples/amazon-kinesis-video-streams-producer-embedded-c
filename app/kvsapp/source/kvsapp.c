@@ -812,7 +812,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
     }
     else
     {
-        if (strncmp(pcOptionName, (const char *)OPTION_AWS_ACCESS_KEY_ID, sizeof(OPTION_AWS_ACCESS_KEY_ID)) == 0)
+        if (strcmp(pcOptionName, (const char *)OPTION_AWS_ACCESS_KEY_ID) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pAwsAccessKeyId), pValue) != 0)
             {
@@ -820,7 +820,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_AWS_SECRET_ACCESS_KEY, sizeof(OPTION_AWS_SECRET_ACCESS_KEY)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_AWS_SECRET_ACCESS_KEY) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
             {
@@ -828,7 +828,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_CREDENTIAL_HOST, sizeof(OPTION_IOT_CREDENTIAL_HOST)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_CREDENTIAL_HOST) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotCredentialHost), pValue) != 0)
             {
@@ -836,7 +836,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_ROLE_ALIAS, sizeof(OPTION_IOT_ROLE_ALIAS)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_ROLE_ALIAS) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotRoleAlias), pValue) != 0)
             {
@@ -844,7 +844,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_THING_NAME, sizeof(OPTION_IOT_THING_NAME)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_THING_NAME) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotThingName), pValue) != 0)
             {
@@ -852,7 +852,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_ROOTCA, sizeof(OPTION_IOT_X509_ROOTCA)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_ROOTCA) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509RootCa), pValue) != 0)
             {
@@ -860,7 +860,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_CERT, sizeof(OPTION_IOT_X509_CERT)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_CERT) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509Certificate), pValue) != 0)
             {
@@ -868,7 +868,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_IOT_X509_KEY, sizeof(OPTION_IOT_X509_KEY)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_KEY) == 0)
         {
             if (mallocAndStrcpy_s(&(pKvs->pIotX509PrivateKey), pValue) != 0)
             {
@@ -876,7 +876,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 res = ERRNO_FAIL;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_DATA_RETENTION_IN_HOURS, sizeof(OPTION_KVS_DATA_RETENTION_IN_HOURS)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_KVS_DATA_RETENTION_IN_HOURS) == 0)
         {
             if (pValue == NULL)
             {
@@ -888,7 +888,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 pKvs->uDataRetentionInHours = *((unsigned int *)(pValue));
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_VIDEO_TRACK_INFO, sizeof(OPTION_KVS_VIDEO_TRACK_INFO)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_KVS_VIDEO_TRACK_INFO) == 0)
         {
             if (pValue == NULL)
             {
@@ -900,7 +900,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 LogError("failed to copy video track info");
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_KVS_AUDIO_TRACK_INFO, sizeof(OPTION_KVS_AUDIO_TRACK_INFO)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_KVS_AUDIO_TRACK_INFO) == 0)
         {
             if (pValue == NULL)
             {
@@ -912,7 +912,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 LogError("failed to copy audio track info");
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_STREAM_POLICY, sizeof(OPTION_STREAM_POLICY)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_STREAM_POLICY) == 0)
         {
             if (pValue == NULL)
             {
@@ -924,7 +924,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 KvsApp_streamPolicy_t xPolicy = *((KvsApp_streamPolicy_t *)pValue);
                 if (xPolicy < STREAM_POLICY_NONE || xPolicy >= STREAM_POLICY_MAX)
                 {
-                    LogError("Invalid policy val");
+                    LogError("Invalid policy val: %d", xPolicy);
                 }
                 else
                 {
@@ -936,7 +936,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 }
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT, sizeof(OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT) == 0)
         {
             if (pValue == NULL)
             {
@@ -954,7 +954,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 pKvs->xStrategy.xRingBufferPara.uMemLimit = uMemLimit;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_CONNECTION_TIMEOUT, sizeof(OPTION_NETIO_CONNECTION_TIMEOUT)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_NETIO_CONNECTION_TIMEOUT) == 0)
         {
             if (pValue == NULL)
             {
@@ -968,7 +968,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 pKvs->xServicePara.uSendTimeoutMs = uConnectionTimeoutMs;
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_RECV_TIMEOUT, sizeof(OPTION_NETIO_CONNECTION_TIMEOUT)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_RECV_TIMEOUT) == 0)
         {
             if (pValue == NULL)
             {
@@ -984,7 +984,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 Kvs_putMediaUpdateRecvTimeout(pKvs->xPutMediaHandle, uRecvTimeoutMs);
             }
         }
-        else if (strncmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_SEND_TIMEOUT, sizeof(OPTION_NETIO_STREAMING_SEND_TIMEOUT)) == 0)
+        else if (strcmp(pcOptionName, (const char *)OPTION_NETIO_STREAMING_SEND_TIMEOUT) == 0)
         {
             if (pValue == NULL)
             {
