@@ -108,9 +108,49 @@ typedef struct KvsApp
     AudioTrackInfo_t *pAudioTrackInfo;
 } KvsApp_t;
 
+typedef struct DataFrameUserData
+{
+    DataFrameCallbacks_t xCallbacks;
+    void *pAppData;
+} DataFrameUserData_t;
+
 static void prvSleepInMs(uint32_t ms)
 {
     usleep(ms * 1000);
+}
+
+/**
+ * Default implementation of OnDataFrameTerminateCallback_t. It calls free() to pData to release resource.
+ *
+ * @param[in] pData Pointer of data frame
+ * @param[in] uDataLen Size of data frame
+ * @param[in] uTimestamp Timestamp of data frame
+ * @param[in] xTrackType Track type of data frame
+ * @param[in] pAppData Pointer of application data that is assigned in function KvsApp_addFrameWithCallbacks()
+ * @return 0 on success, non-zero value otherwise
+ */
+static int defaultOnDataFrameTerminate(uint8_t *pData, size_t uDataLen, uint64_t uTimestamp, TrackType_t xTrackType, void *pAppData)
+{
+    if (pData != NULL)
+    {
+        free(pData);
+    }
+
+    return ERRNO_NONE;
+}
+
+static void prvCallOnDataFrameTerminate(DataFrameIn_t *pDataFrameIn)
+{
+    DataFrameUserData_t *pUserData = NULL;
+
+    if (pDataFrameIn != NULL)
+    {
+        pUserData = (DataFrameUserData_t *)pDataFrameIn->pUserData;
+        if (pUserData != NULL && pUserData->xCallbacks.onDataFrameTerminate != NULL)
+        {
+            pUserData->xCallbacks.onDataFrameTerminate((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pUserData->pAppData);
+        }
+    }
 }
 
 static void prvVideoTrackInfoTerminate(VideoTrackInfo_t *pVideoTrackInfo)
@@ -196,7 +236,11 @@ static void prvStreamFlush(KvsApp_t *pKvs)
     while ((xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
     {
         pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        free(pDataFrameIn->pData);
+        prvCallOnDataFrameTerminate(pDataFrameIn);
+        if (pDataFrameIn->pUserData != NULL)
+        {
+            free(pDataFrameIn->pUserData);
+        }
         Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
@@ -227,7 +271,11 @@ static int prvStreamFlushToNextCluster(KvsApp_t *pKvs)
             {
                 xDataFrameHandle = Kvs_streamPop(xStreamHandle);
                 pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-                free(pDataFrameIn->pData);
+                prvCallOnDataFrameTerminate(pDataFrameIn);
+                if (pDataFrameIn->pUserData != NULL)
+                {
+                    free(pDataFrameIn->pUserData);
+                }
                 Kvs_dataFrameTerminate(xDataFrameHandle);
             }
         }
@@ -246,7 +294,11 @@ static void prvStreamFlushHeadUntilMem(KvsApp_t *pKvs, size_t uMemLimit)
     while (Kvs_streamMemStatTotal(xStreamHandle, &uMemTotal) == 0 && uMemTotal > uMemLimit && (xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
     {
         pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        free(pDataFrameIn->pData);
+        prvCallOnDataFrameTerminate(pDataFrameIn);
+        if (pDataFrameIn->pUserData != NULL)
+        {
+            free(pDataFrameIn->pUserData);
+        }
         Kvs_dataFrameTerminate(xDataFrameHandle);
     }
 }
@@ -632,7 +684,11 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
         if (xDataFrameHandle != NULL)
         {
             pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            free(pDataFrameIn->pData);
+            prvCallOnDataFrameTerminate(pDataFrameIn);
+            if (pDataFrameIn->pUserData != NULL)
+            {
+                free(pDataFrameIn->pUserData);
+            }
             Kvs_dataFrameTerminate(xDataFrameHandle);
         }
     }
@@ -1086,9 +1142,15 @@ int KvsApp_close(KvsAppHandle handle)
 
 int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType)
 {
+    return KvsApp_addFrameWithCallbacks(handle, pData, uDataLen, uDataSize, uTimestamp, xTrackType, NULL, NULL);
+}
+
+int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks, void *pAppData)
+{
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
     DataFrameIn_t xDataFrameIn = {0};
+    DataFrameUserData_t *pUserData = NULL;
 
     if (pKvs == NULL || pData == NULL || uDataLen == 0)
     {
@@ -1112,6 +1174,11 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
     {
         res = ERRNO_FAIL;
     }
+    else if ((pUserData = (DataFrameUserData_t *)malloc(sizeof(DataFrameUserData_t))) == NULL)
+    {
+        LogError("OOM: pUserData");
+        res = ERRNO_FAIL;
+    }
     else
     {
         xDataFrameIn.pData = (char *)pData;
@@ -1120,6 +1187,19 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
         xDataFrameIn.uTimestampMs = uTimestamp;
         xDataFrameIn.xTrackType = xTrackType;
         xDataFrameIn.xClusterType = (xDataFrameIn.bIsKeyFrame) ? MKV_CLUSTER : MKV_SIMPLE_BLOCK;
+
+        memset(pUserData, 0, sizeof(DataFrameUserData_t));
+        if (pCallbacks == NULL)
+        {
+            /* Assign default callbacks. */
+            pUserData->xCallbacks.onDataFrameTerminate = defaultOnDataFrameTerminate;
+        }
+        else
+        {
+            memcpy(&(pUserData->xCallbacks), pCallbacks, sizeof(DataFrameCallbacks_t));
+        }
+        pUserData->pAppData = pAppData;
+        xDataFrameIn.pUserData = pUserData;
 
         if (pKvs->xStrategy.xPolicy == STREAM_POLICY_RING_BUFFER)
         {
@@ -1137,7 +1217,18 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
     {
         if (pData != NULL)
         {
-            free(pData);
+            if (pCallbacks != NULL && pCallbacks->onDataFrameTerminate != NULL)
+            {
+                pCallbacks->onDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+            }
+            else
+            {
+                defaultOnDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+            }
+        }
+        if (pUserData != NULL)
+        {
+            free(pUserData);
         }
     }
 

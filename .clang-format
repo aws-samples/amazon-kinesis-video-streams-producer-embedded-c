@@ -20,7 +20,7 @@ BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: true
 BreakStringLiterals: true
-ColumnLimit:     180
+ColumnLimit:     0
 ContinuationIndentWidth: 4
 DerivePointerAlignment: false
 FixNamespaceComments : true
