@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 #ifdef KVS_USE_POOL_ALLOCATOR
                     PoolStats_t stats = {0};
                     poolAllocatorGetStats(&stats);
-                    printf("Sum of used/free memory:%zu/%zu, size of larget used/free block:%zu/%zu, number of used/free blocks:%zu/%zu\n",
+                    printf("Sum of used/free memory:%zu/%zu, size of largest used/free block:%zu/%zu, number of used/free blocks:%zu/%zu\n",
                         stats.uSumOfUsedMemory, stats.uSumOfFreeMemory,
                         stats.uSizeOfLargestUsedBlock, stats.uSizeOfLargestFreeBlock,
                         stats.uNumberOfUsedBlocks, stats.uNumberOfFreeBlocks
