@@ -101,7 +101,7 @@ Please add toolchain "mips-gcc472-glibc216-64bit" into you path.  Ex.
 
 ## Configure sample settings
 
-You need to configure sample settings in file [sample_config.h](samples/kvsapp-ingenic-t31/include/sample_config.h).
+You need to configure sample settings in file "*samples/kvsapp-ingenic-t31/include/sample_config.h)*".
 
 ## Build
 
