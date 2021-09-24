@@ -1266,12 +1266,12 @@ int KvsApp_doWork(KvsAppHandle handle)
                 res = ERRNO_FAIL;
                 break;
             }
-
-            if (xSendCnt == 0)
-            {
-                prvSleepInMs(50);
-            }
         } while (false);
+
+        if (xSendCnt == 0)
+        {
+            prvSleepInMs(50);
+        }
     }
 
     return res;
