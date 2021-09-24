@@ -23,6 +23,24 @@
 typedef struct KvsApp *KvsAppHandle;
 
 /**
+ * This callback is called when a data frame is about to be terminated. And this callback is responsible to return the control to application side.
+ * The application can either just called free() or handle it in a proper way which depends on the way how this frame is created.
+ *
+ * @param[in] pData Pointer of data frame
+ * @param[in] uDataLen Size of data frame
+ * @param[in] uTimestamp Timestamp of data frame
+ * @param[in] xTrackType Track type of data frame
+ * @param[in] pAppData Pointer of application data that is assigned in function KvsApp_addFrameWithCallbacks()
+ * @return 0 on success, non-zero value otherwise
+ */
+typedef int (*OnDataFrameTerminateCallback_t)(uint8_t *pData, size_t uDataLen, uint64_t uTimestamp, TrackType_t xTrackType, void *pAppData);
+
+typedef struct DataFrameCallbacks
+{
+    OnDataFrameTerminateCallback_t onDataFrameTerminate;
+} DataFrameCallbacks_t;
+
+/**
  * Create a KVS application.
  *
  * @param[in] pcHost KVS hostname
@@ -80,6 +98,22 @@ int KvsApp_close(KvsAppHandle handle);
  * @return 0 on success, non-zero value otherwise
  */
 int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType);
+
+/**
+ * Add a frame to KVS application. If the stream buffer is not allocated yet, then it'll try to parse decode information
+ * and then setup stream buffer.
+ *
+ * @param[in] handle KVS application handle
+ * @param[in] pData Data buffer pointer
+ * @param[in] uDataLen Data length
+ * @param[in] uDataSize Data buffer size
+ * @param[in] uTimestamp Frame absolution timestamp in milliseconds.
+ * @param[in] xTrackType Track type, it could be TRACK_VIDEO or TRACK_AUDIO
+ * @param[in] pCallbacks Callbacks
+ * @param[in] pAppData Data pointer reserved for application
+ * @return 0 on success, non-zero value otherwise
+ */
+int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks, void *pAppData);
 
 /**
  * Let KVS application do works. It will try to send out frames, and check if any messages from server.
