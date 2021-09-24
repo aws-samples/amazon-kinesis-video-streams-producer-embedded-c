@@ -15,8 +15,13 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif /* HAVE_SIGNAL_H */
 
 /* Headers for KVS */
 #include "kvs/pool_allocator.h"
@@ -56,6 +61,25 @@ static G711FileLoaderHandle xAudioFileLoader = NULL;
 #endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
+/* A global variable to exit program if it's set to true. It can be set to true if signal.h is available and user press Ctrl+c. It can also be set to true via debugger. */
+static bool gStopRunning = false;
+
+#ifdef HAVE_SIGNAL_H
+static void signalHandler(int signum)
+{
+    if (!gStopRunning)
+    {
+        printf("Received interrupt signal\n");
+        gStopRunning = true;
+    }
+    else
+    {
+        printf("Force leaving\n");
+        exit(signum);
+    }
+}
+#endif /* HAVE_SIGNAL_H */
+
 static void sleepInMs(uint32_t ms)
 {
     usleep(ms * 1000);
@@ -79,6 +103,11 @@ static void *videoThread(void *arg)
     {
         while (1)
         {
+            if (gStopRunning)
+            {
+                break;
+            }
+
             if (H264FileLoaderLoadFrame(xVideoFileLoader, (char **)&pData, &uDataLen) != 0)
             {
                 printf("Failed to load data frame\r\n");
@@ -118,6 +147,11 @@ static void *audioThread(void *arg)
     {
         while (1)
         {
+            if (gStopRunning)
+            {
+                break;
+            }
+
 #if USE_AUDIO_AAC_SAMPLE
             if (AacFileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
 #endif /* USE_AUDIO_AAC_SAMPLE */
@@ -227,6 +261,11 @@ int main(int argc, char *argv[])
     poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
 #endif
 
+#ifdef HAVE_SIGNAL_H
+    /* Register interrupt signal handler so user can press Ctrl+C to exit this program gracefully. */
+    signal(SIGINT, signalHandler);
+#endif /* HAVE_SIGNAL_H */
+
     xVideoFileLoaderParam.pcTrackName = VIDEO_TRACK_NAME;
     xVideoFileLoaderParam.pcFileFormat = H264_FILE_FORMAT;
     xVideoFileLoaderParam.xFileStartIdx = H264_FILE_IDX_BEGIN;
@@ -287,6 +326,11 @@ int main(int argc, char *argv[])
     {
         while (1)
         {
+            if (gStopRunning)
+            {
+                break;
+            }
+
             if (KvsApp_open(kvsAppHandle) != 0)
             {
                 printf("Failed to open KVS app\r\n");
@@ -295,6 +339,11 @@ int main(int argc, char *argv[])
 
             while (1)
             {
+                if (gStopRunning)
+                {
+                    break;
+                }
+
                 if (KvsApp_doWork(kvsAppHandle) != 0)
                 {
                     break;
