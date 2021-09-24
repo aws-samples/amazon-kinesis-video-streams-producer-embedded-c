@@ -22,6 +22,8 @@
 #include "kvs/errors.h"
 #include "kvs/port.h"
 
+#define PAST_OLD_TIME_IN_EPOCH 1600000000
+
 int platformInit(void)
 {
     int xRes = KVS_ERRNO_NONE;
@@ -43,7 +45,15 @@ int getTimeInIso8601(char *pBuf, size_t uBufSize)
     else
     {
         xTimeUtcNow = time(NULL);
-        strftime(pBuf, DATE_TIME_ISO_8601_FORMAT_STRING_SIZE, "%Y%m%dT%H%M%SZ", gmtime(&xTimeUtcNow));
+        /* Current time should not less than a specific old time. If it does, then it means system time is incorrect. */
+        if ((long)xTimeUtcNow < (long)PAST_OLD_TIME_IN_EPOCH)
+        {
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            strftime(pBuf, DATE_TIME_ISO_8601_FORMAT_STRING_SIZE, "%Y%m%dT%H%M%SZ", gmtime(&xTimeUtcNow));
+        }
     }
 
     return xRes;
