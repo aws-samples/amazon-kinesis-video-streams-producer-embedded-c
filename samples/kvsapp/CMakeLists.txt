@@ -17,6 +17,11 @@ if(${USE_POOL_ALLOCATOR_ALL})
     set(LINKER_FLAGS_FOR_MEM_WRAPPER -Wl,--wrap,malloc -Wl,--wrap,realloc -Wl,--wrap,calloc -Wl,--wrap,free)
 endif()
 
+unset(COMPILE_FLAGS_FOR_SIGNAL_H)
+if(${HAVE_SIGNAL_H})
+    set(COMPILE_FLAGS_FOR_SIGNAL_H -DHAVE_SIGNAL_H=1)
+endif()
+
 if(${BUILD_SHARED_SAMPLES})
     add_executable(${APP_NAME} ${${APP_NAME}_SRC})
     set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
@@ -24,6 +29,7 @@ if(${BUILD_SHARED_SAMPLES})
     target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
     target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
     target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
     target_link_libraries(${APP_NAME}
         kvsapp-shared
         samplescommon-shared
@@ -38,6 +44,7 @@ if(${BUILD_STATIC_SAMPLES})
     target_compile_definitions(${APP_NAME}-static PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
     target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
     target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
     target_link_libraries(${APP_NAME}-static
         kvsapp-static
         samplescommon-static

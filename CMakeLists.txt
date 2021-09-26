@@ -26,6 +26,10 @@ if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s -Wl,--gc-sections")
 endif()
 
+# Checking platform properties
+include(CheckIncludeFiles)
+check_include_files(signal.h HAVE_SIGNAL_H)
+
 # Print option values
 message(STATUS "BUILD_SHARED_SAMPLES            = ${BUILD_SHARED_SAMPLES}")
 message(STATUS "BUILD_STATIC_SAMPLES            = ${BUILD_STATIC_SAMPLES}")
