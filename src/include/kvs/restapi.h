@@ -68,6 +68,17 @@ typedef struct
 
 typedef struct PutMedia *PutMediaHandle;
 
+/* PUT MEDIA Fragment ACK event type */
+typedef enum
+{
+    eUnknown = 0,
+    eBuffering,
+    eReceived,
+    ePersisted,
+    eError,
+    eIdle
+} ePutMediaFragmentAckEventType;
+
 /**
  * @brief Describe stream
  *
@@ -159,8 +170,8 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle);
  *
  * Receive timeout has been set in service parameters and is applied during connection setup. It can be altered during streaming.
  *
- * @param xPutMediaHandle The handle of PUT MEDIA
- * @param uRecvTimeoutMs Receiving timeout in milliseconds
+ * @param[in] xPutMediaHandle The handle of PUT MEDIA
+ * @param[in] uRecvTimeoutMs Receiving timeout in milliseconds
  * @return 0 on success, non-zero value otherwise
  */
 int Kvs_putMediaUpdateRecvTimeout(PutMediaHandle xPutMediaHandle, unsigned int uRecvTimeoutMs);
@@ -170,10 +181,24 @@ int Kvs_putMediaUpdateRecvTimeout(PutMediaHandle xPutMediaHandle, unsigned int u
 *
 * Send timeout has been set in service parameters and is applied during connection setup. It can be altered during streaming.
 *
-* @param xPutMediaHandle The handle of PUT MEDIA
-* @param uSendTimeoutMs Receiving timeout in milliseconds
+* @param[in] xPutMediaHandle The handle of PUT MEDIA
+* @param[in] uSendTimeoutMs Receiving timeout in milliseconds
 * @return 0 on success, non-zero value otherwise
 */
 int Kvs_putMediaUpdateSendTimeout(PutMediaHandle xPutMediaHandle, unsigned int uSendTimeoutMs);
+
+/**
+ * @brief Non-blocking read a fragment ACK if any.
+ *
+ * When Kvs_putMediaDoWork() is called, it will check if any incoming fragment ACKs, and clear fragment ACKs that buffered in the previous Kvs_putMediaDoWork() call.
+ * Use Kvs_putMediaReadFragmentAck() to read one fragment ACK and the return value would be 0. If there is no fragment ACK available, then the return value would be non-zero value.
+ *
+ * @param[in] xPutMediaHandle The handle of PUT MEDIA
+ * @param[out] peAckEventType Pointer to the fragment ACK event type
+ * @param[out] puFragmentTimecode Pointer to the fragment timecode
+ * @param[out] puErrorId Pointer to the error ID
+ * @return 0 on success, non-zero value otherwise
+ */
+int Kvs_putMediaReadFragmentAck(PutMediaHandle xPutMediaHandle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId);
 
 #endif /* KVS_REST_API_H */

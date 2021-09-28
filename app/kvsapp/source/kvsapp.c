@@ -1277,6 +1277,23 @@ int KvsApp_doWork(KvsAppHandle handle)
     return res;
 }
 
+int KvsApp_readFragmentAck(KvsAppHandle handle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId)
+{
+    int res = ERRNO_NONE;
+    KvsApp_t *pKvs = (KvsApp_t *)handle;
+
+    if (pKvs == NULL)
+    {
+        res = ERRNO_FAIL;
+    }
+    else
+    {
+        res = Kvs_putMediaReadFragmentAck(pKvs->xPutMediaHandle, peAckEventType, puFragmentTimecode, puErrorId);
+    }
+
+    return res;
+}
+
 size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle)
 {
     size_t uMemTotal = 0;

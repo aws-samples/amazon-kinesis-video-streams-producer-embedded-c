@@ -18,6 +18,7 @@
 
 #include "kvs/kvsapp_options.h"
 #include "kvs/mkv_generator.h"
+#include "kvs/restapi.h"
 #include <inttypes.h>
 
 typedef struct KvsApp *KvsAppHandle;
@@ -122,6 +123,20 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
  * @return 0 on success, non-zero value otherwise
  */
 int KvsApp_doWork(KvsAppHandle handle);
+
+/**
+ * @brief Non-blocking read a fragment ACK if any.
+ *
+ * When KvsApp_doWork() is called, it will check if any incoming fragment ACKs, and clear fragment ACKs that buffered in the previous Kvs_putMediaDoWork() call.
+ * Use KvsApp_readFragmentAck() to read one fragment ACK and the return value would be 0. If there is no fragment ACK available, then the return value would be non-zero value.
+ *
+ * @param[in] handle The handle of PUT MEDIA
+ * @param[out] peAckEventType Pointer to the fragment ACK event type
+ * @param[out] puFragmentTimecode Pointer to the fragment timecode
+ * @param[out] puErrorId Pointer to the error ID
+ * @return 0 on success, non-zero value otherwise
+ */
+int KvsApp_readFragmentAck(KvsAppHandle handle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId);
 
 /**
  * Get the memory used in the stream buffer.
