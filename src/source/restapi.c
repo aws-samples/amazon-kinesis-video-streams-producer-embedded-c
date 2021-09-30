@@ -19,7 +19,9 @@
 
 /* Thirdparty headers */
 #include "azure_c_shared_utility/buffer_.h"
+#include "azure_c_shared_utility/doublylinkedlist.h"
 #include "azure_c_shared_utility/httpheaders.h"
+#include "azure_c_shared_utility/lock.h"
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "llhttp.h"
@@ -40,11 +42,11 @@
 #include "netio.h"
 
 #ifndef SAFE_FREE
-#define SAFE_FREE(a)                                                                                                                                                               \
-    do                                                                                                                                                                             \
-    {                                                                                                                                                                              \
-        kvsFree(a);                                                                                                                                                                \
-        a = NULL;                                                                                                                                                                  \
+#define SAFE_FREE(a) \
+    do               \
+    {                \
+        kvsFree(a);  \
+        a = NULL;    \
     } while (0)
 #endif /* SAFE_FREE */
 
@@ -69,10 +71,21 @@
 
 /*-----------------------------------------------------------*/
 
+typedef struct
+{
+    ePutMediaFragmentAckEventType eventType;
+    uint64_t uFragmentTimecode;
+    unsigned int uErrorId;
+
+    DLIST_ENTRY xAckEntry;
+} FragmentAck_t;
+
 typedef struct PutMedia
 {
+    LOCK_HANDLE xLock;
+
     NetIoHandle xNetIoHandle;
-    unsigned int uLastErrorId;
+    DLIST_ENTRY xPendingFragmentAcks;
 } PutMedia_t;
 
 #define JSON_KEY_EVENT_TYPE "EventType"
@@ -84,23 +97,6 @@ typedef struct PutMedia
 #define EVENT_TYPE_PERSISTED "\"PERSISTED\""
 #define EVENT_TYPE_ERROR "\"ERROR\""
 #define EVENT_TYPE_IDLE "\"IDLE\""
-
-typedef enum
-{
-    EVENT_UNKNOWN = 0,
-    EVENT_BUFFERING,
-    EVENT_RECEIVED,
-    EVENT_PERSISTED,
-    EVENT_ERROR,
-    EVENT_IDLE
-} EVENT_TYPE;
-
-typedef struct
-{
-    EVENT_TYPE eventType;
-    uint64_t uFragmentTimecode;
-    unsigned int uErrorId;
-} FragmentAck_t;
 
 /*-----------------------------------------------------------*/
 
@@ -384,31 +380,31 @@ static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen,
     return xRes;
 }
 
-static EVENT_TYPE prvGetEventType(char *pcEventType)
+static ePutMediaFragmentAckEventType prvGetEventType(char *pcEventType)
 {
-    EVENT_TYPE ev = EVENT_UNKNOWN;
+    ePutMediaFragmentAckEventType ev = eUnknown;
 
     if (pcEventType != NULL)
     {
         if (strncmp(pcEventType, EVENT_TYPE_BUFFERING, sizeof(EVENT_TYPE_BUFFERING) - 1) == 0)
         {
-            ev = EVENT_BUFFERING;
+            ev = eBuffering;
         }
         else if (strncmp(pcEventType, EVENT_TYPE_RECEIVED, sizeof(EVENT_TYPE_RECEIVED) - 1) == 0)
         {
-            ev = EVENT_RECEIVED;
+            ev = eReceived;
         }
         else if (strncmp(pcEventType, EVENT_TYPE_PERSISTED, sizeof(EVENT_TYPE_PERSISTED) - 1) == 0)
         {
-            ev = EVENT_PERSISTED;
+            ev = ePersisted;
         }
         else if (strncmp(pcEventType, EVENT_TYPE_ERROR, sizeof(EVENT_TYPE_ERROR) - 1) == 0)
         {
-            ev = EVENT_ERROR;
+            ev = eError;
         }
         else if (strncmp(pcEventType, EVENT_TYPE_IDLE, sizeof(EVENT_TYPE_IDLE) - 1) == 0)
         {
-            ev = EVENT_IDLE;
+            ev = eIdle;
         }
     }
 
@@ -444,11 +440,11 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
         pxFragmentAck->eventType = prvGetEventType(pcEventType);
         kvsFree(pcEventType);
 
-        if (pxFragmentAck->eventType == EVENT_BUFFERING || pxFragmentAck->eventType == EVENT_RECEIVED || pxFragmentAck->eventType == EVENT_PERSISTED ||
-            pxFragmentAck->eventType == EVENT_ERROR)
+        if (pxFragmentAck->eventType == eBuffering || pxFragmentAck->eventType == eReceived || pxFragmentAck->eventType == ePersisted ||
+            pxFragmentAck->eventType == eError)
         {
             pxFragmentAck->uFragmentTimecode = json_object_dotget_uint64(pxRootObject, JSON_KEY_FRAGMENT_TIMECODE, 10);
-            if (pxFragmentAck->eventType == EVENT_ERROR)
+            if (pxFragmentAck->eventType == eError)
             {
                 pxFragmentAck->uErrorId = (unsigned int)json_object_dotget_uint64(pxRootObject, JSON_KEY_ERROR_ID, 10);
             }
@@ -499,23 +495,23 @@ static void prvLogFragmentAck(FragmentAck_t *pFragmentAck)
 {
     if (pFragmentAck != NULL)
     {
-        if (pFragmentAck->eventType == EVENT_BUFFERING)
+        if (pFragmentAck->eventType == eBuffering)
         {
             LogInfo("Fragment buffering, timecode:%" PRIu64 "", pFragmentAck->uFragmentTimecode);
         }
-        else if (pFragmentAck->eventType == EVENT_RECEIVED)
+        else if (pFragmentAck->eventType == eReceived)
         {
             LogInfo("Fragment received, timecode:%" PRIu64 "", pFragmentAck->uFragmentTimecode);
         }
-        else if (pFragmentAck->eventType == EVENT_PERSISTED)
+        else if (pFragmentAck->eventType == ePersisted)
         {
             LogInfo("Fragment persisted, timecode:%" PRIu64 "", pFragmentAck->uFragmentTimecode);
         }
-        else if (pFragmentAck->eventType == EVENT_ERROR)
+        else if (pFragmentAck->eventType == eError)
         {
             LogError("PutMedia session error id:%d", pFragmentAck->uErrorId);
         }
-        else if (pFragmentAck->eventType == EVENT_IDLE)
+        else if (pFragmentAck->eventType == eIdle)
         {
             LogInfo("PutMedia session Idle");
         }
@@ -523,6 +519,140 @@ static void prvLogFragmentAck(FragmentAck_t *pFragmentAck)
         {
             LogInfo("Unknown Fragment Ack");
         }
+    }
+}
+
+static void prvLogPendingFragmentAcks(PutMedia_t *pPutMedia)
+{
+    PDLIST_ENTRY pxListHead = NULL;
+    PDLIST_ENTRY pxListItem = NULL;
+    FragmentAck_t *pFragmentAck = NULL;
+
+    if (pPutMedia != NULL && Lock(pPutMedia->xLock) == LOCK_OK)
+    {
+        pxListHead = &(pPutMedia->xPendingFragmentAcks);
+        pxListItem = pxListHead->Flink;
+        while (pxListItem != pxListHead)
+        {
+            pFragmentAck = containingRecord(pxListItem, FragmentAck_t, xAckEntry);
+            prvLogFragmentAck(pFragmentAck);
+
+            pxListItem = pxListItem->Flink;
+        }
+
+        Unlock(pPutMedia->xLock);
+    }
+}
+
+static int prvPushFragmentAck(PutMedia_t *pPutMedia, FragmentAck_t *pFragmentAckSrc)
+{
+    int xRes = KVS_ERRNO_NONE;
+    FragmentAck_t *pFragmentAck = NULL;
+
+    if (pPutMedia == NULL || pFragmentAckSrc == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if ((pFragmentAck = (FragmentAck_t *)kvsMalloc(sizeof(FragmentAck_t))) == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        memcpy(pFragmentAck, pFragmentAckSrc, sizeof(FragmentAck_t));
+        DList_InitializeListHead(&(pFragmentAck->xAckEntry));
+
+        if (Lock(pPutMedia->xLock) != LOCK_OK)
+        {
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            DList_InsertTailList(&(pPutMedia->xPendingFragmentAcks), &(pFragmentAck->xAckEntry));
+
+            Unlock(pPutMedia->xLock);
+        }
+    }
+
+    if (xRes != KVS_ERRNO_NONE)
+    {
+        if (pFragmentAck != NULL)
+        {
+            kvsFree(pFragmentAck);
+        }
+    }
+
+    return xRes;
+}
+
+static PutMedia_t *prvCreateDefaultPutMediaHandle()
+{
+    int xRes = KVS_ERRNO_NONE;
+    PutMedia_t *pPutMedia = NULL;
+
+    if ((pPutMedia = (PutMedia_t *)kvsMalloc(sizeof(PutMedia_t))) == NULL)
+    {
+        LogError("OOM: pPutMedia");
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        memset(pPutMedia, 0, sizeof(PutMedia_t));
+
+        if ((pPutMedia->xLock = Lock_Init()) == NULL)
+        {
+            LogError("Failed to initialize lock");
+            xRes = KVS_ERRNO_FAIL;
+        }
+        else
+        {
+            DList_InitializeListHead(&(pPutMedia->xPendingFragmentAcks));
+        }
+    }
+
+    if (xRes != KVS_ERRNO_NONE)
+    {
+        if (pPutMedia != NULL)
+        {
+            if (pPutMedia->xLock != NULL)
+            {
+                Lock_Deinit(pPutMedia->xLock);
+            }
+            kvsFree(pPutMedia);
+            pPutMedia = NULL;
+        }
+    }
+
+    return pPutMedia;
+}
+
+static FragmentAck_t *prvReadFragmentAck(PutMedia_t *pPutMedia)
+{
+    int xRes = KVS_ERRNO_NONE;
+    PDLIST_ENTRY pxListHead = NULL;
+    PDLIST_ENTRY pxListItem = NULL;
+    FragmentAck_t *pFragmentAck = NULL;
+
+    if (Lock(pPutMedia->xLock) == LOCK_OK)
+    {
+        if (!DList_IsListEmpty(&(pPutMedia->xPendingFragmentAcks)))
+        {
+            pxListHead = &(pPutMedia->xPendingFragmentAcks);
+            pxListItem = DList_RemoveHeadList(pxListHead);
+            pFragmentAck = containingRecord(pxListItem, FragmentAck_t, xAckEntry);
+        }
+        Unlock(pPutMedia->xLock);
+    }
+
+    return pFragmentAck;
+}
+
+static void prvFlushFragmentAck(PutMedia_t *pPutMedia)
+{
+    FragmentAck_t *pFragmentAck = NULL;
+    while ((pFragmentAck = prvReadFragmentAck(pPutMedia)) != NULL)
+    {
+        kvsFree(pFragmentAck);
     }
 }
 
@@ -885,9 +1015,9 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
         if (uHttpStatusCode == 200)
         {
-            if ((pPutMedia = (PutMedia_t *)kvsMalloc(sizeof(PutMedia_t))) == NULL)
+            if ((pPutMedia = prvCreateDefaultPutMediaHandle()) == NULL)
             {
-                LogError("OOM: pPutMedia");
+                LogError("Failed to create pPutMedia");
                 xRes = KVS_ERRNO_FAIL;
             }
             else
@@ -896,7 +1026,6 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
                 NetIo_setRecvTimeout(xNetIoHandle, pPutMediaPara->uRecvTimeoutMs);
                 NetIo_setSendTimeout(xNetIoHandle, pPutMediaPara->uSendTimeoutMs);
 
-                memset(pPutMedia, 0, sizeof(PutMedia_t));
                 pPutMedia->xNetIoHandle = xNetIoHandle;
                 *pPutMediaHandle = pPutMedia;
                 bKeepNetIo = true;
@@ -1024,6 +1153,8 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
     }
     else
     {
+        prvFlushFragmentAck(pPutMedia);
+
         while (NetIo_isDataAvailable(pPutMedia->xNetIoHandle))
         {
             if (BUFFER_length(xBufRecv) == uBytesTotalReceived && BUFFER_enlarge(xBufRecv, BUFFER_length(xBufRecv) * 2) != 0)
@@ -1058,15 +1189,16 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
                 else
                 {
                     prvLogFragmentAck(&xFragmentAck);
-                    if (xFragmentAck.eventType == EVENT_ERROR)
+                    prvPushFragmentAck(pPutMedia, &xFragmentAck);
+                    if (xFragmentAck.eventType == eError)
                     {
-                        pPutMedia->uLastErrorId = xFragmentAck.uErrorId;
                         xRes = KVS_ERRNO_FAIL;
                         break;
                     }
                 }
                 uBytesReceived += uFragAckLen;
             }
+            // prvLogPendingFragmentAcks(pPutMedia);
         }
     }
 
@@ -1081,6 +1213,8 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
 
     if (pPutMedia != NULL)
     {
+        prvFlushFragmentAck(pPutMedia);
+        Lock_Deinit(pPutMedia->xLock);
         if (pPutMedia->xNetIoHandle != NULL)
         {
             NetIo_disconnect(pPutMedia->xNetIoHandle);
@@ -1127,6 +1261,40 @@ int Kvs_putMediaUpdateSendTimeout(PutMediaHandle xPutMediaHandle, unsigned int u
     else
     {
         /* nop */
+    }
+
+    return xRes;
+}
+
+int Kvs_putMediaReadFragmentAck(PutMediaHandle xPutMediaHandle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId)
+{
+    int xRes = KVS_ERRNO_NONE;
+    PutMedia_t *pPutMedia = xPutMediaHandle;
+    FragmentAck_t *pFragmentAck = NULL;
+
+    if (pPutMedia == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else if ((pFragmentAck = prvReadFragmentAck(pPutMedia)) == NULL)
+    {
+        xRes = KVS_ERRNO_FAIL;
+    }
+    else
+    {
+        if (peAckEventType != NULL)
+        {
+            *peAckEventType = pFragmentAck->eventType;
+        }
+        if (puFragmentTimecode != NULL)
+        {
+            *puFragmentTimecode = pFragmentAck->uFragmentTimecode;
+        }
+        if (puErrorId != NULL)
+        {
+            *puErrorId = pFragmentAck->uErrorId;
+        }
+        kvsFree(pFragmentAck);
     }
 
     return xRes;

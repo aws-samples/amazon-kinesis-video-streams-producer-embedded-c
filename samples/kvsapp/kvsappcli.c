@@ -230,7 +230,7 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)G711FileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
 #endif /* USE_AUDIO_G711_SAMPLE */
     {
-        printf("Failed to set video track info\r\n");
+        printf("Failed to set audio track info\r\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
@@ -256,6 +256,9 @@ int main(int argc, char *argv[])
     FileLoaderPara_t xVideoFileLoaderParam = {0};
     FileLoaderPara_t xAudioFileLoaderParam = {0};
     uint64_t uLastPrintMemStatTimestamp = 0;
+    ePutMediaFragmentAckEventType eAckEventType = eUnknown;
+    uint64_t uFragmentTimecode = 0;
+    unsigned int uErrorId = 0;
 
 #ifdef KVS_USE_POOL_ALLOCATOR
     poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
@@ -349,6 +352,14 @@ int main(int argc, char *argv[])
                     break;
                 }
 
+                while (KvsApp_readFragmentAck(kvsAppHandle, &eAckEventType, &uFragmentTimecode, &uErrorId) == 0)
+                {
+                    if (eAckEventType == ePersisted)
+                    {
+                        // printf("key-frame with timecode %" PRIu64 " is persisted\n", uFragmentTimecode);
+                    }
+                }
+
                 if (getEpochTimestampInMs() > uLastPrintMemStatTimestamp + 1000)
                 {
                     printf("Buffer memory used: %zu\r\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
@@ -362,6 +373,16 @@ int main(int argc, char *argv[])
                         stats.uNumberOfUsedBlocks, stats.uNumberOfFreeBlocks
                     );
 #endif
+                }
+            }
+
+            while (KvsApp_readFragmentAck(kvsAppHandle, &eAckEventType, &uFragmentTimecode, &uErrorId) == 0)
+            {
+                if (eAckEventType == eError)
+                {
+                    /* Please refer to this link to get more information of the error ID:
+                     *      https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/API_dataplane_PutMedia.html
+                     */
                 }
             }
 
