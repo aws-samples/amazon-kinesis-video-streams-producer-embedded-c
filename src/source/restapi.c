@@ -728,7 +728,16 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
     }
     else
     {
-        *puHttpStatusCode = uHttpStatusCode;
+        if (puHttpStatusCode != NULL)
+        {
+            *puHttpStatusCode = uHttpStatusCode;
+        }
+
+        if (uHttpStatusCode != 200)
+        {
+            LogInfo("Describe Stream failed, HTTP status code: %u", uHttpStatusCode);
+            LogInfo("HTTP response message:%.*s", (int)uRspBodyLen, pRspBody);
+        }
     }
 
     NetIo_disconnect(xNetIoHandle);
@@ -814,7 +823,16 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
     }
     else
     {
-        *puHttpStatusCode = uHttpStatusCode;
+        if (puHttpStatusCode != NULL)
+        {
+            *puHttpStatusCode = uHttpStatusCode;
+        }
+
+        if (uHttpStatusCode != 200)
+        {
+            LogInfo("Create Stream failed, HTTP status code: %u", uHttpStatusCode);
+            LogInfo("HTTP response message:%.*s", (int)uRspBodyLen, pRspBody);
+        }
     }
 
     NetIo_disconnect(xNetIoHandle);
@@ -1011,9 +1029,17 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
     }
     else
     {
-        *puHttpStatusCode = uHttpStatusCode;
+        if (puHttpStatusCode != NULL)
+        {
+            *puHttpStatusCode = uHttpStatusCode;
+        }
 
-        if (uHttpStatusCode == 200)
+        if (uHttpStatusCode != 200)
+        {
+            LogInfo("Put Media failed, HTTP status code: %u", uHttpStatusCode);
+            LogInfo("HTTP response message:%.*s", (int)uRspBodyLen, pRspBody);
+        }
+        else
         {
             if ((pPutMedia = prvCreateDefaultPutMediaHandle()) == NULL)
             {
