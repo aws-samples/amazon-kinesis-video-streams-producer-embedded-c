@@ -27,6 +27,10 @@ add_library(aziotsharedutil-shared SHARED ${AZURE_C_SHARED_UTILITY_SRC})
 set_target_properties(aziotsharedutil-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
 set_target_properties(aziotsharedutil-shared PROPERTIES OUTPUT_NAME aziotsharedutil)
 target_include_directories(aziotsharedutil-shared PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
+if(${BUILD_WEBRTC_SAMPLES})
+    target_link_directories(aziotsharedutil-shared PUBLIC ${WEBRTC_LIB_PATH})
+    target_include_directories(aziotsharedutil-shared PUBLIC ${WEBRTC_INC_PATH})
+endif()
 target_link_libraries(aziotsharedutil-shared PUBLIC
     mbedtls mbedcrypto mbedx509
     m
@@ -36,6 +40,10 @@ target_link_libraries(aziotsharedutil-shared PUBLIC
 add_library(aziotsharedutil-static STATIC ${AZURE_C_SHARED_UTILITY_SRC})
 set_target_properties(aziotsharedutil-static PROPERTIES OUTPUT_NAME aziotsharedutil)
 target_include_directories(aziotsharedutil-static PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
+if(${BUILD_WEBRTC_SAMPLES})
+    target_link_directories(aziotsharedutil-static PUBLIC ${WEBRTC_LIB_PATH})
+    target_include_directories(aziotsharedutil-static PUBLIC ${WEBRTC_INC_PATH})
+endif()
 target_link_libraries(aziotsharedutil-static PUBLIC
     mbedtls mbedcrypto mbedx509
     m

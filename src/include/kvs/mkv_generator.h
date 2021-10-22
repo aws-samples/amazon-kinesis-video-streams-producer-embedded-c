@@ -57,12 +57,12 @@ typedef enum MkvClusterType
 /* https://wiki.multimedia.cx/index.php/MPEG-4_Audio */
 typedef enum Mpeg4AudioObjectTypes
 {
-    AAC_MAIN        = 1,
-    AAC_LC          = 2,
-    AAC_SSR         = 3,
-    AAC_LTP         = 4,
-    SBR             = 5,
-    AAC_SCALABLE    = 6,
+    MPEG4_AAC_MAIN        = 1,
+    MPEG4_AAC_LC          = 2,
+    MPEG4_AAC_SSR         = 3,
+    MPEG4_AAC_LTP         = 4,
+    MPEG4_SBR             = 5,
+    MPEG4_AAC_SCALABLE    = 6,
 } Mpeg4AudioObjectTypes_t;
 
 /*
