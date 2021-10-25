@@ -63,3 +63,8 @@ uint8_t getRandomNumber(void)
 {
     return (uint8_t)rand();
 }
+
+void sleepInMs(uint32_t ms)
+{
+    vTaskDelay( ms / portTICK_PERIOD_MS );
+}
