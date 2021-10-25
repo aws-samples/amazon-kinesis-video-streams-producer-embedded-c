@@ -83,7 +83,7 @@ typedef struct T31Audio
 #endif /* USE_AUDIO_AAC */
 } T31Audio_t;
 
-static void sleepInMs(uint32_t ms)
+static void prvSleepInMs(uint32_t ms)
 {
     usleep(ms * 1000);
 }
@@ -504,7 +504,7 @@ void T31Audio_terminate(T31AudioHandle handle)
         pAudio->isTerminating = true;
         while (!pAudio->isTerminated)
         {
-            sleepInMs(10);
+            prvSleepInMs(10);
         }
 
         pthread_join(pAudio->tid, NULL);
