@@ -80,11 +80,6 @@ static void signalHandler(int signum)
 }
 #endif /* HAVE_SIGNAL_H */
 
-static void sleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
-
 static void *videoThread(void *arg)
 {
     int res = 0;

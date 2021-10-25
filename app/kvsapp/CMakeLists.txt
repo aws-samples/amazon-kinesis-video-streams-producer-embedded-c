@@ -10,7 +10,6 @@ set(KVSAPP_INC
 add_library(kvsapp STATIC ${KVSAPP_SRC})
 target_include_directories(kvsapp PUBLIC ${KVSAPP_INC})
 target_compile_options(kvsapp PUBLIC --std=c99)
-target_compile_definitions(kvsapp PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
 target_link_libraries(kvsapp PUBLIC
     kvs-embedded-c
     aziotsharedutil

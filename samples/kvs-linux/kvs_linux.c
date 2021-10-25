@@ -74,11 +74,6 @@ typedef struct Kvs
 #endif
 } Kvs_t;
 
-static void sleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
-
 static int kvsInitialize(Kvs_t *pKvs)
 {
     int res = ERRNO_NONE;

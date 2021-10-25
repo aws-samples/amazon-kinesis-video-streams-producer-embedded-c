@@ -18,6 +18,10 @@
 #include <sys/time.h>
 #include <time.h>
 
+/* Headers for FreeRTOS */
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "kvs/errors.h"
 #include "kvs/port.h"
 
@@ -62,4 +66,9 @@ uint64_t getEpochTimestampInMs(void)
 uint8_t getRandomNumber(void)
 {
     return (uint8_t)rand();
+}
+
+void sleepInMs(uint32_t ms)
+{
+    vTaskDelay( ms / portTICK_PERIOD_MS );
 }
