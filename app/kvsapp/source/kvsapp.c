@@ -254,10 +254,15 @@ static int prvStreamFlushToNextCluster(KvsApp_t *pKvs)
 
     while (1)
     {
-        xDataFrameHandle = Kvs_streamPeek(xStreamHandle);
-        if (xDataFrameHandle == NULL)
+        if (xStreamHandle == NULL)
         {
             res = ERRNO_FAIL;
+            break;
+        }
+        else if ((xDataFrameHandle = Kvs_streamPeek(xStreamHandle)) == NULL)
+        {
+            res = ERRNO_FAIL;
+            break;
         }
         else
         {
@@ -532,7 +537,6 @@ static int updateEbmlHeader(KvsApp_t *pKvs)
         if (prvStreamFlushToNextCluster(pKvs) != ERRNO_NONE)
         {
             LogInfo("No cluster frame is found");
-            res = ERRNO_FAIL;
         }
         else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
         {
@@ -656,7 +660,10 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
     size_t uMkvHeaderLen = 0;
     int xSendCnt = 0;
 
-    if (Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO) && (!pKvs->isAudioTrackPresent || Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)))
+    if (pKvs->xStreamHandle != NULL &&
+        pKvs->isEbmlHeaderUpdated == true &&
+        Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO) &&
+        (!pKvs->isAudioTrackPresent || Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)))
     {
         if ((xDataFrameHandle = Kvs_streamPop(pKvs->xStreamHandle)) == NULL)
         {
