@@ -50,7 +50,7 @@ typedef struct T31Video
 
 extern struct chn_conf chn[];
 
-static void sleepInMs(uint32_t ms)
+static void prvSleepInMs(uint32_t ms)
 {
     usleep(ms * 1000);
 }
@@ -299,7 +299,7 @@ void T31Video_terminate(T31VideoHandle handle)
         pVideo->isTerminating = true;
         while (!pVideo->isTerminated)
         {
-            sleepInMs(10);
+            prvSleepInMs(10);
         }
 
         pthread_join(pVideo->tid, NULL);

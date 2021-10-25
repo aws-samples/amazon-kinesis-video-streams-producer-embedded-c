@@ -42,11 +42,6 @@ static T31VideoHandle videoHandle = NULL;
 static T31AudioHandle audioHandle = NULL;
 #endif /* ENABLE_AUDIO_TRACK */
 
-static void sleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
-
 static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 {
     int res = ERRNO_NONE;

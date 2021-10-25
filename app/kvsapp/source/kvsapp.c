@@ -15,7 +15,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 /* Third-party headers */
 #include "azure_c_shared_utility/crt_abstractions.h"
@@ -113,11 +112,6 @@ typedef struct DataFrameUserData
     DataFrameCallbacks_t xCallbacks;
     void *pAppData;
 } DataFrameUserData_t;
-
-static void prvSleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
 
 /**
  * Default implementation of OnDataFrameTerminateCallback_t. It calls free() to pData to release resource.
@@ -1277,7 +1271,7 @@ int KvsApp_doWork(KvsAppHandle handle)
 
         if (xSendCnt == 0)
         {
-            prvSleepInMs(50);
+            sleepInMs(50);
         }
     }
 

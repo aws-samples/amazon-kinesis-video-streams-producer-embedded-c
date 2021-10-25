@@ -54,4 +54,11 @@ uint64_t getEpochTimestampInMs(void);
  */
 uint8_t getRandomNumber(void);
 
+/**
+ * @brief sleep in milliseconds.
+ *
+ * @param[in] ms milliseconds to sleep
+ */
+void sleepInMs(uint32_t ms);
+
 #endif /* KVS_PORT_H */

@@ -61,11 +61,6 @@ typedef struct Kvs
     bool bIsFileUploaded;
 } Kvs_t;
 
-static void sleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
-
 static int kvsInitialize(Kvs_t *pKvs, char *pcMkvFileName)
 {
     int res = ERRNO_NONE;
