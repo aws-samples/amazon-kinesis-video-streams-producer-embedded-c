@@ -118,7 +118,7 @@ static int parseRtpPacket(uint8_t *pPkt, size_t uLen, uint8_t *puMarker, uint8_t
                 /* Discard extension profile */
                 pCur += 2;
 
-                uExtensionLength = get2BytesBigEndian(pCur);
+                uExtensionLength = get2BytesBigEndian(pCur) * 4;
                 pCur += 2;
 
                 /* Discard extension payload */
