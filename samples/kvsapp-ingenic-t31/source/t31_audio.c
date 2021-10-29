@@ -122,7 +122,7 @@ static int audioConfigurationInit(AudioConfiguration_t *pConf)
 
         pConf->sampleRate = 8000;
         pConf->channel = 1;
-        pConf->bitRate = 64000;
+        pConf->bitRate = 128000;
     }
 
     return res;
@@ -179,6 +179,7 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
     size_t uDataLen = 0;
     int xFrameOffset = 0;
     size_t uCopySize = 0;
+    uint64_t uCurrentTimestamp = 0;
 
     if (pAudio == NULL || pFrame == NULL)
     {
@@ -206,9 +207,10 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
 #endif /* USE_AUDIO_G711 */
 
 #if USE_AUDIO_AAC
+        uCurrentTimestamp = getEpochTimestampInMs();
         if (pAudio->uPcmOffset == 0)
         {
-            pAudio->uPcmTimestamp = getEpochTimestampInMs();
+            pAudio->uPcmTimestamp = uCurrentTimestamp;
         }
 
         while (xFrameOffset < pFrame->len)
@@ -228,7 +230,6 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
                 memcpy(pAudio->pPcmBuf + pAudio->uPcmOffset, pFrame->virAddr + xFrameOffset, uCopySize);
                 pAudio->uPcmOffset += uCopySize;
                 xFrameOffset += uCopySize;
-                pAudio->uPcmOffset = 0;
 
                 xFrameLen = pAudio->xFrameBufSize;
 
@@ -250,8 +251,8 @@ int sendAudioFrame(T31Audio_t *pAudio, IMPAudioFrame *pFrame)
                     }
                 }
 
-                uint64_t timediff = (pAudio->uPcmBufSize * 1000) / (pAudio->xAudioConf.sampleRate * 2);
-                pAudio->uPcmTimestamp += timediff;
+                pAudio->uPcmTimestamp = uCurrentTimestamp + (uCopySize * 1000) / (pAudio->xAudioConf.sampleRate * 2);
+                pAudio->uPcmOffset = 0;
             }
         }
 #endif /* USE_AUDIO_AAC */

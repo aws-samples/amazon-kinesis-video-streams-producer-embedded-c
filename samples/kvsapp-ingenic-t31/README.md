@@ -10,7 +10,7 @@ These are prerequisites:
 
 ## Device setup
 
-Please follow "T31 SNIPE_user_guide.pdf" in the SDK to setup device and network.
+Please follow "T31 SNIPE_user_guide.pdf" in the SDK to setup device and network. You can put following settings in `/system/init/app_init.sh` if you want.
 
 ### Setup DNS server
 
@@ -101,7 +101,9 @@ Please add toolchain "mips-gcc472-glibc216-64bit" into you path.  Ex.
 
 ## Configure sample settings
 
-You need to configure sample settings in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*".
+You can skip this section if you want to use environment variables as sample configureation.
+
+You can put sample default configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*".
 
 ## Build
 
@@ -124,10 +126,17 @@ After build completed, there will be exectuable files named "kvsappcli-ingenic-t
 
 # Run sample
 
-Now the executable is on the device, use the following command to run this sample.
+If you didn't configure sample configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*", then you need to configure the following environment variables.
+
+    export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxx
+    export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    export AWS_DEFAULT_REGION=us-east-1
+    export AWS_KVS_HOST=kinesisvideo.us-east-1.amazonaws.com
+
+Now the executable is on the device, use the following command to run this sample. Argument `kvs-stream-name` is KVS stream name to be uploaded and it's optional. It'll use stream name in `sample_config.h` if this argument is not present.
 
     cd /mnt
-    ./kvsappcli-ingenic-t31-static
+    ./kvsappcli-ingenic-t31-static [kvs-stream-name]
 
 You wold see following log if everythins works fine.
 

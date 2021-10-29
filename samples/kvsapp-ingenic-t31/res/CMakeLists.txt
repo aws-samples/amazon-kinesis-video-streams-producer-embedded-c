@@ -6,6 +6,7 @@ set(APP_NAME "kvsappcli-ingenic-t31")
 # Options
 option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"                OFF)
 option(USE_POOL_ALLOCATOR_ALL           "Apply pool allocator on KVS lib and executable"    OFF)
+option(SAMPLE_OPTIONS_FROM_ENV_VAR      "Sample reads options from environment variable"    ON)
 
 # Verify and resolve options
 if(${USE_POOL_ALLOCATOR_ALL})
@@ -34,6 +35,11 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -muclibc -Wl,--gc-sections
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
+unset(COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR)
+if(${SAMPLE_OPTIONS_FROM_ENV_VAR})
+    set(COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR -DSAMPLE_OPTIONS_FROM_ENV_VAR)
+endif()
+
 unset(COMPILE_FLAGS_FOR_POOL_ALLOCATOR)
 if(${USE_POOL_ALLOCATOR_LIB})
     set(COMPILE_FLAGS_FOR_POOL_ALLOCATOR -DKVS_USE_POOL_ALLOCATOR)
@@ -56,6 +62,7 @@ set(${APP_NAME}_SRC
     source/mem_wrapper.c
     source/t31_video.c
     source/t31_audio.c
+    source/option_configuration.c
 )
 
 set(${APP_NAME}_INC
@@ -73,6 +80,7 @@ set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
 target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
 target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
 target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
 target_include_directories(${APP_NAME} PUBLIC ${${APP_NAME}_INC})
 target_link_directories(${APP_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
@@ -105,6 +113,7 @@ set_target_properties(${APP_NAME}-static PROPERTIES OUTPUT_NAME ${APP_NAME}-stat
 target_compile_definitions(${APP_NAME}-static PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
 target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
 target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
 target_include_directories(${APP_NAME}-static PUBLIC ${${APP_NAME}_INC})
 target_link_directories(${APP_NAME}-static PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/lib

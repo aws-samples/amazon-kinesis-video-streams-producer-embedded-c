@@ -50,7 +50,7 @@ typedef struct DataFrameCallbacks
  * @param[in] pcStreamName KVS stream name
  * @return KVS application handle
  */
-KvsAppHandle KvsApp_create(char *pcHost, char *pcRegion, char *pcService, char *pcStreamName);
+KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char *pcService, const char *pcStreamName);
 
 /**
  * Terminate a KVS application.

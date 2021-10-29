@@ -23,6 +23,7 @@
 #include "kvs/port.h"
 
 #include "sample_config.h"
+#include "option_configuration.h"
 #include "t31_video.h"
 #if ENABLE_AUDIO_TRACK
 #include "t31_audio.h"
@@ -73,11 +74,11 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
         printf("Failed to set private key\r\n");
     }
 #else
-    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_ACCESS_KEY_ID, (const char *)AWS_ACCESS_KEY) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_ACCESS_KEY_ID, OptCfg_getAwsAccessKey()) != 0)
     {
         printf("Failed to set AWS_ACCESS_KEY\r\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_SECRET_ACCESS_KEY, (const char *)AWS_SECRET_KEY) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_SECRET_ACCESS_KEY, OptCfg_getAwsSecretAccessKey()) != 0)
     {
         printf("Failed to set AWS_SECRET_KEY\r\n");
     }
@@ -110,12 +111,16 @@ int main(int argc, char *argv[])
 {
     KvsAppHandle kvsAppHandle;
     uint64_t uLastPrintMemStatTimestamp = 0;
+    const char *pKvsStreamName = NULL;
 
 #ifdef KVS_USE_POOL_ALLOCATOR
     poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
 #endif
 
-    if ((kvsAppHandle = KvsApp_create(AWS_KVS_HOST, AWS_KVS_REGION, AWS_KVS_SERVICE, KVS_STREAM_NAME)) == NULL)
+    /* Resolve KVS stream name */
+    pKvsStreamName = (argc >= 2) ? argv[1] : KVS_STREAM_NAME;
+
+    if ((kvsAppHandle = KvsApp_create(OptCfg_getHostKinesisVideo(), OptCfg_getRegion(), OptCfg_getServiceKinesisVideo(), pKvsStreamName)) == NULL)
     {
         printf("Failed to initialize KVS\r\n");
     }

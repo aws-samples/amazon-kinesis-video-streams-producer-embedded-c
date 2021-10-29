@@ -702,7 +702,7 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
     return res;
 }
 
-KvsAppHandle KvsApp_create(char *pcHost, char *pcRegion, char *pcService, char *pcStreamName)
+KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char *pcService, const char *pcStreamName)
 {
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = NULL;
