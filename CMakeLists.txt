@@ -10,6 +10,7 @@ option(BOARD_INGENIC_T31                "Build board Ingenic T31"               
 option(BOARD_RPI                        "Build board Raspberry Pi"                          OFF)
 option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"                OFF)
 option(USE_POOL_ALLOCATOR_ALL           "Apply pool allocator on KVS lib and executable"    OFF)
+option(SAMPLE_OPTIONS_FROM_ENV_VAR      "Sample reads options from environment variable"    ON)
 
 # Verify and resolve options
 if(${BOARD_INGENIC_T31})
@@ -37,6 +38,7 @@ message(STATUS "BUILD_AAC_ENCODER               = ${BUILD_AAC_ENCODER}")
 message(STATUS "BOARD_INGENIC_T31               = ${BOARD_INGENIC_T31}")
 message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
+message(STATUS "SAMPLE_OPTIONS_FROM_ENV_VAR     = ${SAMPLE_OPTIONS_FROM_ENV_VAR}")
 message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
 
 # Make warning as error

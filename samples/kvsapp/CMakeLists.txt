@@ -2,7 +2,13 @@ set(APP_NAME "kvsappcli")
 
 set(${APP_NAME}_SRC
     ${APP_NAME}.c
+    option_configuration.c
 )
+
+unset(COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR)
+if(${SAMPLE_OPTIONS_FROM_ENV_VAR})
+    set(COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR -DSAMPLE_OPTIONS_FROM_ENV_VAR)
+endif()
 
 unset(COMPILE_FLAGS_FOR_POOL_ALLOCATOR)
 if(${USE_POOL_ALLOCATOR_LIB})
@@ -30,6 +36,7 @@ if(${BUILD_SHARED_SAMPLES})
     target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
     target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
     target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
+    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
     target_link_libraries(${APP_NAME}
         kvsapp-shared
         samplescommon-shared
@@ -45,6 +52,7 @@ if(${BUILD_STATIC_SAMPLES})
     target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
     target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
     target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
+    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
     target_link_libraries(${APP_NAME}-static
         kvsapp-static
         samplescommon-static
