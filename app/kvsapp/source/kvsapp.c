@@ -57,6 +57,12 @@ typedef struct StreamStrategy
     };
 } StreamStrategy_t;
 
+typedef struct OnMkvSentCallbackInfo
+{
+    OnMkvSentCallback_t onMkvSentCallback;
+    void *pAppData;
+} OnMkvSentCallbackInfo_t;
+
 typedef struct KvsApp
 {
     LOCK_HANDLE xLock;
@@ -105,6 +111,9 @@ typedef struct KvsApp
 
     bool isAudioTrackPresent;
     AudioTrackInfo_t *pAudioTrackInfo;
+
+    /* Session scope callbacks */
+    OnMkvSentCallbackInfo_t onMkvSentCallbackInfo;
 } KvsApp_t;
 
 typedef struct DataFrameUserData
@@ -540,6 +549,12 @@ static int updateEbmlHeader(KvsApp_t *pKvs)
         else
         {
             pKvs->isEbmlHeaderUpdated = true;
+
+            if (pKvs->onMkvSentCallbackInfo.onMkvSentCallback != NULL)
+            {
+                /* FIXME: Handle the return value in a proper way. */
+                pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pEbmlSeg, uEbmlSegLen, pKvs->onMkvSentCallbackInfo.pAppData);
+            }
         }
     }
 
@@ -680,6 +695,15 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
             pKvs->uEarliestTimestamp = pDataFrameIn->uTimestampMs;
 
             xSendCnt++;
+
+            if (pKvs->onMkvSentCallbackInfo.onMkvSentCallback != NULL)
+            {
+                /* FIXME: Handle the return value in a proper way. */
+                pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pMkvHeader, uMkvHeaderLen, pKvs->onMkvSentCallbackInfo.pAppData);
+
+                /* FIXME: Handle the return value in a proper way. */
+                pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pData, uDataLen, pKvs->onMkvSentCallbackInfo.pAppData);
+            }
         }
 
         if (xDataFrameHandle != NULL)
@@ -1308,4 +1332,22 @@ size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle)
     {
         return 0;
     }
+}
+
+int KvsApp_setOnMkvSentCallback(KvsAppHandle handle, OnMkvSentCallback_t onMkvSentCallback, void *pAppData)
+{
+    int res = ERRNO_NONE;
+    KvsApp_t *pKvs = (KvsApp_t *)handle;
+
+    if (pKvs == NULL)
+    {
+        res = ERRNO_FAIL;
+    }
+    else
+    {
+        pKvs->onMkvSentCallbackInfo.onMkvSentCallback = onMkvSentCallback;
+        pKvs->onMkvSentCallbackInfo.pAppData = pAppData;
+    }
+
+    return res;
 }

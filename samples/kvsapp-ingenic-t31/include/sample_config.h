@@ -32,6 +32,7 @@
 #define ENABLE_AUDIO_TRACK              1
 #define ENABLE_IOT_CREDENTIAL           0
 #define ENABLE_RING_BUFFER_MEM_LIMIT    1
+#define DEBUG_STORE_MEDIA_TO_FILE       0
 
 #define VIDEO_CODEC_NAME                "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME                "kvs video track"
@@ -114,5 +115,11 @@
 #define POOL_ALLOCATOR_SIZE     (BUFFER_MEM_LIMIT + POOL_ALLOCATOR_SIZE_FOR_KVS + POOL_ALLOCATOR_SIZE_FOR_APP)
 
 #endif /* KVS_USE_POOL_ALLOCATOR */
+
+/* Debug configuration */
+#if DEBUG_STORE_MEDIA_TO_FILE
+/* Store MKV content in a file with timestamp in its filename. */
+#define MEDIA_FILENAME_FORMAT                  "video_%" PRIu64 ".mkv"
+#endif /* DEBUG_STORE_MEDIA_TO_FILE */
 
 #endif /* SAMPLE_CONFIG_H */
