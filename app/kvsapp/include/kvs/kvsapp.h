@@ -36,6 +36,16 @@ typedef struct KvsApp *KvsAppHandle;
  */
 typedef int (*OnDataFrameTerminateCallback_t)(uint8_t *pData, size_t uDataLen, uint64_t uTimestamp, TrackType_t xTrackType, void *pAppData);
 
+/**
+ * This callback is called whenever a data has been sent to PUT MEDIA endpoint. All data sent to PUT MEDIA endpoint follow MKV format, so it could
+ * help to debug which data has been sent.
+ *
+ * @param[in] pData Pointer of data
+ * @param[in] uDataLen Size of data
+ * @param[in] pAppData Pointer of application data that is assigned in function KvsApp_setOnMkvSentCallback()
+ */
+typedef int (*OnMkvSentCallback_t)(uint8_t *pData, size_t uDataLen, void *pAppData);
+
 typedef struct DataFrameCallbacks
 {
     OnDataFrameTerminateCallback_t onDataFrameTerminate;
@@ -145,5 +155,15 @@ int KvsApp_readFragmentAck(KvsAppHandle handle, ePutMediaFragmentAckEventType *p
  * @return Memory used in current stream buffer, zero value otherwise
  */
 size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle);
+
+/**
+ * Set onMkvSentCallback. Whenever a data has been sent to PUT MEDIA endpoint, it'll invoke this callback.
+ *
+ * @param handle KVS application handle
+ * @param onMkvSentCallback Callback
+ * @param pAppData The application data that will be passed in the argument of the callback
+ * @return 0 on success, non-zero value otherwise
+ */
+int KvsApp_setOnMkvSentCallback(KvsAppHandle handle, OnMkvSentCallback_t onMkvSentCallback, void *pAppData);
 
 #endif /* KVSAPP_H */

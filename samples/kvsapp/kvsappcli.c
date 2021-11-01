@@ -81,6 +81,36 @@ static void signalHandler(int signum)
 }
 #endif /* HAVE_SIGNAL_H */
 
+#if DEBUG_STORE_MEDIA_TO_FILE
+static FILE *fpDbgMedia = NULL;
+static int onMkvSent(uint8_t *pData, size_t uDataLen, void *pAppData)
+{
+    int res = ERRNO_NONE;
+    char pFilename[ sizeof(MEDIA_FILENAME_FORMAT) + 21 ]; /* 20 digits for uint64_t, 1 digit for EOS */
+
+    if (fpDbgMedia == NULL)
+    {
+        snprintf(pFilename, sizeof(pFilename)-1, MEDIA_FILENAME_FORMAT, getEpochTimestampInMs());
+        fpDbgMedia = fopen(pFilename, "wb");
+        if (fpDbgMedia == NULL)
+        {
+            printf("Failed to open debug file: %s\n", pFilename);
+        }
+        else
+        {
+            printf("Opened debug file %s\n", pFilename);
+        }
+    }
+
+    if (fpDbgMedia != NULL)
+    {
+        fwrite(pData, 1, uDataLen, fpDbgMedia);
+    }
+
+    return res;
+}
+#endif
+
 static void *videoThread(void *arg)
 {
     int res = 0;
@@ -93,7 +123,7 @@ static void *videoThread(void *arg)
 
     if (kvsAppHandle == NULL)
     {
-        printf("%s(): Invalid argument: pKvs\r\n", __FUNCTION__);
+        printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
     }
     else
     {
@@ -106,7 +136,7 @@ static void *videoThread(void *arg)
 
             if (H264FileLoaderLoadFrame(xVideoFileLoader, (char **)&pData, &uDataLen) != 0)
             {
-                printf("Failed to load data frame\r\n");
+                printf("Failed to load data frame\n");
                 res = ERRNO_FAIL;
                 break;
             }
@@ -120,7 +150,7 @@ static void *videoThread(void *arg)
         }
     }
 
-    printf("video thread leaving, err:%d\r\n", res);
+    printf("video thread leaving, err:%d\n", res);
 
     return NULL;
 }
@@ -137,7 +167,7 @@ static void *audioThread(void *arg)
 
     if (kvsAppHandle == NULL)
     {
-        printf("%s(): Invalid argument: pKvs\r\n", __FUNCTION__);
+        printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
     }
     else
     {
@@ -155,7 +185,7 @@ static void *audioThread(void *arg)
             if (G711FileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
 #endif /* USE_AUDIO_G711_SAMPLE */
             {
-                printf("Failed to load data frame\r\n");
+                printf("Failed to load data frame\n");
                 break;
             }
             else
@@ -180,42 +210,42 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 #if ENABLE_IOT_CREDENTIAL
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_CREDENTIAL_HOST, (const char *)CREDENTIALS_HOST) != 0)
     {
-        printf("Failed to set credential host\r\n");
+        printf("Failed to set credential host\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_ROLE_ALIAS, (const char *)ROLE_ALIAS) != 0)
     {
-        printf("Failed to set role alias\r\n");
+        printf("Failed to set role alias\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_THING_NAME, (const char *)THING_NAME) != 0)
     {
-        printf("Failed to set thing name\r\n");
+        printf("Failed to set thing name\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_ROOTCA, (const char *)ROOT_CA) != 0)
     {
-        printf("Failed to set root CA\r\n");
+        printf("Failed to set root CA\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_CERT, (const char *)CERTIFICATE) != 0)
     {
-        printf("Failed to set certificate\r\n");
+        printf("Failed to set certificate\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_KEY, (const char *)PRIVATE_KEY) != 0)
     {
-        printf("Failed to set private key\r\n");
+        printf("Failed to set private key\n");
     }
 #else
     if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_ACCESS_KEY_ID, OptCfg_getAwsAccessKey()) != 0)
     {
-        printf("Failed to set AWS_ACCESS_KEY\r\n");
+        printf("Failed to set AWS_ACCESS_KEY\n");
     }
     if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_SECRET_ACCESS_KEY, OptCfg_getAwsSecretAccessKey()) != 0)
     {
-        printf("Failed to set AWS_SECRET_KEY\r\n");
+        printf("Failed to set AWS_SECRET_KEY\n");
     }
 #endif /* ENABLE_IOT_CREDENTIAL */
 
     if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_VIDEO_TRACK_INFO, (const char *)H264FileLoaderGetVideoTrackInfo(xVideoFileLoader)) != 0)
     {
-        printf("Failed to set video track info\r\n");
+        printf("Failed to set video track info\n");
     }
 
 #if ENABLE_AUDIO_TRACK
@@ -226,7 +256,7 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)G711FileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
 #endif /* USE_AUDIO_G711_SAMPLE */
     {
-        printf("Failed to set audio track info\r\n");
+        printf("Failed to set audio track info\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
@@ -234,14 +264,21 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     KvsApp_streamPolicy_t xPolicy = STREAM_POLICY_RING_BUFFER;
     if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY, (const char *)&xPolicy) != 0)
     {
-        printf("Failed to set stream policy\r\n");
+        printf("Failed to set stream policy\n");
     }
     size_t uRingBufferMemLimit = RING_BUFFER_MEM_LIMIT;
     if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT, (const char *)&uRingBufferMemLimit) != 0)
     {
-        printf("Failed to set ring buffer memory limit\r\n");
+        printf("Failed to set ring buffer memory limit\n");
     }
 #endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
+
+#if DEBUG_STORE_MEDIA_TO_FILE
+    if (KvsApp_setOnMkvSentCallback(kvsAppHandle, onMkvSent, NULL) != 0)
+    {
+        printf("Failed to set onMkvSentCallback\n");
+    }
+#endif /* DEBUG_STORE_MEDIA_TO_FILE */
 
     return res;
 }
@@ -294,11 +331,11 @@ int main(int argc, char *argv[])
 
     if ((kvsAppHandle = KvsApp_create(OptCfg_getHostKinesisVideo(), OptCfg_getRegion(), OptCfg_getServiceKinesisVideo(), pKvsStreamName)) == NULL)
     {
-        printf("Failed to initialize KVS\r\n");
+        printf("Failed to initialize KVS\n");
     }
     else if ((xVideoFileLoader = H264FileLoaderCreate(&xVideoFileLoaderParam)) == NULL)
     {
-        printf("Failed to initialize H264 file loader\r\n");
+        printf("Failed to initialize H264 file loader\n");
     }
 #if ENABLE_AUDIO_TRACK
 #if USE_AUDIO_AAC_SAMPLE
@@ -308,21 +345,21 @@ int main(int argc, char *argv[])
     else if ((xAudioFileLoader = G711FileLoaderCreate(&xAudioFileLoaderParam, AUDIO_PCM_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
 #endif /* USE_AUDIO_G711_SAMPLE */
     {
-        printf("Failed to initialize audio file loader\r\n");
+        printf("Failed to initialize audio file loader\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
     else if (setKvsAppOptions(kvsAppHandle) != ERRNO_NONE)
     {
-        printf("Failed to set options\r\n");
+        printf("Failed to set options\n");
     }
     else if (pthread_create(&videoTid, NULL, videoThread, kvsAppHandle) != 0)
     {
-        printf("Failed to create video thread\r\n");
+        printf("Failed to create video thread\n");
     }
 #if ENABLE_AUDIO_TRACK
     else if (pthread_create(&audioTid, NULL, audioThread, kvsAppHandle) != 0)
     {
-        printf("Failed to create audio thread\r\n");
+        printf("Failed to create audio thread\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
     else
@@ -336,7 +373,7 @@ int main(int argc, char *argv[])
 
             if (KvsApp_open(kvsAppHandle) != 0)
             {
-                printf("Failed to open KVS app\r\n");
+                printf("Failed to open KVS app\n");
                 break;
             }
 
@@ -362,7 +399,7 @@ int main(int argc, char *argv[])
 
                 if (getEpochTimestampInMs() > uLastPrintMemStatTimestamp + 1000)
                 {
-                    printf("Buffer memory used: %zu\r\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
+                    printf("Buffer memory used: %zu\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
                     uLastPrintMemStatTimestamp = getEpochTimestampInMs();
 #ifdef KVS_USE_POOL_ALLOCATOR
                     PoolStats_t stats = {0};
@@ -388,8 +425,20 @@ int main(int argc, char *argv[])
 
             if (KvsApp_close(kvsAppHandle) != 0)
             {
-                printf("Failed to close KVS app\r\n");
+                printf("Failed to close KVS app\n");
                 break;
+            }
+            else
+            {
+                printf("KvsApp closed\n");
+#if DEBUG_STORE_MEDIA_TO_FILE
+                if (fpDbgMedia != NULL)
+                {
+                    fclose(fpDbgMedia);
+                    fpDbgMedia = NULL;
+                    printf("Closed debug file\n");
+                }
+#endif
             }
         }
     }
