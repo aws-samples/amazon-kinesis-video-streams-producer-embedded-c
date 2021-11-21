@@ -673,6 +673,11 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
 
     NetIoHandle xNetIoHandle = NULL;
 
+    if (puHttpStatusCode != NULL)
+    {
+        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
+    }
+
     if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateDescribeStreamParameter(pDescPara) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
@@ -768,6 +773,11 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
 
     NetIoHandle xNetIoHandle = NULL;
 
+    if (puHttpStatusCode != NULL)
+    {
+        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
+    }
+
     if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateCreateStreamParameter(pCreatePara) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
@@ -862,6 +872,11 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
     size_t uRspBodyLen = 0;
 
     NetIoHandle xNetIoHandle = NULL;
+
+    if (puHttpStatusCode != NULL)
+    {
+        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
+    }
 
     if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateGetDataEndpointParameter(pGetDataEpPara) != KVS_ERRNO_NONE)
     {
@@ -967,6 +982,11 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
 
     NetIoHandle xNetIoHandle = NULL;
     bool bKeepNetIo = false;
+
+    if (puHttpStatusCode != NULL)
+    {
+        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
+    }
 
     if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidatePutMediaParameter(pPutMediaPara) != KVS_ERRNO_NONE || pPutMediaHandle == NULL)
     {
