@@ -25,3 +25,24 @@ target_include_directories(llhttp-shared PUBLIC ${LLHTTP_INC})
 add_library(llhttp-static STATIC ${LLHTTP_SRC})
 set_target_properties(llhttp-static PROPERTIES OUTPUT_NAME llhttp)
 target_include_directories(llhttp-static PUBLIC ${LLHTTP_INC})
+
+include(GNUInstallDirs)
+
+install(TARGETS llhttp
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)
+
+install(TARGETS llhttp-shared
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)
+
+install(TARGETS llhttp-static
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)
+
+install(DIRECTORY ${LLHTTP_INC}/
+        DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
+)

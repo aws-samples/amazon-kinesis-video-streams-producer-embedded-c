@@ -40,3 +40,20 @@ target_link_libraries(aziotsharedutil-static PUBLIC
     mbedtls mbedcrypto mbedx509
     m
 )
+
+include(GNUInstallDirs)
+
+install(TARGETS aziotsharedutil
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)
+
+install(TARGETS aziotsharedutil-shared
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)
+
+install(TARGETS aziotsharedutil-static
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+)

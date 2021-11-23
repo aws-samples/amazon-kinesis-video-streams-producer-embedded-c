@@ -87,6 +87,7 @@ endif()
 
 # setup static library
 add_library(${LIB_NAME} STATIC ${LIB_SRC})
+set_target_properties(${LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_include_directories(${LIB_NAME} PUBLIC ${LIB_INC})
 target_link_libraries(${LIB_NAME} PUBLIC
     ${LINK_INTERFACE_LIBS}
