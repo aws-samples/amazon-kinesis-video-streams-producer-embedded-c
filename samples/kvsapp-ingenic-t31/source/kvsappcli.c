@@ -117,7 +117,7 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 #if ENABLE_AUDIO_TRACK
     if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)T31Audio_getAudioTrackInfoClone(audioHandle)) != 0)
     {
-        printf("Failed to set video track info\n");
+        printf("Failed to set audio track info\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
