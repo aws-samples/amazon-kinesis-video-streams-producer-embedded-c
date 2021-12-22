@@ -50,34 +50,46 @@ set(LIB_INC
 )
 
 set(LINK_INTERFACE_LIBS
-    mbedtls
-    mbedcrypto
-    mbedx509
     llhttp
     parson
     aziotsharedutil
     tlsf
 )
+if(NOT ${USE_WEBRTC_MBEDTLS_LIB})
+    set(LINK_INTERFACE_LIBS ${LINK_INTERFACE_LIBS}
+        mbedtls
+        mbedcrypto
+        mbedx509
+    )
+endif()
 
 set(LINK_SHARED_LIBS
-    mbedtls-shared
-    mbedcrypto-shared
-    mbedx509-shared
     llhttp-shared
     parson-shared
     aziotsharedutil-shared
     tlsf-shared
 )
+if(NOT ${USE_WEBRTC_MBEDTLS_LIB})
+    set(LINK_SHARED_LIBS ${LINK_SHARED_LIBS}
+        mbedtls-shared
+        mbedcrypto-shared
+        mbedx509-shared
+    )
+endif()
 
 set(LINK_STATIC_LIBS
-    mbedtls-static
-    mbedcrypto-static
-    mbedx509-static
     llhttp-static
     parson-static
     aziotsharedutil-static
     tlsf-static
 )
+if(NOT ${USE_WEBRTC_MBEDTLS_LIB})
+    set(LINK_STATIC_LIBS ${LINK_STATIC_LIBS}
+        mbedtls-static
+        mbedcrypto-static
+        mbedx509-static
+    )
+endif()
 
 if(UNIX)
     set(LIB_SRC ${LIB_SRC}
@@ -89,6 +101,10 @@ endif()
 add_library(${LIB_NAME} STATIC ${LIB_SRC})
 set_target_properties(${LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_include_directories(${LIB_NAME} PUBLIC ${LIB_INC})
+if(${USE_WEBRTC_MBEDTLS_LIB})
+    target_link_directories(${LIB_NAME} PUBLIC ${WEBRTC_LIB_PATH})
+    target_include_directories(${LIB_NAME} PUBLIC ${WEBRTC_INC_PATH})
+endif()
 target_link_libraries(${LIB_NAME} PUBLIC
     ${LINK_INTERFACE_LIBS}
 )

@@ -37,6 +37,17 @@ typedef struct KvsApp *KvsAppHandle;
 typedef int (*OnDataFrameTerminateCallback_t)(uint8_t *pData, size_t uDataLen, uint64_t uTimestamp, TrackType_t xTrackType, void *pAppData);
 
 /**
+ * This callback is called before a frame is about to be sent. Application can use this callback to decide whether or not to send out this frame.
+ *
+ * @param[in] pData Pointer of data frame
+ * @param[in] uDataLen Size of data frame
+ * @param[in] uTimestamp Timestamp of data frame
+ * @param[in] xTrackType Track type of data frame
+ * @param[in] pAppData Pointer of application data that is assigned in function KvsApp_addFrameWithCallbacks()
+ */
+typedef int (*OnDataFrameToBeSentCallback_t)(uint8_t *pData, size_t uDataLen, uint64_t uTimestamp, TrackType_t xTrackType, void *pAppData);
+
+/**
  * This callback is called whenever a data has been sent to PUT MEDIA endpoint. All data sent to PUT MEDIA endpoint follow MKV format, so it could
  * help to debug which data has been sent.
  *
@@ -46,9 +57,22 @@ typedef int (*OnDataFrameTerminateCallback_t)(uint8_t *pData, size_t uDataLen, u
  */
 typedef int (*OnMkvSentCallback_t)(uint8_t *pData, size_t uDataLen, void *pAppData);
 
-typedef struct DataFrameCallbacks
+typedef struct OnDataFrameTerminateCallbackInfo
 {
     OnDataFrameTerminateCallback_t onDataFrameTerminate;
+    void *pAppData;
+} OnDataFrameTerminateInfo_t;
+
+typedef struct OnDataFrameToBeSentCallbackInfo
+{
+    OnDataFrameToBeSentCallback_t onDataFrameToBeSent;
+    void *pAppData;
+} OnDataFrameToBeSentInfo_t;
+
+typedef struct DataFrameCallbacks
+{
+    OnDataFrameTerminateInfo_t onDataFrameTerminateInfo;
+    OnDataFrameToBeSentInfo_t onDataFrameToBeSentInfo;
 } DataFrameCallbacks_t;
 
 /**
@@ -121,10 +145,9 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
  * @param[in] uTimestamp Frame absolution timestamp in milliseconds.
  * @param[in] xTrackType Track type, it could be TRACK_VIDEO or TRACK_AUDIO
  * @param[in] pCallbacks Callbacks
- * @param[in] pAppData Data pointer reserved for application
  * @return 0 on success, non-zero value otherwise
  */
-int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks, void *pAppData);
+int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks);
 
 /**
  * Let KVS application do works. It will try to send out frames, and check if any messages from server.
