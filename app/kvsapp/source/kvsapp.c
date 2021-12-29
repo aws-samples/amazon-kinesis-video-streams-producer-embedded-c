@@ -119,7 +119,6 @@ typedef struct KvsApp
 typedef struct DataFrameUserData
 {
     DataFrameCallbacks_t xCallbacks;
-    void *pAppData;
 } DataFrameUserData_t;
 
 /**
@@ -145,13 +144,18 @@ static int defaultOnDataFrameTerminate(uint8_t *pData, size_t uDataLen, uint64_t
 static void prvCallOnDataFrameTerminate(DataFrameIn_t *pDataFrameIn)
 {
     DataFrameUserData_t *pUserData = NULL;
+    OnDataFrameTerminateInfo_t *pOnDataFrameTerminateCallbackInfo = NULL;
 
     if (pDataFrameIn != NULL)
     {
         pUserData = (DataFrameUserData_t *)pDataFrameIn->pUserData;
-        if (pUserData != NULL && pUserData->xCallbacks.onDataFrameTerminate != NULL)
+        if (pUserData != NULL)
         {
-            pUserData->xCallbacks.onDataFrameTerminate((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pUserData->pAppData);
+            pOnDataFrameTerminateCallbackInfo = &(pUserData->xCallbacks.onDataFrameTerminateInfo);
+            if (pOnDataFrameTerminateCallbackInfo->onDataFrameTerminate != NULL)
+            {
+                pOnDataFrameTerminateCallbackInfo->onDataFrameTerminate((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pOnDataFrameTerminateCallbackInfo->pAppData);
+            }
         }
     }
 }
@@ -658,9 +662,34 @@ static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, 
     return res;
 }
 
+static int prvCheckOnDataFrameToBeSent(DataFrameHandle xDataFrameHandle)
+{
+    int res = ERRNO_NONE;
+    DataFrameIn_t *pDataFrameIn = NULL;
+    DataFrameUserData_t *pUserData = NULL;
+    OnDataFrameToBeSentInfo_t *pOnDataFrameToBeSentCallbackInfo = NULL;
+
+    if (xDataFrameHandle == NULL)
+    {
+        res = ERRNO_FAIL;
+    }
+    else
+    {
+        pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
+        pUserData = pDataFrameIn->pUserData;
+        pOnDataFrameToBeSentCallbackInfo = &(pUserData->xCallbacks.onDataFrameToBeSentInfo);
+        if (pOnDataFrameToBeSentCallbackInfo->onDataFrameToBeSent != NULL)
+        {
+            res = pOnDataFrameToBeSentCallbackInfo->onDataFrameToBeSent((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pOnDataFrameToBeSentCallbackInfo->pAppData);
+        }
+    }
+
+    return res;
+}
+
 static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
 {
-    int res = 0;
+    int res = ERRNO_NONE;
     DataFrameHandle xDataFrameHandle = NULL;
     DataFrameIn_t *pDataFrameIn = NULL;
     uint8_t *pData = NULL;
@@ -678,6 +707,11 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
         {
             LogError("Failed to get data frame");
             res = ERRNO_FAIL;
+        }
+        else if (prvCheckOnDataFrameToBeSent(xDataFrameHandle) != ERRNO_NONE)
+        {
+            LogInfo("Failed to check OnDataFrameToBeSent");
+            /* We don't treat this condition as error because it's a validation error. */
         }
         else if (Kvs_dataFrameGetContent(xDataFrameHandle, &pMkvHeader, &uMkvHeaderLen, &pData, &uDataLen) != 0)
         {
@@ -871,6 +905,16 @@ void KvsApp_terminate(KvsAppHandle handle)
         if (pKvs->pAudioTrackInfo != NULL)
         {
             prvAudioTrackInfoTerminate(pKvs->pAudioTrackInfo);
+        }
+        if (pKvs->pSps != NULL)
+        {
+            free(pKvs->pSps);
+            pKvs->pSps = NULL;
+        }
+        if (pKvs->pPps != NULL)
+        {
+            free(pKvs->pPps);
+            pKvs->pPps = NULL;
         }
 
         Unlock(pKvs->xLock);
@@ -1167,10 +1211,10 @@ int KvsApp_close(KvsAppHandle handle)
 
 int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType)
 {
-    return KvsApp_addFrameWithCallbacks(handle, pData, uDataLen, uDataSize, uTimestamp, xTrackType, NULL, NULL);
+    return KvsApp_addFrameWithCallbacks(handle, pData, uDataLen, uDataSize, uTimestamp, xTrackType, NULL);
 }
 
-int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks, void *pAppData)
+int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks)
 {
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
@@ -1217,13 +1261,15 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
         if (pCallbacks == NULL)
         {
             /* Assign default callbacks. */
-            pUserData->xCallbacks.onDataFrameTerminate = defaultOnDataFrameTerminate;
+            pUserData->xCallbacks.onDataFrameTerminateInfo.onDataFrameTerminate = defaultOnDataFrameTerminate;
+            pUserData->xCallbacks.onDataFrameTerminateInfo.pAppData = NULL;
+            pUserData->xCallbacks.onDataFrameToBeSentInfo.onDataFrameToBeSent = NULL;
+            pUserData->xCallbacks.onDataFrameToBeSentInfo.pAppData = NULL;
         }
         else
         {
             memcpy(&(pUserData->xCallbacks), pCallbacks, sizeof(DataFrameCallbacks_t));
         }
-        pUserData->pAppData = pAppData;
         xDataFrameIn.pUserData = pUserData;
 
         if (pKvs->xStrategy.xPolicy == STREAM_POLICY_RING_BUFFER)
@@ -1242,9 +1288,9 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
     {
         if (pData != NULL)
         {
-            if (pCallbacks != NULL && pCallbacks->onDataFrameTerminate != NULL)
+            if (pCallbacks != NULL && pCallbacks->onDataFrameTerminateInfo.onDataFrameTerminate != NULL)
             {
-                pCallbacks->onDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+                pCallbacks->onDataFrameTerminateInfo.onDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
             }
             else
             {

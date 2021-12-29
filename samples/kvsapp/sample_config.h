@@ -119,7 +119,7 @@
 /**
  * Get the size of stream buffer.  If there is no buffer limit, then assume it's 2M bytes.
  */
-#ifdef ENABLE_RING_BUFFER_MEM_LIMIT
+#if ENABLE_RING_BUFFER_MEM_LIMIT
 #define BUFFER_MEM_LIMIT        RING_BUFFER_MEM_LIMIT
 #else
 #define BUFFER_MEM_LIMIT        (2 * 1024 * 1024)

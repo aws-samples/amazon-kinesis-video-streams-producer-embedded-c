@@ -7,6 +7,8 @@ samples/kvs-esp32/components/llhttp/*
 samples/kvsapp-ingenic-t31/sdk/*
 !samples/kvsapp-ingenic-t31/sdk/README.md
 
+libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc
+
 # Ignore IDE related
 .idea
 .vscode

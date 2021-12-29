@@ -11,6 +11,9 @@ option(BOARD_RPI                        "Build board Raspberry Pi"              
 option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"                OFF)
 option(USE_POOL_ALLOCATOR_ALL           "Apply pool allocator on KVS lib and executable"    OFF)
 option(SAMPLE_OPTIONS_FROM_ENV_VAR      "Sample reads options from environment variable"    ON)
+option(BUILD_WEBRTC_SAMPLES             "Build a sample that kvs and web rtc share buffers" OFF)
+
+set(USE_WEBRTC_MBEDTLS_LIB      OFF)
 
 # Verify and resolve options
 if(${BOARD_INGENIC_T31})
@@ -20,6 +23,9 @@ if(${BOARD_INGENIC_T31})
 endif()
 if(${USE_POOL_ALLOCATOR_ALL})
     set(USE_POOL_ALLOCATOR_LIB   ON)
+endif()
+if(${BUILD_WEBRTC_SAMPLES})
+    set(USE_WEBRTC_MBEDTLS_LIB  ON)
 endif()
 
 if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
@@ -40,6 +46,28 @@ message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
 message(STATUS "SAMPLE_OPTIONS_FROM_ENV_VAR     = ${SAMPLE_OPTIONS_FROM_ENV_VAR}")
 message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
+message(STATUS "BUILD_WEBRTC_SAMPLES            = ${BUILD_WEBRTC_SAMPLES}")
+
+if(${BUILD_WEBRTC_SAMPLES})
+    set(WEBRTC_LIB_PATH ${CMAKE_CURRENT_LIST_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/open-source/lib)
+    set(WEBRTC_INC_PATH
+        ${CMAKE_CURRENT_LIST_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/open-source/include
+        ${CMAKE_CURRENT_LIST_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/src/include
+        ${CMAKE_CURRENT_LIST_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/src/source
+    )
+    set(CMAKE_C_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/configs -DMBEDTLS_USER_CONFIG_FILE='<config_mbedtls.h>' ${CMAKE_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/configs -DMBEDTLS_USER_CONFIG_FILE='<config_mbedtls.h>' ${CMAKE_CXX_FLAGS}")
+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration -Wno-error=format -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -fgnu89-inline")
+    set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration -Wno-error=format -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -fgnu89-inline")
+
+    add_definitions(-DSUPPORT_H264_AVCC_FRAME)
+    add_definitions(-DSUPPORT_SHARE_BUFFER)
+endif()
+
+if(${BUILD_WEBRTC_SAMPLES})
+    include(libwebrtc)
+endif()
 
 # Make warning as error
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
@@ -66,7 +94,9 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
 # Add thirdparty libraries
-include(libmbedtls)
+if(NOT ${USE_WEBRTC_MBEDTLS_LIB})
+    include(libmbedtls)
+endif()
 include(libllhttp)
 include(libparson)
 include(libaziotsharedutil)
