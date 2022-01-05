@@ -45,7 +45,7 @@
 #if USE_AUDIO_AAC_SAMPLE
 #define AUDIO_TRACK_NAME                "kvs audio track"
 #define AUDIO_FPS                       48
-#define AUDIO_MPEG_OBJECT_TYPE          AAC_LC
+#define AUDIO_MPEG_OBJECT_TYPE          MPEG4_AAC_LC
 #define AUDIO_FREQUENCY                 48000
 #define AUDIO_CHANNEL_NUMBER            2
 #endif /* USE_AUDIO_AAC_SAMPLE */

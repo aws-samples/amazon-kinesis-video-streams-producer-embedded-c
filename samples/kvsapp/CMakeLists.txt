@@ -28,35 +28,19 @@ if(${HAVE_SIGNAL_H})
     set(COMPILE_FLAGS_FOR_SIGNAL_H -DHAVE_SIGNAL_H=1)
 endif()
 
-if(${BUILD_SHARED_SAMPLES})
-    add_executable(${APP_NAME} ${${APP_NAME}_SRC})
-    set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
-    # support usleep
-    target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
-    target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
-    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
-    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
-    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
-    target_link_libraries(${APP_NAME}
-        kvsapp-shared
-        samplescommon-shared
-        pthread
-    )
-endif()
+# build static executable
+add_executable(${APP_NAME} ${${APP_NAME}_SRC})
+set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
+# support usleep
+target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
+target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
+target_link_libraries(${APP_NAME}
+    kvs-embedded-c
+    samplescommon
+    pthread
+    ${LINKER_FLAGS_FOR_MEM_WRAPPER}
+)
 
-if(${BUILD_STATIC_SAMPLES})
-    add_executable(${APP_NAME}-static ${${APP_NAME}_SRC})
-    set_target_properties(${APP_NAME}-static PROPERTIES OUTPUT_NAME ${APP_NAME}-static)
-    # support usleep
-    target_compile_definitions(${APP_NAME}-static PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
-    target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
-    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
-    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SIGNAL_H})
-    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
-    target_link_libraries(${APP_NAME}-static
-        kvsapp-static
-        samplescommon-static
-        pthread
-        ${LINKER_FLAGS_FOR_MEM_WRAPPER}
-    )
-endif()

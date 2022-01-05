@@ -25,8 +25,8 @@
 #include "kvs/errors.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "aws_signer_v4.h"
+#include "os/allocator.h"
+#include "restful/aws_signer_v4.h"
 
 #define HTTP_METHOD_GET "GET"
 #define HTTP_METHOD_PUT "PUT"

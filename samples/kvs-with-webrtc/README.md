@@ -49,9 +49,9 @@ cd build
 cmake .. -DBUILD_WEBRTC_SAMPLES=ON
 ```
 
-It may take times because it needs to build external project for WebRTC SDK.
+It may take time to build external projects for WebRTC SDK.
 
-Run the following command to build project
+Run the following command to build projects.
 
 ```bash
 cmake --build .
@@ -60,16 +60,16 @@ cmake --build .
 Run the following command to run this sample.
 
 ```bash
-./bin/kvs_with_webrtc-static
+./bin/kvs_with_webrtc
 ```
 
 # How much memroy saved
 
 There is a rolling buffer in WebRTC. It buffers RTP packets for resend purposes. By default it buffers `DEFAULT_ROLLING_BUFFER_DURATION_IN_SECONDS * ( HIGHEST_EXPECTED_BIT_RATE / 8 ) / DEFAULT_MTU_SIZE = 3277` RTP packets. Each RTP packet contains an RTP header and its payload. The payload is a chunk of a video or audio frame.
 
-If we use a data pointer instead of copying the chunk from a video or audio frame, then we can save memories.
+Using a data pointer instead of copying the chunk from a video or audio frame, we can save memories.
 
-Ideally, it would save *3277 * ( MTU - RTP header + refactor overhead )* which is around **3.5MB** in maximum. In practice, it won't be that much because not all RTP packets use full MTU size.
+Ideally, it would save *3277 * ( MTU - RTP header + refactor overhead )* which is around **3.5MB** in maximum. It won't be that much in practice because not all RTP packets use full MTU size.
 
-Each WebRTC viewer has its rolling buffer, so it saves more when we use this design with multiple WebRTC viewers.
+Each WebRTC viewer has its rolling buffer, saving more when we use this design with multiple WebRTC viewers.
 

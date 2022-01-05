@@ -97,66 +97,21 @@ set(MBEDTLS_INC
     ${MBEDTLS_DIR}/include
 )
 
-# setup mbedcrypto library interface
-add_library(mbedcrypto INTERFACE)
-target_include_directories(mbedcrypto INTERFACE ${MBEDTLS_INC})
-
-# setup mbedcrypto shared library
-add_library(mbedcrypto-shared SHARED ${MBEDTLS_SRC_CRYPTO})
-set_target_properties(mbedcrypto-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(mbedcrypto-shared PROPERTIES OUTPUT_NAME mbedcrypto)
-target_include_directories(mbedcrypto-shared PUBLIC ${MBEDTLS_INC})
-
 # setup mbedcrypto static library
-add_library(mbedcrypto-static STATIC ${MBEDTLS_SRC_CRYPTO})
-set_target_properties(mbedcrypto-static PROPERTIES OUTPUT_NAME mbedcrypto)
-target_include_directories(mbedcrypto-static PUBLIC ${MBEDTLS_INC})
-
-
-# setup mbedx509 library interface
-add_library(mbedx509 INTERFACE)
-target_include_directories(mbedx509 INTERFACE ${MBEDTLS_INC})
-
-# setup mbedx509 shared library
-add_library(mbedx509-shared SHARED ${MBEDTLS_SRC_X509})
-set_target_properties(mbedx509-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(mbedx509-shared PROPERTIES OUTPUT_NAME mbedx509)
-target_include_directories(mbedx509-shared PUBLIC ${MBEDTLS_INC})
+add_library(mbedcrypto STATIC ${MBEDTLS_SRC_CRYPTO})
+target_include_directories(mbedcrypto PUBLIC ${MBEDTLS_INC})
 
 # setup mbedx509 static library
-add_library(mbedx509-static STATIC ${MBEDTLS_SRC_X509})
-set_target_properties(mbedx509-static PROPERTIES OUTPUT_NAME mbedx509)
-target_include_directories(mbedx509-static PUBLIC ${MBEDTLS_INC})
-
-
-# setup mbedtls library interface
-add_library(mbedtls INTERFACE)
-target_include_directories(mbedtls INTERFACE ${MBEDTLS_INC})
-
-# setup mbedtls shared library
-add_library(mbedtls-shared SHARED ${MBEDTLS_SRC_TLS})
-set_target_properties(mbedtls-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(mbedtls-shared PROPERTIES OUTPUT_NAME mbedtls)
-target_include_directories(mbedtls-shared PUBLIC ${MBEDTLS_INC})
+add_library(mbedx509 STATIC ${MBEDTLS_SRC_X509})
+target_include_directories(mbedx509 PUBLIC ${MBEDTLS_INC})
 
 # setup mbedtls static library
-add_library(mbedtls-static STATIC ${MBEDTLS_SRC_TLS})
-set_target_properties(mbedtls-static PROPERTIES OUTPUT_NAME mbedtls)
-target_include_directories(mbedtls-static PUBLIC ${MBEDTLS_INC})
+add_library(mbedtls STATIC ${MBEDTLS_SRC_TLS})
+target_include_directories(mbedtls PUBLIC ${MBEDTLS_INC})
 
 include(GNUInstallDirs)
 
 install(TARGETS mbedcrypto
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS mbedcrypto-shared
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS mbedcrypto-static
         LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
 )
@@ -167,28 +122,8 @@ install(TARGETS mbedx509
         PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
 )
 
-install(TARGETS mbedx509-shared
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS mbedx509-static
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
 install(TARGETS mbedtls
         LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
         PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
-)
-
-install(TARGETS mbedtls-shared
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS mbedtls-static
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
 )

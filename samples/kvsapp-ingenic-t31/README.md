@@ -1,20 +1,20 @@
-This sample demonstrates how to port Amazon Kinesis Video Streams Producer to Ingenic T31 evaluation board.
+This sample demonstrates how to port Amazon Kinesis Video Streams Producer to the Ingenic T31 evaluation board.
 
 # Prerequisite
 
 These are prerequisites:
 
-*   Ingenic T31 SDK ISVP-T31-1.1.3-20210223: This sample "DOES NOT" inlcude T31 SDK.  To able to build and run this sample, you need to have a T31 SDK.
+*   Ingenic T31 SDK ISVP-T31-1.1.3-20210223: This sample "DOES NOT" include T31 SDK. To build and run this sample, you need to have a T31 SDK.
 *   Ingenic T31 EVB
 *   Ethernet cable and network connectivity
 
 ## Device setup
 
-Please follow "T31 SNIPE_user_guide.pdf" in the SDK to setup device and network. You can put following settings in `/system/init/app_init.sh` if you want.
+Please follow "T31 SNIPE_user_guide.pdf" in the SDK to setup the device and network. You can put following settings in `/system/init/app_init.sh` if you want.
 
 ### Setup DNS server
 
-Use the following command to setup DNS server.  IP "8.8.8.8" is DNS server hosted by google.  You can choose your desired DNS server.
+Use the following command to setup the DNS server. IP "8.8.8.8" is a DNS server hosted by google. You can choose your desired DNS server.
 
     echo 'nameserver 8.8.8.8' > /etc/resolv.conf
 
@@ -38,15 +38,15 @@ Use the `date` command to check if date is set correctly.
 
 ### Mount SD card
 
-In this sample, we would put the executable on the SD card.  You can skip this section if you'd like to use other folder on device.
+In this sample, we would put the executable on the SD card. You can skip this section if you'd like to use another folder on the device.
 
-Use the following command to mound SD card.
+Use the following command to mount the SD card.
 
     mount -t vfat /dev/mmcblk0p1 /mnt
 
 ### Enable audio driver
 
-Use following command to insert audio module.  You can skip this section if you don't want to enable audio.
+Use the following command to insert the audio module. You can skip this section if you don't want to enable audio.
 
     insmod /system/lib/modules/audio.ko
 
@@ -54,13 +54,13 @@ Use following command to insert audio module.  You can skip this section if you 
 
 ## Get code
 
-To download run the following command:
+To download, run the following command:
 
 ```
 git clone --recursive https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c.git
 ```
 
-If you miss running `git clone` command with `--recursive` , run `git submodule update --init --recursive` within repository.
+If you miss running `git clone` command with `--recursive` , run `git submodule update --init --recursive` within the repository.
 
 ## Configure and setup T31 SDK
 
@@ -101,7 +101,7 @@ Please add toolchain "mips-gcc472-glibc216-64bit" into you path.  Ex.
 
 ## Configure sample settings
 
-You can skip this section if you want to use environment variables as sample configureation.
+You can skip this section to use environment variables as a sample configuration.
 
 You can put sample default configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*".
 
@@ -122,11 +122,11 @@ Build project.
 
     cmake --build .
 
-After build completed, there will be exectuable files named "kvsappcli-ingenic-t31" and "kvsappcli-ingenic-t31-static" in the "build/bin/" folder.  Executable "kvsappcli-ingenic-t31" using shared library under "build/lib/" folder.  Executable "kvsappcli-ingenic-t31-static" is a static build and it doesn't need any other library except common runtime library like "libc" or "pthread".  Copy these file to T31 SD card.  To copy these files, you can either using some network tools to send this file or use a SD card reader to do that.
+After the build is completed, executable files will be named "kvsappcli-ingenic-t31" in the "build/bin/" folder. There are some static and shared libraries under "build/lib/" folder. Copy these files to the T31 SD card. To copy these files, you can either use some network tools to send this file or use an SD card reader.
 
 # Run sample
 
-If you didn't configure sample configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*", then you need to configure the following environment variables.
+If you didn't configure sample configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*", you need to configure the following environment variables.
 
     export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxx
     export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -136,9 +136,9 @@ If you didn't configure sample configurations in file "*samples/kvsapp-ingenic-t
 Now the executable is on the device, use the following command to run this sample. Argument `kvs-stream-name` is KVS stream name to be uploaded and it's optional. It'll use stream name in `sample_config.h` if this argument is not present.
 
     cd /mnt
-    ./kvsappcli-ingenic-t31-static [kvs-stream-name]
+    ./kvsappcli-ingenic-t31 [kvs-stream-name]
 
-You wold see following log if everythins works fine.
+You will see the following log if everything works fine.
 
     [root@Ingenic-uc1_1:mnt]# ./kvsappcli-ingenic-t31
     AACEncoderInit   channels = 1, pcm_frame_len = 2048
@@ -176,4 +176,4 @@ You wold see following log if everythins works fine.
 
 # KVS sample for Ingenic T31
 
-After build, there will be a folder named "ingenic_t31_kvs_sample" under "build" folder.  It's a sample with prebuilt libraries.  It can ease the impelemntation without re-build all libraries.
+After the build, there will be a folder named "ingenic_t31_kvs_sample" under the "build" folder. It's a sample with prebuilt libraries. It can ease the implementation without re-build all libraries.

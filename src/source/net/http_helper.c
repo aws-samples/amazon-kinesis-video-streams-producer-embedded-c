@@ -27,9 +27,9 @@
 #include "kvs/errors.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "http_helper.h"
-#include "netio.h"
+#include "os/allocator.h"
+#include "net/http_helper.h"
+#include "net/netio.h"
 
 #define DEFAULT_HTTP_RECV_BUFSIZE 2048
 

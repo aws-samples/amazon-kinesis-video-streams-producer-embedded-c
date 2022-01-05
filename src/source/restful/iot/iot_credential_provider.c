@@ -27,10 +27,10 @@
 #include "kvs/iot_credential_provider.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "http_helper.h"
-#include "json_helper.h"
-#include "netio.h"
+#include "os/allocator.h"
+#include "net/http_helper.h"
+#include "misc/json_helper.h"
+#include "net/netio.h"
 
 #define IOT_URI_ROLE_ALIASES_BEGIN  "/role-aliases"
 #define IOT_URI_ROLE_ALIASES_END    "/credentials"

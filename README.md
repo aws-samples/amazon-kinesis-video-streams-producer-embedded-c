@@ -377,7 +377,7 @@ make -j16
 ### Run Raspberry Pi V4L2 Example
 
 ```bash
-./bin/kvsappcli-raspberry-pi-static
+./bin/kvsappcli-raspberry-pi
 ```
 
 # Porting Guide

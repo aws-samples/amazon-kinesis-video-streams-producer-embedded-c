@@ -28,8 +28,8 @@
 #include "kvs/port.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "endian.h"
+#include "os/allocator.h"
+#include "os/endian.h"
 
 #define MKV_LENGTH_INDICATOR_1_BYTE (0x80)
 #define MKV_LENGTH_INDICATOR_2_BYTE (0x4000)

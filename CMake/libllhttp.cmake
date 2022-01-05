@@ -11,34 +11,13 @@ set(LLHTTP_INC
     ${LLHTTP_DIR}/include
 )
 
-# setup library interface
-add_library(llhttp INTERFACE)
-target_include_directories(llhttp INTERFACE ${LLHTTP_INC})
-
-# setup shared library
-add_library(llhttp-shared SHARED ${LLHTTP_SRC})
-set_target_properties(llhttp-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(llhttp-shared PROPERTIES OUTPUT_NAME llhttp)
-target_include_directories(llhttp-shared PUBLIC ${LLHTTP_INC})
-
 # setup static library
-add_library(llhttp-static STATIC ${LLHTTP_SRC})
-set_target_properties(llhttp-static PROPERTIES OUTPUT_NAME llhttp)
-target_include_directories(llhttp-static PUBLIC ${LLHTTP_INC})
+add_library(llhttp STATIC ${LLHTTP_SRC})
+target_include_directories(llhttp PUBLIC ${LLHTTP_INC})
 
 include(GNUInstallDirs)
 
 install(TARGETS llhttp
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS llhttp-shared
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS llhttp-static
         LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
 )

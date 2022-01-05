@@ -3,8 +3,6 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 project(kvs-embedded-c)
 
 # Options
-option(BUILD_SHARED_SAMPLES             "Build shared samples"                              ON)
-option(BUILD_STATIC_SAMPLES             "Build static samples"                              ON)
 option(BUILD_AAC_ENCODER                "Build aac-encoder"                                 OFF)
 option(BOARD_INGENIC_T31                "Build board Ingenic T31"                           OFF)
 option(BOARD_RPI                        "Build board Raspberry Pi"                          OFF)
@@ -38,15 +36,13 @@ include(CheckIncludeFiles)
 check_include_files(signal.h HAVE_SIGNAL_H)
 
 # Print option values
-message(STATUS "BUILD_SHARED_SAMPLES            = ${BUILD_SHARED_SAMPLES}")
-message(STATUS "BUILD_STATIC_SAMPLES            = ${BUILD_STATIC_SAMPLES}")
 message(STATUS "BUILD_AAC_ENCODER               = ${BUILD_AAC_ENCODER}")
 message(STATUS "BOARD_INGENIC_T31               = ${BOARD_INGENIC_T31}")
 message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
 message(STATUS "SAMPLE_OPTIONS_FROM_ENV_VAR     = ${SAMPLE_OPTIONS_FROM_ENV_VAR}")
-message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
 message(STATUS "BUILD_WEBRTC_SAMPLES            = ${BUILD_WEBRTC_SAMPLES}")
+message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
 
 if(${BUILD_WEBRTC_SAMPLES})
     set(WEBRTC_LIB_PATH ${CMAKE_CURRENT_LIST_DIR}/libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc/open-source/lib)

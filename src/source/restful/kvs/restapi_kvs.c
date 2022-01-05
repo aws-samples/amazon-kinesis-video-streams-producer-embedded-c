@@ -35,11 +35,11 @@
 #include "kvs/port.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "aws_signer_v4.h"
-#include "http_helper.h"
-#include "json_helper.h"
-#include "netio.h"
+#include "os/allocator.h"
+#include "restful/aws_signer_v4.h"
+#include "misc/json_helper.h"
+#include "net/http_helper.h"
+#include "net/netio.h"
 
 #ifndef SAFE_FREE
 #define SAFE_FREE(a) \

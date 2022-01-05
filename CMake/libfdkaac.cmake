@@ -389,19 +389,8 @@ set(libfdk_aac_PRV_INC
     ${FDKAAC_DIR}/libPCMutils/include
 )
 
-# setup library interface
-add_library(fdk-aac INTERFACE)
-target_include_directories(fdk-aac INTERFACE ${libfdk_aac_PUB_INC})
-
-# setup shared library
-add_library(fdk-aac-shared SHARED ${libfdk_aac_SOURCES})
-set_target_properties(fdk-aac-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(fdk-aac-shared PROPERTIES OUTPUT_NAME fdk-aac)
-target_compile_options(fdk-aac-shared PRIVATE -fno-exceptions -fno-rtti)
-target_include_directories(fdk-aac-shared PUBLIC ${libfdk_aac_PUB_INC} PRIVATE ${libfdk_aac_PRV_INC})
-
 # setup static library
-add_library(fdk-aac-static STATIC ${libfdk_aac_SOURCES})
-set_target_properties(fdk-aac-static PROPERTIES OUTPUT_NAME fdk-aac)
-target_compile_options(fdk-aac-static PRIVATE -fno-exceptions -fno-rtti)
-target_include_directories(fdk-aac-static PUBLIC ${libfdk_aac_PUB_INC} PRIVATE ${libfdk_aac_PRV_INC})
+add_library(fdk-aac STATIC ${libfdk_aac_SOURCES})
+set_target_properties(fdk-aac PROPERTIES OUTPUT_NAME fdk-aac)
+target_compile_options(fdk-aac PRIVATE -fno-exceptions -fno-rtti)
+target_include_directories(fdk-aac PUBLIC ${libfdk_aac_PUB_INC} PRIVATE ${libfdk_aac_PRV_INC})

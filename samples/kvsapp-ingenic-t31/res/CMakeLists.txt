@@ -74,11 +74,10 @@ if(${USE_POOL_ALLOCATOR_LIB})
     set(COMPILE_FLAGS_FOR_POOL_ALLOCATOR -DKVS_USE_POOL_ALLOCATOR)
 endif()
 
-# Build executable with shared libraries
+# Build executable with static libraries
 add_executable(${APP_NAME} ${${APP_NAME}_SRC})
-set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
 target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
-target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
+target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
 target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
 target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
 target_include_directories(${APP_NAME} PUBLIC ${${APP_NAME}_INC})
@@ -89,46 +88,12 @@ target_link_directories(${APP_NAME} PUBLIC
 target_link_libraries(${APP_NAME}
     rt
     dl
-    imp
-    alog
-    pthread
-    ingenic-t31
-    aac-encoder
-    fdk-aac
-    kvsapp
-    kvs-embedded-c
-    mbedtls
-    mbedcrypto
-    mbedx509
-    llhttp
-    parson
-    tlsf
-    aziotsharedutil
-    m
-)
-
-# Build executable with static libraries
-add_executable(${APP_NAME}-static ${${APP_NAME}_SRC})
-set_target_properties(${APP_NAME}-static PROPERTIES OUTPUT_NAME ${APP_NAME}-static)
-target_compile_definitions(${APP_NAME}-static PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
-target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
-target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
-target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
-target_include_directories(${APP_NAME}-static PUBLIC ${${APP_NAME}_INC})
-target_link_directories(${APP_NAME}-static PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/uclibc
-)
-target_link_libraries(${APP_NAME}-static
-    rt
-    dl
     imp.a
     alog.a
     pthread
     ingenic-t31
     aac-encoder
     fdk-aac.a
-    kvsapp
     kvs-embedded-c
     mbedtls.a
     mbedcrypto.a

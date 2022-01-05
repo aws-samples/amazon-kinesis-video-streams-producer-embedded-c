@@ -17,29 +17,13 @@ if(${USE_POOL_ALLOCATOR_ALL})
     set(LINKER_FLAGS_FOR_MEM_WRAPPER -Wl,--wrap,malloc -Wl,--wrap,realloc -Wl,--wrap,calloc -Wl,--wrap,free)
 endif()
 
-if(${BUILD_SHARED_SAMPLES})
-    add_executable(${APP_NAME} ${${APP_NAME}_SRC})
-    set_target_properties(${APP_NAME} PROPERTIES OUTPUT_NAME ${APP_NAME})
-    target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_SHARED_LIBRARY)
-    target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
-    target_link_libraries(${APP_NAME}
-        kvsapp-shared
-        samplescommon-shared
-        pthread
-        v4l2capturer-shared
-    )
-endif()
-
-if(${BUILD_STATIC_SAMPLES})
-    add_executable(${APP_NAME}-static ${${APP_NAME}_SRC})
-    set_target_properties(${APP_NAME}-static PROPERTIES OUTPUT_NAME ${APP_NAME}-static)
-    target_compile_definitions(${APP_NAME}-static PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
-    target_compile_definitions(${APP_NAME}-static PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
-    target_link_libraries(${APP_NAME}-static
-        kvsapp-static
-        samplescommon-static
-        pthread
-        v4l2capturer-static
-        ${LINKER_FLAGS_FOR_MEM_WRAPPER}
-    )
-endif()
+add_executable(${APP_NAME} ${${APP_NAME}_SRC})
+target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
+target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
+target_link_libraries(${APP_NAME}
+    kvsapp
+    samplescommon
+    pthread
+    v4l2capturer
+    ${LINKER_FLAGS_FOR_MEM_WRAPPER}
+)

@@ -17,56 +17,6 @@
 
 #include "kvs/pool_allocator.h"
 
-#ifdef BUILD_EXECUTABLE_WITH_SHARED_LIBRARY
-
-/**
- * Overwrite malloc and make it use pool allocator malloc.
- *
- * @param size Memory size
- * @return New allocated address on success, NULL otherwise
- */
-void *malloc(size_t size)
-{
-    return poolAllocatorMalloc(size);
-}
-
-/**
- * Overwrite realloc and make it use pool allocator realloc.
- *
- * @param[in] ptr Pointer to be re-allocated
- * @param[in] bytes New memory size
- * @return New allocated address on success, NULL otherwise
- */
-void *realloc(void *ptr, size_t bytes)
-{
-    return poolAllocatorRealloc(ptr, bytes);
-}
-
-/**
- * Overwrite calloc and make it use pool allocator calloc.
- *
- * @param[in] num Number of elements
- * @param[in] bytes Element size
- * @return Newly allocated address on success, NULL otherwise
- */
-void *calloc(size_t num, size_t bytes)
-{
-    return poolAllocatorCalloc(num, bytes);
-}
-
-/**
- * Overwrite free and make it use pool allocator free.
- *
- * @param[in] ptr Memory pointer to be freed
- */
-void free(void *ptr)
-{
-    poolAllocatorFree(ptr);
-}
-#endif /* BUILD_EXECUTABLE_WITH_SHARED_LIBRARY */
-
-#ifdef BUILD_EXECUTABLE_WITH_STATIC_LIBRARY
-
 /**
  * Wrap malloc and make it use pool allocator malloc.
  *
@@ -111,6 +61,5 @@ void __wrap_free(void *ptr)
 {
     poolAllocatorFree(ptr);
 }
-#endif /* BUILD_EXECUTABLE_WITH_STATIC_LIBRARY */
 
 #endif /* KVS_USE_POOL_ALLOCATOR */

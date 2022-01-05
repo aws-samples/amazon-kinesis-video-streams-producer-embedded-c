@@ -448,7 +448,7 @@ int KvsAudioInitTrackInfo(Kvs_t *pKvs)
     pKvs->pAudioTrackInfo->uFrequency = AUDIO_SAMPLING_RATE;
     pKvs->pAudioTrackInfo->uChannelNumber = AUDIO_CHANNEL_NUMBER;
 
-    if (Mkv_generateAacCodecPrivateData(AAC_LC, AUDIO_SAMPLING_RATE, AUDIO_CHANNEL_NUMBER, &pCodecPrivateData, &uCodecPrivateDataLen) == 0)
+    if (Mkv_generateAacCodecPrivateData(MPEG4_AAC_LC, AUDIO_SAMPLING_RATE, AUDIO_CHANNEL_NUMBER, &pCodecPrivateData, &uCodecPrivateDataLen) == 0)
     {
         pKvs->pAudioTrackInfo->pCodecPrivate = pCodecPrivateData;
         pKvs->pAudioTrackInfo->uCodecPrivateLen = (uint32_t)uCodecPrivateDataLen;

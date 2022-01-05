@@ -31,8 +31,8 @@
 #include "kvs/errors.h"
 
 /* Internal headers */
-#include "allocator.h"
-#include "netio.h"
+#include "os/allocator.h"
+#include "net/netio.h"
 
 #define DEFAULT_CONNECTION_TIMEOUT_MS       (10 * 1000)
 
