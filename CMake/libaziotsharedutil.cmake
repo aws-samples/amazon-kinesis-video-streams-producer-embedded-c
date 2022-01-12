@@ -18,33 +18,14 @@ set(AZURE_C_SHARED_UTILITY_INC
     ${AZURE_C_SHARED_UTILITY_DIR}/deps/umock-c/inc
 )
 
-# setup library interface
-add_library(aziotsharedutil INTERFACE)
-target_include_directories(aziotsharedutil INTERFACE ${AZURE_C_SHARED_UTILITY_INC})
-
-# setup shared library
-add_library(aziotsharedutil-shared SHARED ${AZURE_C_SHARED_UTILITY_SRC})
-set_target_properties(aziotsharedutil-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
-set_target_properties(aziotsharedutil-shared PROPERTIES OUTPUT_NAME aziotsharedutil)
-target_include_directories(aziotsharedutil-shared PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
-if(${USE_WEBRTC_MBEDTLS_LIB})
-    target_link_directories(aziotsharedutil-shared PUBLIC ${WEBRTC_LIB_PATH})
-    target_include_directories(aziotsharedutil-shared PUBLIC ${WEBRTC_INC_PATH})
-endif()
-target_link_libraries(aziotsharedutil-shared PUBLIC
-    mbedtls mbedcrypto mbedx509
-    m
-)
-
 # setup static library
-add_library(aziotsharedutil-static STATIC ${AZURE_C_SHARED_UTILITY_SRC})
-set_target_properties(aziotsharedutil-static PROPERTIES OUTPUT_NAME aziotsharedutil)
-target_include_directories(aziotsharedutil-static PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
+add_library(aziotsharedutil STATIC ${AZURE_C_SHARED_UTILITY_SRC})
+target_include_directories(aziotsharedutil PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
 if(${USE_WEBRTC_MBEDTLS_LIB})
-    target_link_directories(aziotsharedutil-static PUBLIC ${WEBRTC_LIB_PATH})
-    target_include_directories(aziotsharedutil-static PUBLIC ${WEBRTC_INC_PATH})
+    target_link_directories(aziotsharedutil PUBLIC ${WEBRTC_LIB_PATH})
+    target_include_directories(aziotsharedutil PUBLIC ${WEBRTC_INC_PATH})
 endif()
-target_link_libraries(aziotsharedutil-static PUBLIC
+target_link_libraries(aziotsharedutil PUBLIC
     mbedtls mbedcrypto mbedx509
     m
 )
@@ -52,16 +33,6 @@ target_link_libraries(aziotsharedutil-static PUBLIC
 include(GNUInstallDirs)
 
 install(TARGETS aziotsharedutil
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS aziotsharedutil-shared
-        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-)
-
-install(TARGETS aziotsharedutil-static
         LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
 )

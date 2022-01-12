@@ -18,7 +18,7 @@
 #include <string.h>
 
 /* Internal headers */
-#include "allocator.h"
+#include "os/allocator.h"
 
 typedef struct BitStream
 {

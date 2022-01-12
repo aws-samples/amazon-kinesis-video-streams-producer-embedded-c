@@ -13,17 +13,3 @@ target_compile_options(aac-encoder PUBLIC --std=c99)
 target_link_libraries(aac-encoder PUBLIC
     fdk-aac
 )
-
-# aac-encoder with shared libraries
-add_library(aac-encoder-shared INTERFACE)
-target_link_libraries(aac-encoder-shared INTERFACE
-    aac-encoder
-    fdk-aac-shared
-)
-
-# aac-encoder with static libraries
-add_library(aac-encoder-static INTERFACE)
-target_link_libraries(aac-encoder-static INTERFACE
-    aac-encoder
-    fdk-aac-static
-)

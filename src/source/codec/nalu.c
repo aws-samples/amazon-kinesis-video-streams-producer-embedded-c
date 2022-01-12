@@ -24,8 +24,8 @@
 #include "kvs/nalu.h"
 
 /* Internal headers */
-#include "endian.h"
-#include "sps_decode.h"
+#include "codec/sps_decode.h"
+#include "os/endian.h"
 
 #define MAX_NALU_COUNT_IN_A_FRAME ( 16 )
 

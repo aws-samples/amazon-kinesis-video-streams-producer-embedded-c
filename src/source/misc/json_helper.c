@@ -19,8 +19,8 @@
 #include <string.h>
 
 /* Internal headers */
-#include "allocator.h"
-#include "json_helper.h"
+#include "misc/json_helper.h"
+#include "os/allocator.h"
 
 char *json_object_dotget_serialize_to_string(const JSON_Object *pxRootObject, const char *pcName, bool bRemoveQuotes)
 {

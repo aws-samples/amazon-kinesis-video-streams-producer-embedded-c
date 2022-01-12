@@ -27,7 +27,7 @@
 #include "kvs/stream.h"
 
 /* Internal headers */
-#include "allocator.h"
+#include "os/allocator.h"
 
 typedef struct DataFrame
 {
