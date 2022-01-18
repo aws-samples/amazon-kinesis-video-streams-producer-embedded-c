@@ -71,7 +71,7 @@ Please put the T31 software SDK under "samples/kvsapp-ingenic-t31/sdk/".
     cp -rf /path/to/ISVP-T31-1.1.3-20210223/software/sdk/Ingenic-SDK-T31-1.1.3-20210223/sdk/4.7.2 \
         /path/to/amazon-kinesis-video-streams-producer-embedded-c/samples/kvsapp-ingenic-t31/sdk/
 
-And the folder structure would be lik this:
+And the folder structure would be like this:
 
     .
     ├── app
