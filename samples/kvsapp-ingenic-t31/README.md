@@ -107,6 +107,10 @@ You can skip this section to use environment variables as a sample configuration
 
 You can put sample default configurations in file "*samples/kvsapp-ingenic-t31/include/sample_config.h*".
 
+## AAC audio
+
+For AAC audio, the default implementation is playing silent AAC audio. You will need a software AAC encoder to encode PCM into AAC. For more information, please refer to [Porting AAC Encoder](../../doc/porting_aac_encoder.md)
+
 ## Build
 
 Create a build folder.
