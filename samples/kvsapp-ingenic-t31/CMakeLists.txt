@@ -58,7 +58,6 @@ target_link_libraries(${APP_NAME}
     rt
     dl
     ingenic-t31
-    aac-encoder
     imp.a
     alog.a
     pthread
@@ -79,6 +78,5 @@ add_custom_command(TARGET ${APP_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy                ${CMAKE_CURRENT_SOURCE_DIR}/sdk/samples/libimp-samples/sample-common.h ${INGENIC_T31_KVS_SAMPLE_DIR}/include/sample-common.h
     COMMAND ${CMAKE_COMMAND} -E copy_directory      ${CMAKE_CURRENT_SOURCE_DIR}/source ${INGENIC_T31_KVS_SAMPLE_DIR}/source
     COMMAND ${CMAKE_COMMAND} -E copy_directory      ${CMAKE_CURRENT_SOURCE_DIR}/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
-    COMMAND ${CMAKE_COMMAND} -E copy_directory      ${PROJECT_SOURCE_DIR}/app/aac-encoder/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
     COMMAND ${CMAKE_COMMAND} -E copy_directory      ${PROJECT_SOURCE_DIR}/src/include ${INGENIC_T31_KVS_SAMPLE_DIR}/include
 )

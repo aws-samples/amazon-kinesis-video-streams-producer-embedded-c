@@ -3,7 +3,6 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 project(kvs-embedded-c)
 
 # Options
-option(BUILD_AAC_ENCODER                "Build aac-encoder"                                 OFF)
 option(BOARD_INGENIC_T31                "Build board Ingenic T31"                           OFF)
 option(BOARD_RPI                        "Build board Raspberry Pi"                          OFF)
 option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"                OFF)
@@ -14,11 +13,6 @@ option(BUILD_WEBRTC_SAMPLES             "Build a sample that kvs and web rtc sha
 set(USE_WEBRTC_MBEDTLS_LIB      OFF)
 
 # Verify and resolve options
-if(${BOARD_INGENIC_T31})
-    set(BUILD_SHARED_SAMPLES    OFF)
-    set(BUILD_STATIC_SAMPLES    OFF)
-    set(BUILD_AAC_ENCODER       ON)
-endif()
 if(${USE_POOL_ALLOCATOR_ALL})
     set(USE_POOL_ALLOCATOR_LIB   ON)
 endif()
@@ -36,7 +30,6 @@ include(CheckIncludeFiles)
 check_include_files(signal.h HAVE_SIGNAL_H)
 
 # Print option values
-message(STATUS "BUILD_AAC_ENCODER               = ${BUILD_AAC_ENCODER}")
 message(STATUS "BOARD_INGENIC_T31               = ${BOARD_INGENIC_T31}")
 message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
@@ -97,9 +90,6 @@ include(libllhttp)
 include(libparson)
 include(libaziotsharedutil)
 include(libtlsf)
-if(${BUILD_AAC_ENCODER})
-    include(libfdkaac)
-endif()
 if(${BOARD_RPI})
    include(libv4l2capturer)
 endif()
