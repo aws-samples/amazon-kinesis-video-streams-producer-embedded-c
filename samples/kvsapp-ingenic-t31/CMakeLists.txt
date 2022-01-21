@@ -18,10 +18,18 @@ target_include_directories(ingenic-t31 PUBLIC ${INGENIC_T31_INC})
 
 # kvsappcli executable
 set(${APP_NAME}_SRC
+    include/aac_encoder.h
+    include/alaw_encoder.h
+    include/option_configuration.h
+    include/sample_config.h
+    include/t31_audio.h
+    include/t31_video.h
+    source/aac_encoder.c
+    source/alaw_encoder.c
     source/kvsappcli.c
-    source/t31_video.c
-    source/t31_audio.c
     source/option_configuration.c
+    source/t31_audio.c
+    source/t31_video.c
 )
 
 set(${APP_NAME}_INC

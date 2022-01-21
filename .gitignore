@@ -6,6 +6,7 @@ samples/kvs-esp32/components/llhttp/*
 
 samples/kvsapp-ingenic-t31/sdk/*
 !samples/kvsapp-ingenic-t31/sdk/README.md
+samples/kvsapp-ingenic-t31/3rdparty
 
 libraries/amazon/amazon-kinesis-video-streams-webrtc-sdk-c/webrtc
 

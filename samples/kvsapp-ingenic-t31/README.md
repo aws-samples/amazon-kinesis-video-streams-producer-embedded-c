@@ -14,6 +14,16 @@ These are prerequisites:
 
 Please follow "T31 SNIPE_user_guide.pdf" in the SDK to setup the device and network. You can put following settings in `/system/init/app_init.sh` if you want.
 
+### Setup network interface
+
+The following command will bring up the network interface `eth0`.
+
+    ifconfig eth0 up
+
+Use the following command to get in IP address on the network interface `eth0` through DHCP.
+
+    udhcpc -R -i eth0
+
 ### Setup DNS server
 
 Use the following command to setup the DNS server. IP "8.8.8.8" is a DNS server hosted by google. You can choose your desired DNS server.
@@ -109,7 +119,7 @@ You can put sample default configurations in file "*samples/kvsapp-ingenic-t31/i
 
 ## AAC audio
 
-For AAC audio, the default implementation is playing silent AAC audio. You will need a software AAC encoder to encode PCM into AAC. For more information, please refer to [Porting AAC Encoder](../../doc/porting_aac_encoder.md)
+For AAC audio, the default implementation in `aac_encder.c` is playing silent AAC audio. You will need a software AAC encoder to encode PCM into AAC. For more information, please refer to [Porting AAC Encoder](../../doc/porting_aac_encoder.md)
 
 ## Build
 
