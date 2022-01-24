@@ -48,21 +48,25 @@ endif()
 unset(LINKER_FLAGS_FOR_MEM_WRAPPER)
 if(${USE_POOL_ALLOCATOR_ALL})
     set(${APP_NAME}_SRC ${${APP_NAME}_SRC}
-            source/mem_wrapper.c
-            )
+        source/mem_wrapper.c
+    )
     set(LINKER_FLAGS_FOR_MEM_WRAPPER -Wl,--wrap,malloc -Wl,--wrap,realloc -Wl,--wrap,calloc -Wl,--wrap,free)
 endif()
 
 # kvsappcli executable
 set(${APP_NAME}_SRC
+    include/aac_encoder.h
+    include/alaw_encoder.h
+    include/option_configuration.h
     include/sample_config.h
     include/t31_audio.h
     include/t31_video.h
+    source/aac_encoder.c
+    source/alaw_encoder.c
     source/kvsappcli.c
-    source/mem_wrapper.c
-    source/t31_video.c
-    source/t31_audio.c
     source/option_configuration.c
+    source/t31_audio.c
+    source/t31_video.c
 )
 
 set(${APP_NAME}_INC
@@ -74,10 +78,9 @@ if(${USE_POOL_ALLOCATOR_LIB})
     set(COMPILE_FLAGS_FOR_POOL_ALLOCATOR -DKVS_USE_POOL_ALLOCATOR)
 endif()
 
-# Build executable with static libraries
+# build static executable
 add_executable(${APP_NAME} ${${APP_NAME}_SRC})
 target_compile_definitions(${APP_NAME} PUBLIC -D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L)
-target_compile_definitions(${APP_NAME} PUBLIC -DBUILD_EXECUTABLE_WITH_STATIC_LIBRARY)
 target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_POOL_ALLOCATOR})
 target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS_FROM_ENV_VAR})
 target_include_directories(${APP_NAME} PUBLIC ${${APP_NAME}_INC})
@@ -88,20 +91,18 @@ target_link_directories(${APP_NAME} PUBLIC
 target_link_libraries(${APP_NAME}
     rt
     dl
+    ingenic-t31
     imp.a
     alog.a
     pthread
-    ingenic-t31
-    aac-encoder
-    fdk-aac.a
     kvs-embedded-c
-    mbedtls.a
-    mbedcrypto.a
-    mbedx509.a
-    llhttp.a
-    parson.a
-    tlsf.a
-    aziotsharedutil.a
+    mbedtls
+    mbedcrypto
+    mbedx509
+    llhttp
+    parson
+    tlsf
+    aziotsharedutil
     m
     ${LINKER_FLAGS_FOR_MEM_WRAPPER}
 )
