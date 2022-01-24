@@ -118,7 +118,7 @@ static void *videoThread(void *arg)
 
     uint8_t *pData = NULL;
     size_t uDataLen = 0;
-    uint64_t uTimestamp = getEpochTimestampInMs();
+    uint64_t uTimestamp = 0;
     const uint32_t uFps = VIDEO_FPS;
 
     if (kvsAppHandle == NULL)
@@ -142,11 +142,11 @@ static void *videoThread(void *arg)
             }
             else
             {
+                uTimestamp = getEpochTimestampInMs();
                 KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_VIDEO);
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp = getEpochTimestampInMs();
         }
     }
 
@@ -162,7 +162,7 @@ static void *audioThread(void *arg)
 
     uint8_t *pData = NULL;
     size_t uDataLen = 0;
-    uint64_t uTimestamp = getEpochTimestampInMs();
+    uint64_t uTimestamp = 0;
     uint32_t uFps = AUDIO_FPS;
 
     if (kvsAppHandle == NULL)
@@ -190,11 +190,11 @@ static void *audioThread(void *arg)
             }
             else
             {
+                uTimestamp = getEpochTimestampInMs();
                 KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_AUDIO);
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp = getEpochTimestampInMs();
         }
     }
 
@@ -293,6 +293,7 @@ int main(int argc, char *argv[])
     uint64_t uFragmentTimecode = 0;
     unsigned int uErrorId = 0;
     const char *pKvsStreamName = NULL;
+    DoWorkExParamter_t xDoWorkExParamter = { 0 };
 
 #ifdef KVS_USE_POOL_ALLOCATOR
     poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
@@ -413,11 +414,14 @@ int main(int argc, char *argv[])
                 }
             }
 
+            xDoWorkExParamter.eType = DO_WORK_SEND_END_OF_FRAMES;
+            KvsApp_doWorkEx(kvsAppHandle, &xDoWorkExParamter);
+
             while (KvsApp_readFragmentAck(kvsAppHandle, &eAckEventType, &uFragmentTimecode, &uErrorId) == 0)
             {
                 if (eAckEventType == eError)
                 {
-                    /* Please refer to this link to get more information of the error ID:
+                    /* Please refer to the following link to get more information on the error ID.
                      *      https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/API_dataplane_PutMedia.html
                      */
                 }
