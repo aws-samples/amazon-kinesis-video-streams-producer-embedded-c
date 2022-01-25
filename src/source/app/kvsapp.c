@@ -691,7 +691,7 @@ static int prvCheckOnDataFrameToBeSent(DataFrameHandle xDataFrameHandle)
     return res;
 }
 
-static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
+static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
 {
     int res = ERRNO_NONE;
     DataFrameHandle xDataFrameHandle = NULL;
@@ -705,7 +705,7 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
     if (pKvs->xStreamHandle != NULL &&
         pKvs->isEbmlHeaderUpdated == true &&
         Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO) &&
-        (!pKvs->isAudioTrackPresent || Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)))
+        (!bForceSend || !pKvs->isAudioTrackPresent || Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)))
     {
         if ((xDataFrameHandle = Kvs_streamPop(pKvs->xStreamHandle)) == NULL)
         {
@@ -760,6 +760,69 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt)
     {
         *pxSendCnt = xSendCnt;
     }
+
+    return res;
+}
+
+static int prvPutMediaDoWorkDefault(KvsApp_t *pKvs)
+{
+    int res = ERRNO_NONE;
+    int xSendCnt = 0;
+
+    do
+    {
+        if (updateEbmlHeader(pKvs) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+
+        if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+
+        if (prvPutMediaSendData(pKvs, &xSendCnt, false) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+    } while (false);
+
+    if (xSendCnt == 0)
+    {
+        sleepInMs(50);
+    }
+
+    return res;
+}
+
+static int prvPutMediaDoWorkSendEndOfFrames(KvsApp_t *pKvs)
+{
+    int res = ERRNO_NONE;
+    int xSendCnt = 0;
+
+    do
+    {
+        if (updateEbmlHeader(pKvs) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+
+        if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+
+        if (prvPutMediaSendData(pKvs, &xSendCnt, true) != ERRNO_NONE)
+        {
+            res = ERRNO_FAIL;
+            break;
+        }
+    } while (xSendCnt > 0);
 
     return res;
 }
@@ -1314,7 +1377,6 @@ int KvsApp_doWork(KvsAppHandle handle)
 {
     int res = ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
-    int xSendCnt = 0;
 
     if (pKvs == NULL)
     {
@@ -1322,30 +1384,34 @@ int KvsApp_doWork(KvsAppHandle handle)
     }
     else
     {
-        do
+        res = prvPutMediaDoWorkDefault(pKvs);
+    }
+
+    return res;
+}
+
+int KvsApp_doWorkEx(KvsAppHandle handle, DoWorkExParamter_t *pPara)
+{
+    int res = ERRNO_NONE;
+    KvsApp_t *pKvs = (KvsApp_t *)handle;
+
+    if (pKvs == NULL)
+    {
+        res = ERRNO_FAIL;
+    }
+    else
+    {
+        if (pPara == NULL || pPara->eType == DO_WORK_DEFAULT)
         {
-            if (updateEbmlHeader(pKvs) != ERRNO_NONE)
-            {
-                res = ERRNO_FAIL;
-                break;
-            }
-
-            if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
-            {
-                res = ERRNO_FAIL;
-                break;
-            }
-
-            if (prvPutMediaSendData(pKvs, &xSendCnt) != ERRNO_NONE)
-            {
-                res = ERRNO_FAIL;
-                break;
-            }
-        } while (false);
-
-        if (xSendCnt == 0)
+            res = prvPutMediaDoWorkDefault(pKvs);
+        }
+        else if (pPara->eType == DO_WORK_SEND_END_OF_FRAMES)
         {
-            sleepInMs(50);
+            res = prvPutMediaDoWorkSendEndOfFrames(pKvs);
+        }
+        else
+        {
+            res = ERRNO_FAIL;
         }
     }
 

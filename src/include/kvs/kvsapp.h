@@ -75,6 +75,20 @@ typedef struct DataFrameCallbacks
     OnDataFrameToBeSentInfo_t onDataFrameToBeSentInfo;
 } DataFrameCallbacks_t;
 
+typedef enum DoWorkExType
+{
+    /* The default behaviro is the same as KvsApp_doWork. */
+    DO_WORK_DEFAULT = 0,
+
+    /* It's similar to doWork, except that it also sends out the end of frames. */
+    DO_WORK_SEND_END_OF_FRAMES = 1
+} DoWorkExType_t;
+
+typedef struct DoWorkExParamter
+{
+    DoWorkExType_t eType;
+} DoWorkExParamter_t;
+
 /**
  * Create a KVS application.
  *
@@ -156,6 +170,15 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
  * @return 0 on success, non-zero value otherwise
  */
 int KvsApp_doWork(KvsAppHandle handle);
+
+/**
+ * Let KVS application do works. It will try to send out frames, and check if any messages from server.
+ *
+ * @param[in] handle KVS application handle
+ * @param[in] pPara Extra parameter. If pPara is NULL, the default behavior is DO_WORK_DEFAULT.
+ * @return 0 on success, non-zero value otherwise
+ */
+int KvsApp_doWorkEx(KvsAppHandle handle, DoWorkExParamter_t *pPara);
 
 /**
  * @brief Non-blocking read a fragment ACK if any.
