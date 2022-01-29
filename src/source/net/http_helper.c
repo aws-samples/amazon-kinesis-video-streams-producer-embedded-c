@@ -222,19 +222,17 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
                 {
                     xRes = KVS_ERRNO_NONE;
                     *puHttpStatus = uHttpStatusCode;
-                    if (uHttpStatusCode == 200)
+
+                    if ((pRspBody = (char *)kvsMalloc(uBodyLen + 1)) == NULL)
                     {
-                        if ((pRspBody = (char *)kvsMalloc(uBodyLen + 1)) == NULL)
-                        {
-                            LogError("OOM: ppBodyLoc");
-                            xRes = KVS_ERRNO_NONE;
-                            break;
-                        }
-                        memcpy(pRspBody, pBodyLoc, uBodyLen);
-                        pRspBody[uBodyLen] = '\0';
-                        *ppRspBody = pRspBody;
-                        *puRspBodyLen = uBodyLen;
+                        LogError("OOM: ppBodyLoc");
+                        xRes = KVS_ERRNO_NONE;
+                        break;
                     }
+                    memcpy(pRspBody, pBodyLoc, uBodyLen);
+                    pRspBody[uBodyLen] = '\0';
+                    *ppRspBody = pRspBody;
+                    *puRspBodyLen = uBodyLen;
                 }
             }
         } while (xRes != KVS_ERRNO_NONE);
