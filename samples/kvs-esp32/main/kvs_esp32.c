@@ -15,411 +15,118 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "kvs_esp32.h"
-
-#include "kvs/nalu.h"
+/* Headers for KVS */
+#include "kvs/kvsapp.h"
 #include "kvs/port.h"
-#include "kvs/restapi.h"
-#include "kvs/stream.h"
 
 #include "h264_file_loader.h"
 #include "sample_config.h"
+#include "option_configuration.h"
 
 #if ENABLE_AUDIO_TRACK
-#    include "aac_file_loader.h"
+#if USE_AUDIO_AAC_SAMPLE
+#include "aac_file_loader.h"
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+#include "g711_file_loader.h"
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
-
-#if ENABLE_IOT_CREDENTIAL
-#    include "kvs/iot_credential_provider.h"
-#endif /* ENABLE_IOT_CREDENTIAL */
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
 
-typedef struct Kvs
-{
-#if ENABLE_IOT_CREDENTIAL
-    IotCredentialRequest_t xIotCredentialReq;
-#endif
+static KvsAppHandle kvsAppHandle = NULL;
 
-    KvsServiceParameter_t xServicePara;
-    KvsDescribeStreamParameter_t xDescPara;
-    KvsCreateStreamParameter_t xCreatePara;
-    KvsGetDataEndpointParameter_t xGetDataEpPara;
-    KvsPutMediaParameter_t xPutMediaPara;
-
-    StreamHandle xStreamHandle;
-    PutMediaHandle xPutMediaHandle;
-
-    VideoTrackInfo_t *pVideoTrackInfo;
-    AudioTrackInfo_t *pAudioTrackInfo;
-
-    pthread_t videoTid;
-    H264FileLoaderHandle xVideoFileLoader;
+static pthread_t videoTid;
+static H264FileLoaderHandle xVideoFileLoader = NULL;
 
 #if ENABLE_AUDIO_TRACK
-    pthread_t audioTid;
-    AacFileLoaderHandle xAudioFileLoader;
+static pthread_t audioTid;
+#if USE_AUDIO_AAC_SAMPLE
+static AacFileLoaderHandle xAudioFileLoader = NULL;
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+static G711FileLoaderHandle xAudioFileLoader = NULL;
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
+/* A global variable to exit program if it's set to true. It can be set to true if signal.h is available and user press Ctrl+c. It can also be set to true via debugger. */
+static bool gStopRunning = false;
+
 #if DEBUG_STORE_MEDIA_TO_FILE
-    FILE *fp;
-#endif
-} Kvs_t;
-
-static void sleepInMs(uint32_t ms)
-{
-    usleep(ms * 1000);
-}
-
-static int kvsInitialize(Kvs_t *pKvs)
+static FILE *fpDbgMedia = NULL;
+static int onMkvSent(uint8_t *pData, size_t uDataLen, void *pAppData)
 {
     int res = ERRNO_NONE;
-    char *pcStreamName = KVS_STREAM_NAME;
+    char pFilename[ sizeof(MEDIA_FILENAME_FORMAT) + 21 ]; /* 20 digits for uint64_t, 1 digit for EOS */
 
-    if (pKvs == NULL)
+    if (fpDbgMedia == NULL)
     {
-        res = ERRNO_FAIL;
-    }
-    else
-    {
-        memset(pKvs, 0, sizeof(Kvs_t));
-
-        pKvs->xServicePara.pcHost = AWS_KVS_HOST;
-        pKvs->xServicePara.pcRegion = AWS_KVS_REGION;
-        pKvs->xServicePara.pcService = AWS_KVS_SERVICE;
-        pKvs->xServicePara.pcAccessKey = AWS_ACCESS_KEY;
-        pKvs->xServicePara.pcSecretKey = AWS_SECRET_KEY;
-
-        pKvs->xDescPara.pcStreamName = pcStreamName;
-
-        pKvs->xCreatePara.pcStreamName = pcStreamName;
-        pKvs->xCreatePara.uDataRetentionInHours = 2;
-
-        pKvs->xGetDataEpPara.pcStreamName = pcStreamName;
-
-        pKvs->xPutMediaPara.pcStreamName = pcStreamName;
-        pKvs->xPutMediaPara.xTimecodeType = TIMECODE_TYPE_ABSOLUTE;
-
-#if ENABLE_IOT_CREDENTIAL
-        pKvs->xIotCredentialReq.pCredentialHost = CREDENTIALS_HOST;
-        pKvs->xIotCredentialReq.pRoleAlias = ROLE_ALIAS;
-        pKvs->xIotCredentialReq.pThingName = THING_NAME;
-        pKvs->xIotCredentialReq.pRootCA = ROOT_CA;
-        pKvs->xIotCredentialReq.pCertificate = CERTIFICATE;
-        pKvs->xIotCredentialReq.pPrivateKey = PRIVATE_KEY;
-#endif
-
-#if DEBUG_STORE_MEDIA_TO_FILE
-        pKvs->fp = fopen(MEDIA_FILENAME, "wb");
-        if (pKvs->fp == NULL)
+        snprintf(pFilename, sizeof(pFilename)-1, MEDIA_FILENAME_FORMAT, getEpochTimestampInMs());
+        fpDbgMedia = fopen(pFilename, "wb");
+        if (fpDbgMedia == NULL)
         {
-            printf("Failed to open media file\r\n");
-        }
-#endif /* DEBUG_STORE_MEDIA_TO_FILE */
-    }
-
-    return res;
-}
-
-static void kvsTerminate(Kvs_t *pKvs)
-{
-    if (pKvs != NULL)
-    {
-        if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
-        {
-            free(pKvs->xServicePara.pcPutMediaEndpoint);
-            pKvs->xServicePara.pcPutMediaEndpoint = NULL;
-        }
-    }
-}
-
-static int setupDataEndpoint(Kvs_t *pKvs)
-{
-    int res = ERRNO_NONE;
-    unsigned int uHttpStatusCode = 0;
-
-    if (pKvs == NULL)
-    {
-        res = ERRNO_FAIL;
-    }
-    else
-    {
-        if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
-        {
+            printf("Failed to open debug file: %s\n", pFilename);
         }
         else
         {
-            printf("Try to describe stream\r\n");
-            if (Kvs_describeStream(&(pKvs->xServicePara), &(pKvs->xDescPara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
-            {
-                printf("Failed to describe stream\r\n");
-                printf("Try to create stream\r\n");
-                if (Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
-                {
-                    printf("Failed to create stream\r\n");
-                    res = ERRNO_FAIL;
-                }
-            }
-
-            if (res == ERRNO_NONE)
-            {
-                if (Kvs_getDataEndpoint(&(pKvs->xServicePara), &(pKvs->xGetDataEpPara), &uHttpStatusCode, &(pKvs->xServicePara.pcPutMediaEndpoint)) != 0 || uHttpStatusCode != 200)
-                {
-                    printf("Failed to get data endpoint\r\n");
-                    res = ERRNO_FAIL;
-                }
-            }
+            printf("Opened debug file %s\n", pFilename);
         }
     }
 
-    if (res == ERRNO_NONE)
+    if (fpDbgMedia != NULL)
     {
-        printf("PUT MEDIA endpoint: %s\r\n", pKvs->xServicePara.pcPutMediaEndpoint);
+        fwrite(pData, 1, uDataLen, fpDbgMedia);
     }
 
     return res;
 }
-
-static void streamFlush(StreamHandle xStreamHandle)
-{
-    DataFrameHandle xDataFrameHandle = NULL;
-    DataFrameIn_t *pDataFrameIn = NULL;
-
-    while ((xDataFrameHandle = Kvs_streamPop(xStreamHandle)) != NULL)
-    {
-        pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-        free(pDataFrameIn->pData);
-        Kvs_dataFrameTerminate(xDataFrameHandle);
-    }
-}
-
-static void streamFlushToNextCluster(StreamHandle xStreamHandle)
-{
-    DataFrameHandle xDataFrameHandle = NULL;
-    DataFrameIn_t *pDataFrameIn = NULL;
-
-    while (1)
-    {
-        xDataFrameHandle = Kvs_streamPeek(xStreamHandle);
-        if (xDataFrameHandle == NULL)
-        {
-            sleepInMs(50);
-        }
-        else
-        {
-            pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            if (pDataFrameIn->xClusterType == MKV_CLUSTER)
-            {
-                break;
-            }
-            else
-            {
-                xDataFrameHandle = Kvs_streamPop(xStreamHandle);
-                pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-                free(pDataFrameIn->pData);
-                Kvs_dataFrameTerminate(xDataFrameHandle);
-            }
-        }
-    }
-}
-
-static int putMediaSendData(Kvs_t *pKvs, int *pxSendCnt)
-{
-    int res = 0;
-    DataFrameHandle xDataFrameHandle = NULL;
-    DataFrameIn_t *pDataFrameIn = NULL;
-    uint8_t *pData = NULL;
-    size_t uDataLen = 0;
-    uint8_t *pMkvHeader = NULL;
-    size_t uMkvHeaderLen = 0;
-    int xSendCnt = 0;
-
-    if (Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_VIDEO)
-#if ENABLE_AUDIO_TRACK
-        && Kvs_streamAvailOnTrack(pKvs->xStreamHandle, TRACK_AUDIO)
 #endif
-    )
-    {
-        if ((xDataFrameHandle = Kvs_streamPop(pKvs->xStreamHandle)) == NULL)
-        {
-            printf("Failed to get data frame\r\n");
-            res = ERRNO_FAIL;
-        }
-        else if (Kvs_dataFrameGetContent(xDataFrameHandle, &pMkvHeader, &uMkvHeaderLen, &pData, &uDataLen) != 0)
-        {
-            printf("Failed to get data and mkv header to send\r\n");
-            res = ERRNO_FAIL;
-        }
-        else if (Kvs_putMediaUpdate(pKvs->xPutMediaHandle, pMkvHeader, uMkvHeaderLen, pData, uDataLen) != 0)
-        {
-            printf("Failed to update\r\n");
-            res = ERRNO_FAIL;
-        }
-        else
-        {
-#if DEBUG_STORE_MEDIA_TO_FILE
-            if (pKvs->fp != NULL && (fwrite(pMkvHeader, 1, uMkvHeaderLen, pKvs->fp) == 0 || fwrite(pData, 1, uDataLen, pKvs->fp) == 0))
-            {
-                printf("Failed to write media to file\r\n");
-                fclose(pKvs->fp);
-                pKvs->fp = NULL;
-            }
-#endif
-            xSendCnt++;
-        }
-
-        if (xDataFrameHandle != NULL)
-        {
-            pDataFrameIn = (DataFrameIn_t *)xDataFrameHandle;
-            free(pDataFrameIn->pData);
-            Kvs_dataFrameTerminate(xDataFrameHandle);
-        }
-    }
-
-    if (pxSendCnt != NULL)
-    {
-        *pxSendCnt = xSendCnt;
-    }
-
-    return res;
-}
-
-static int putMedia(Kvs_t *pKvs)
-{
-    int res = 0;
-    unsigned int uHttpStatusCode = 0;
-    uint8_t *pEbmlSeg = NULL;
-    size_t uEbmlSegLen = 0;
-
-    printf("Try to put media\r\n");
-    if (pKvs == NULL)
-    {
-        printf("Invalid argument: pKvs\r\n");
-        res = ERRNO_FAIL;
-    }
-    else if (Kvs_putMediaStart(&(pKvs->xServicePara), &(pKvs->xPutMediaPara), &uHttpStatusCode, &(pKvs->xPutMediaHandle)) != 0 || uHttpStatusCode != 200)
-    {
-        printf("Failed to setup PUT MEDIA\r\n");
-        res = ERRNO_FAIL;
-    }
-    else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
-    {
-        printf("Failed to upadte MKV EBML and segment\r\n");
-        res = ERRNO_FAIL;
-    }
-    else
-    {
-        /* The beginning of a KVS stream has to be a cluster frame. */
-        streamFlushToNextCluster(pKvs->xStreamHandle);
-
-#if DEBUG_STORE_MEDIA_TO_FILE
-        if (pKvs->fp != NULL && fwrite(pEbmlSeg, 1, uEbmlSegLen, pKvs->fp) == 0)
-        {
-            printf("Failed to write media to file\r\n");
-            fclose(pKvs->fp);
-            pKvs->fp = NULL;
-        }
-#endif
-        while (1)
-        {
-            if (putMediaSendData(pKvs) != ERRNO_NONE)
-            {
-                break;
-            }
-            if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
-            {
-                break;
-            }
-            if (xSendCnt == 0)
-            {
-                sleepInMs(50);
-            }
-        }
-    }
-
-    printf("Leaving put media\r\n");
-    Kvs_putMediaFinish(pKvs->xPutMediaHandle);
-    pKvs->xPutMediaHandle = NULL;
-
-    return res;
-}
 
 static void *videoThread(void *arg)
 {
     int res = 0;
-    Kvs_t *pKvs = (Kvs_t *)arg;
+    KvsAppHandle kvsAppHandle = (KvsAppHandle)arg;
 
-    DataFrameIn_t xDataFrameIn = {0};
     uint8_t *pData = NULL;
     size_t uDataLen = 0;
-    uint64_t uTimestamp = getEpochTimestampInMs();
+    uint64_t uTimestamp = 0;
     const uint32_t uFps = VIDEO_FPS;
-    size_t uMemTotal = 0;
 
-    if (pKvs == NULL)
+    if (kvsAppHandle == NULL)
     {
-        printf("%s(): Invalid argument: pKvs\r\n", __FUNCTION__);
+        printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
     }
     else
     {
-        /* Wait a little to avoid buffer full */
-        sleepInMs(5000);
-
         while (1)
         {
-            uMemTotal = 0;
-            if (Kvs_streamMemStatTotal(pKvs->xStreamHandle, &uMemTotal) == 0)
+            if (gStopRunning)
             {
-                if (uMemTotal > STREAM_MAX_BUFFERING_SIZE)
-                {
-                    sleepInMs(1000);
-                    continue;
-                }
-            }
-            else
-            {
-                printf("failed to get current memory stat\r\n");
-                res = ERRNO_FAIL;
                 break;
             }
 
-            if (H264FileLoaderLoadFrame(pKvs->xVideoFileLoader, (char **)&pData, &uDataLen) != 0)
+            if (H264FileLoaderLoadFrame(xVideoFileLoader, (char **)&pData, &uDataLen) != 0)
             {
-                printf("Failed to load data frame\r\n");
+                printf("Failed to load data frame\n");
                 res = ERRNO_FAIL;
                 break;
             }
             else
             {
-                xDataFrameIn.pData = (char *)pData;
-                xDataFrameIn.uDataLen = uDataLen;
-                xDataFrameIn.bIsKeyFrame = isKeyFrame(pData, uDataLen);
-                xDataFrameIn.uTimestampMs = uTimestamp;
-                xDataFrameIn.xTrackType = TRACK_VIDEO;
-
-                xDataFrameIn.xClusterType = (xDataFrameIn.bIsKeyFrame) ? MKV_CLUSTER : MKV_SIMPLE_BLOCK;
-
-                if (Kvs_streamAddDataFrame(pKvs->xStreamHandle, &xDataFrameIn) == NULL)
-                {
-                    printf("Failed to add data frame\r\n");
-                    res = ERRNO_FAIL;
-                    break;
-                }
-                else
-                {
-                }
+                uTimestamp = getEpochTimestampInMs();
+                KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_VIDEO);
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp += 1000 / uFps;
         }
     }
 
-    printf("video thread leaving, err:%d\r\n", res);
+    printf("video thread leaving, err:%d\n", res);
 
     return NULL;
 }
@@ -427,51 +134,43 @@ static void *videoThread(void *arg)
 #if ENABLE_AUDIO_TRACK
 static void *audioThread(void *arg)
 {
-    int res = 0;
-    Kvs_t *pKvs = (Kvs_t *)arg;
+    KvsAppHandle kvsAppHandle = (KvsAppHandle)arg;
 
-    DataFrameIn_t xDataFrameIn = {0};
     uint8_t *pData = NULL;
     size_t uDataLen = 0;
-    uint64_t uTimestamp = getEpochTimestampInMs();
+    uint64_t uTimestamp = 0;
     uint32_t uFps = AUDIO_FPS;
 
-    if (pKvs == NULL)
+    if (kvsAppHandle == NULL)
     {
-        printf("%s(): Invalid argument: pKvs\r\n", __FUNCTION__);
+        printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
     }
     else
     {
         while (1)
         {
-            if (AacFileLoaderLoadFrame(pKvs->xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
+            if (gStopRunning)
             {
-                printf("Failed to load data frame\r\n");
-                res = ERRNO_FAIL;
+                break;
+            }
+
+#if USE_AUDIO_AAC_SAMPLE
+            if (AacFileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+            if (G711FileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
+#endif /* USE_AUDIO_G711_SAMPLE */
+            {
+                printf("Failed to load data frame\n");
+                break;
             }
             else
             {
-                xDataFrameIn.pData = (char *)pData;
-                xDataFrameIn.uDataLen = uDataLen;
-                xDataFrameIn.bIsKeyFrame = false;
-                xDataFrameIn.uTimestampMs = uTimestamp;
-                xDataFrameIn.xTrackType = TRACK_AUDIO;
-
-                xDataFrameIn.xClusterType = MKV_SIMPLE_BLOCK;
-
-                if (Kvs_streamAddDataFrame(pKvs->xStreamHandle, &xDataFrameIn) == NULL)
-                {
-                    printf("Failed to add data frame\r\n");
-                    res = ERRNO_FAIL;
-                    break;
-                }
-                else
-                {
-                }
+                uTimestamp = getEpochTimestampInMs();
+                KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_AUDIO);
             }
 
             sleepInMs(1000 / uFps);
-            uTimestamp += 1000 / uFps;
         }
     }
 
@@ -479,12 +178,96 @@ static void *audioThread(void *arg)
 }
 #endif /* ENABLE_AUDIO_TRACK */
 
-void Kvs_run(Kvs_t *pKvs)
+static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 {
     int res = ERRNO_NONE;
-    unsigned int uHttpStatusCode = 0;
+
+    /* Setup credentials, it should be either using IoT credentials or AWS access key. */
+#if ENABLE_IOT_CREDENTIAL
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_CREDENTIAL_HOST, (const char *)CREDENTIALS_HOST) != 0)
+    {
+        printf("Failed to set credential host\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_ROLE_ALIAS, (const char *)ROLE_ALIAS) != 0)
+    {
+        printf("Failed to set role alias\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_THING_NAME, (const char *)THING_NAME) != 0)
+    {
+        printf("Failed to set thing name\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_ROOTCA, (const char *)ROOT_CA) != 0)
+    {
+        printf("Failed to set root CA\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_CERT, (const char *)CERTIFICATE) != 0)
+    {
+        printf("Failed to set certificate\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_KEY, (const char *)PRIVATE_KEY) != 0)
+    {
+        printf("Failed to set private key\n");
+    }
+#else
+    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_ACCESS_KEY_ID, OptCfg_getAwsAccessKey()) != 0)
+    {
+        printf("Failed to set AWS_ACCESS_KEY\n");
+    }
+    if (KvsApp_setoption(kvsAppHandle, OPTION_AWS_SECRET_ACCESS_KEY, OptCfg_getAwsSecretAccessKey()) != 0)
+    {
+        printf("Failed to set AWS_SECRET_KEY\n");
+    }
+#endif /* ENABLE_IOT_CREDENTIAL */
+
+    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_VIDEO_TRACK_INFO, (const char *)H264FileLoaderGetVideoTrackInfo(xVideoFileLoader)) != 0)
+    {
+        printf("Failed to set video track info\n");
+    }
+
+#if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
+    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)AacFileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)G711FileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
+#endif /* USE_AUDIO_G711_SAMPLE */
+    {
+        printf("Failed to set audio track info\n");
+    }
+#endif /* ENABLE_AUDIO_TRACK */
+
+#if ENABLE_RING_BUFFER_MEM_LIMIT
+    KvsApp_streamPolicy_t xPolicy = STREAM_POLICY_RING_BUFFER;
+    if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY, (const char *)&xPolicy) != 0)
+    {
+        printf("Failed to set stream policy\n");
+    }
+    size_t uRingBufferMemLimit = RING_BUFFER_MEM_LIMIT;
+    if (KvsApp_setoption(kvsAppHandle, OPTION_STREAM_POLICY_RING_BUFFER_MEM_LIMIT, (const char *)&uRingBufferMemLimit) != 0)
+    {
+        printf("Failed to set ring buffer memory limit\n");
+    }
+#endif /* ENABLE_RING_BUFFER_MEM_LIMIT */
+
+#if DEBUG_STORE_MEDIA_TO_FILE
+    if (KvsApp_setOnMkvSentCallback(kvsAppHandle, onMkvSent, NULL) != 0)
+    {
+        printf("Failed to set onMkvSentCallback\n");
+    }
+#endif /* DEBUG_STORE_MEDIA_TO_FILE */
+
+    return res;
+}
+
+void Kvs_run()
+{
     FileLoaderPara_t xVideoFileLoaderParam = {0};
     FileLoaderPara_t xAudioFileLoaderParam = {0};
+    uint64_t uLastPrintMemStatTimestamp = 0;
+    ePutMediaFragmentAckEventType eAckEventType = eUnknown;
+    uint64_t uFragmentTimecode = 0;
+    unsigned int uErrorId = 0;
+    DoWorkExParamter_t xDoWorkExParamter = { 0 };
 
     xVideoFileLoaderParam.pcTrackName = VIDEO_TRACK_NAME;
     xVideoFileLoaderParam.pcFileFormat = H264_FILE_FORMAT;
@@ -493,113 +276,164 @@ void Kvs_run(Kvs_t *pKvs)
     xVideoFileLoaderParam.bKeepRotate = true;
 
 #if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_AAC_SAMPLE
     xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
     xAudioFileLoaderParam.pcFileFormat = AAC_FILE_FORMAT;
     xAudioFileLoaderParam.xFileStartIdx = AAC_FILE_IDX_BEGIN;
     xAudioFileLoaderParam.xFileEndIdx = AAC_FILE_IDX_END;
     xAudioFileLoaderParam.bKeepRotate = true;
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
+    xAudioFileLoaderParam.pcFileFormat = G711_FILE_FORMAT;
+    xAudioFileLoaderParam.xFileStartIdx = G711_FILE_IDX_BEGIN;
+    xAudioFileLoaderParam.xFileEndIdx = G711_FILE_IDX_END;
+    xAudioFileLoaderParam.bKeepRotate = true;
+#endif /* USE_AUDIO_G711_SAMPLE */
 #endif /* ENABLE_AUDIO_TRACK */
 
-#if ENABLE_IOT_CREDENTIAL
-    IotCredentialToken_t *pToken = NULL;
-#endif /* ENABLE_IOT_CREDENTIAL */
+    gStopRunning = false;
 
-    if (kvsInitialize(pKvs) != 0)
+    if ((kvsAppHandle = KvsApp_create(OptCfg_getHostKinesisVideo(), OptCfg_getRegion(), OptCfg_getServiceKinesisVideo(), KVS_STREAM_NAME)) == NULL)
     {
-        printf("Failed to initialize KVS\r\n");
+        printf("Failed to initialize KVS\n");
     }
-    else if ((pKvs->xVideoFileLoader = H264FileLoaderCreate(&xVideoFileLoaderParam)) == NULL)
+    else if ((xVideoFileLoader = H264FileLoaderCreate(&xVideoFileLoaderParam)) == NULL)
     {
-        printf("Failed to initialize H264 file loader\r\n");
+        printf("Failed to initialize H264 file loader\n");
     }
 #if ENABLE_AUDIO_TRACK
-    else if ((pKvs->xAudioFileLoader = AacFileLoaderCreate(&xAudioFileLoaderParam, AUDIO_MPEG_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
+#if USE_AUDIO_AAC_SAMPLE
+    else if ((xAudioFileLoader = AacFileLoaderCreate(&xAudioFileLoaderParam, AUDIO_MPEG_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    else if ((xAudioFileLoader = G711FileLoaderCreate(&xAudioFileLoaderParam, AUDIO_PCM_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
+#endif /* USE_AUDIO_G711_SAMPLE */
     {
-        printf("Failed to initialize AAC file loader\r\n");
+        printf("Failed to initialize audio file loader\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
-    else if (
-        (pKvs->pVideoTrackInfo = H264FileLoaderGetVideoTrackInfo(pKvs->xVideoFileLoader)) == NULL ||
-#if ENABLE_AUDIO_TRACK
-        (pKvs->pAudioTrackInfo = AacFileLoaderGetAudioTrackInfo(pKvs->xAudioFileLoader)) == NULL ||
-#endif /* ENABLE_AUDIO_TRACK */
-        (pKvs->xStreamHandle = Kvs_streamCreate(pKvs->pVideoTrackInfo, pKvs->pAudioTrackInfo)) == NULL)
+    else if (setKvsAppOptions(kvsAppHandle) != ERRNO_NONE)
     {
-        printf("Failed to create stream\r\n");
+        printf("Failed to set options\n");
     }
-    else if (pthread_create(&(pKvs->videoTid), NULL, videoThread, pKvs) != 0)
+    else if (pthread_create(&videoTid, NULL, videoThread, kvsAppHandle) != 0)
     {
-        printf("Failed to create video thread\r\n");
+        printf("Failed to create video thread\n");
     }
 #if ENABLE_AUDIO_TRACK
-    else if (pthread_create(&(pKvs->audioTid), NULL, audioThread, pKvs) != 0)
+    else if (pthread_create(&audioTid, NULL, audioThread, kvsAppHandle) != 0)
     {
-        printf("Failed to create audio thread\r\n");
+        printf("Failed to create audio thread\n");
     }
 #endif /* ENABLE_AUDIO_TRACK */
     else
     {
         while (1)
         {
-#if ENABLE_IOT_CREDENTIAL
-            Iot_credentialTerminate(pToken);
-            if ((pToken = Iot_getCredential(&(pKvs->xIotCredentialReq))) == NULL)
+            if (gStopRunning)
             {
-                printf("Failed to get Iot credential\r\n");
+                break;
+            }
+
+            if (KvsApp_open(kvsAppHandle) != 0)
+            {
+                printf("Failed to open KVS app\n");
+                break;
+            }
+
+            while (1)
+            {
+                if (gStopRunning)
+                {
+                    break;
+                }
+
+                if (KvsApp_doWork(kvsAppHandle) != 0)
+                {
+                    break;
+                }
+
+                while (KvsApp_readFragmentAck(kvsAppHandle, &eAckEventType, &uFragmentTimecode, &uErrorId) == 0)
+                {
+                    if (eAckEventType == ePersisted)
+                    {
+                        // printf("key-frame with timecode %" PRIu64 " is persisted\n", uFragmentTimecode);
+                    }
+                }
+
+                if (getEpochTimestampInMs() > uLastPrintMemStatTimestamp + 1000)
+                {
+                    printf("Buffer memory used: %zu\n", KvsApp_getStreamMemStatTotal(kvsAppHandle));
+                    uLastPrintMemStatTimestamp = getEpochTimestampInMs();
+                }
+            }
+
+            xDoWorkExParamter.eType = DO_WORK_SEND_END_OF_FRAMES;
+            KvsApp_doWorkEx(kvsAppHandle, &xDoWorkExParamter);
+
+            while (KvsApp_readFragmentAck(kvsAppHandle, &eAckEventType, &uFragmentTimecode, &uErrorId) == 0)
+            {
+                if (eAckEventType == eError)
+                {
+                    /* Please refer to the following link to get more information on the error ID.
+                     *      https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/API_dataplane_PutMedia.html
+                     */
+                }
+            }
+
+            if (KvsApp_close(kvsAppHandle) != 0)
+            {
+                printf("Failed to close KVS app\n");
                 break;
             }
             else
             {
-                pKvs->xServicePara.pcAccessKey = pToken->pAccessKeyId;
-                pKvs->xServicePara.pcSecretKey = pToken->pSecretAccessKey;
-                pKvs->xServicePara.pcToken = pToken->pSessionToken;
-            }
+                printf("KvsApp closed\n");
+#if DEBUG_STORE_MEDIA_TO_FILE
+                if (fpDbgMedia != NULL)
+                {
+                    fclose(fpDbgMedia);
+                    fpDbgMedia = NULL;
+                    printf("Closed debug file\n");
+                }
 #endif
-
-            if (setupDataEndpoint(pKvs) != ERRNO_NONE)
-            {
-                printf("Failed to get PUT MEDIA endpoint");
             }
-            else if (putMedia(pKvs) != ERRNO_NONE)
-            {
-                printf("End of PUT MEDIA\r\n");
-                break;
-            }
-
-            sleepInMs(100); /* Wait for retry */
         }
     }
 
-#if ENABLE_IOT_CREDENTIAL
-    Iot_credentialTerminate(pToken);
-#endif /* ENABLE_IOT_CREDENTIAL */
-    H264FileLoaderTerminate(pKvs->xVideoFileLoader);
+    KvsApp_close(kvsAppHandle);
+
+    H264FileLoaderTerminate(xVideoFileLoader);
+    xVideoFileLoader = NULL;
+
 #if ENABLE_AUDIO_TRACK
-    AacFileLoaderTerminate(pKvs->xAudioFileLoader);
+#if USE_AUDIO_AAC_SAMPLE
+    AacFileLoaderTerminate(xAudioFileLoader);
+#endif /* USE_AUDIO_AAC_SAMPLE */
+#if USE_AUDIO_G711_SAMPLE
+    G711FileLoaderTerminate(xAudioFileLoader);
+#endif /* USE_AUDIO_G711_SAMPLE */
+    xAudioFileLoader = NULL;
 #endif /* ENABLE_AUDIO_TRACK */
 
-    streamFlush(pKvs->xStreamHandle);
-    Kvs_streamTermintate(pKvs->xStreamHandle);
+    pthread_join(videoTid, NULL);
+#if ENABLE_AUDIO_TRACK
+    pthread_join(audioTid, NULL);
+#endif /* ENABLE_AUDIO_TRACK */
+
+    KvsApp_terminate(kvsAppHandle);
+    kvsAppHandle = NULL;
 }
 
-KvsHandle Kvs_create(void)
+void Kvs_terminate()
 {
-    Kvs_t *pKvs = NULL;
+    gStopRunning = true;
 
-    if ((pKvs = (Kvs_t *)malloc(sizeof(Kvs_t))) != NULL)
+    while(kvsAppHandle != NULL)
     {
-        memset(pKvs, 0, sizeof(Kvs_t));
+        sleepInMs(100);
     }
 
-    return pKvs;
-}
-
-void Kvs_terminate(KvsHandle xKvsHandle)
-{
-    Kvs_t *pKvs = xKvsHandle;
-
-    if (pKvs != NULL)
-    {
-        free(pKvs);
-    }
+    gStopRunning = false;
 }

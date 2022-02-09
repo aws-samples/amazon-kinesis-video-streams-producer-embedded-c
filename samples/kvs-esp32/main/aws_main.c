@@ -158,9 +158,9 @@ static void prvInitializeSntp(void )
     sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
     sntp_init();
 
-    while( sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET )
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET)
     {
-        vTaskDelay(200 / portTICK_PERIOD_MS );
+        vTaskDelay(200 / portTICK_PERIOD_MS);
     }
 }
 
@@ -172,7 +172,7 @@ static void prvInitializeSdcard( void )
     // formatted in case when mounting fails.
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false,
-        .max_files = 512,
+        .max_files = EXAMPLE_SDCARD_MAX_FILES,
         .allocation_unit_size = 16 * 1024
     };
     sdmmc_card_t* card;
@@ -214,15 +214,12 @@ static void prvInitializeSdcard( void )
 
 void aws_task(void *pvParameter)
 {
-    KvsHandle xKvsHandle = NULL;
-
     prvInitializeSntp();
 
     prvInitializeSdcard();
 
-    xKvsHandle = Kvs_create();
-    Kvs_run(xKvsHandle);
-    Kvs_terminate(xKvsHandle);
+    Kvs_run();
+    Kvs_terminate();
 
     vTaskDelete(NULL);
 }
@@ -249,7 +246,7 @@ void app_main()
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     prvInitialiseWifi();
 
-    if (xTaskCreate(&aws_task, "aws_task", 6 * 1024, NULL, 5, NULL) != pdPASS) {
+    if (xTaskCreate(&aws_task, "aws_task", 4 * 1024, NULL, 5, NULL) != pdPASS) {
         printf("create aws task failed\r\n");
     }
 }

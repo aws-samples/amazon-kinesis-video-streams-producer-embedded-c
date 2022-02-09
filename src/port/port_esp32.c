@@ -18,6 +18,9 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "kvs/errors.h"
 #include "kvs/port.h"
 

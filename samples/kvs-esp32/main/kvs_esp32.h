@@ -16,12 +16,8 @@
 #ifndef KVS_ESP32_H
 #define KVS_ESP32_H
 
-typedef struct Kvs *KvsHandle;
+void Kvs_run();
 
-KvsHandle Kvs_create(void);
-
-void Kvs_terminate(KvsHandle xKvsHandle);
-
-void Kvs_run(KvsHandle xKvsHandle);
+void Kvs_terminate();
 
 #endif /* KVS_ESP32_H */
