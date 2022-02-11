@@ -40,7 +40,7 @@ target_compile_definitions(${APP_NAME} PUBLIC ${COMPILE_FLAGS_FOR_SAMPLE_OPTIONS
 target_link_libraries(${APP_NAME}
     kvs-embedded-c
     samplescommon
+    embedded-media-static
     pthread
     ${LINKER_FLAGS_FOR_MEM_WRAPPER}
 )
-

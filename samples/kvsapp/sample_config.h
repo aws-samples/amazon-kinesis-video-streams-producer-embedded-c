@@ -29,52 +29,35 @@
 #define AWS_KVS_HOST                    AWS_KVS_SERVICE "." AWS_KVS_REGION ".amazonaws.com"
 
 /* KVS optional configuration */
-#define ENABLE_AUDIO_TRACK              0
+#define ENABLE_AUDIO_TRACK              1
 #define ENABLE_IOT_CREDENTIAL           0
 #define ENABLE_RING_BUFFER_MEM_LIMIT    1
 #define DEBUG_STORE_MEDIA_TO_FILE       0
-
 /* Video configuration */
-#define H264_FILE_FORMAT                "../res/media/h264_annexb/frame-%03d.h264"
-#define H264_FILE_IDX_BEGIN             1
-#define H264_FILE_IDX_END               240
-
 #define VIDEO_TRACK_NAME                "kvs video track"
-#define VIDEO_FPS                       30
 
 /* Audio configuration */
 #if ENABLE_AUDIO_TRACK
-#define USE_AUDIO_AAC_SAMPLE            1   /* Set to 1 to use AAC as audio track */
-#define USE_AUDIO_G711_SAMPLE           0   /* Set to 1 to use G711 as audio track */
+#define USE_AUDIO_AAC                   1   /* Set to 1 to use AAC as audio track */
+#define USE_AUDIO_G711                  0   /* Set to 1 to use G711 as audio track */
 
-#if (USE_AUDIO_AAC_SAMPLE == 0) && (USE_AUDIO_G711_SAMPLE == 0)
+#if (USE_AUDIO_AAC == 0) && (USE_AUDIO_G711 == 0)
 #error "Please select audio source"
 #endif
 
-#if USE_AUDIO_AAC_SAMPLE
-#define AAC_FILE_FORMAT                 "../res/media/aac_raw/audio-%03d.aac"
-#define AAC_FILE_IDX_BEGIN              1
-#define AAC_FILE_IDX_END                325
+#if USE_AUDIO_AAC
+#define AUDIO_CODEC_NAME                "A_AAC"
+#define AUDIO_CODEC_OBJECT_TYPE         MPEG4_AAC_LC
+#endif /* USE_AUDIO_AAC */
+
+#if USE_AUDIO_G711
+#define AUDIO_CODEC_NAME                "A_MS/ACM"
+#define AUDIO_CODEC_OBJECT_TYPE         PCM_FORMAT_CODE_ALAW
+#endif /* USE_AUDIO_G711 */
 
 #define AUDIO_TRACK_NAME                "kvs audio track"
-#define AUDIO_FPS                       48
-#define AUDIO_MPEG_OBJECT_TYPE          MPEG4_AAC_LC
-#define AUDIO_FREQUENCY                 48000
-#define AUDIO_CHANNEL_NUMBER            2
-#endif /* USE_AUDIO_AAC_SAMPLE */
-
-#if USE_AUDIO_G711_SAMPLE
-#define G711_FILE_FORMAT                "../res/media/g711_alaw/audio-%03d.alaw"
-#define G711_FILE_IDX_BEGIN             1
-#define G711_FILE_IDX_END               325
-
-#define AUDIO_TRACK_NAME                "kvs audio track"
-#define AUDIO_FPS                       25
-#define AUDIO_PCM_OBJECT_TYPE           PCM_FORMAT_CODE_ALAW
 #define AUDIO_FREQUENCY                 8000
 #define AUDIO_CHANNEL_NUMBER            1
-#endif /* USE_AUDIO_G711_SAMPLE */
-
 #endif /* ENABLE_AUDIO_TRACK */
 
 /* IoT credential configuration */
@@ -97,7 +80,7 @@
 "-----BEGIN RSA PRIVATE KEY-----\n" \
 "......\n" \
 "-----END RSA PRIVATE KEY-----\n"
-#endif
+#endif /* ENABLE_IOT_CREDENTIAL */
 
 #if ENABLE_RING_BUFFER_MEM_LIMIT
 /* Buffering options */
