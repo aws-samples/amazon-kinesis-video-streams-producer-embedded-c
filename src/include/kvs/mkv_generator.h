@@ -112,7 +112,7 @@ typedef struct AudioTrackInfo
     uint8_t uChannelNumber;
     uint8_t uBitsPerSample;
     uint8_t *pCodecPrivate;
-    uint32_t uCodecPrivateLen;
+    size_t uCodecPrivateLen;
 } AudioTrackInfo_t;
 
 /**
