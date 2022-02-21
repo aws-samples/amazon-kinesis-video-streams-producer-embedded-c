@@ -18,7 +18,7 @@ This project demonstrates how to port Amazon Kinesis Video Streams Producer to E
 - [Ingenic T31](samples/kvsapp-ingenic-t31)
 - [Espressif ESP-WROVER-KIT](samples/kvs-esp32/)
 - [Realtek AmebaPro](samples/kvs-amebapro)
-- [Raspberry Pi/V4L2](samples/kvsapp-raspberry-pi)
+- [Raspberry Pi/V4L2](samples/kvsapp/RPi.md)
 
 # Build and Run Examples
 
