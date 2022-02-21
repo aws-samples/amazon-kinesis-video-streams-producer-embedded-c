@@ -15,9 +15,6 @@
 	path = libraries/3rdparty/llhttp
 	url = https://github.com/nodejs/llhttp.git
 	branch = release
-[submodule "libraries/3rdparty/v4l2capturer"]
-	path = libraries/3rdparty/v4l2capturer
-	url = https://github.com/codingspirit/V4l2Capturer.git
 [submodule "libraries/amazon/amazon-kinesis-video-streams-media-interface"]
 	path = libraries/amazon/amazon-kinesis-video-streams-media-interface
 	url = https://github.com/aws-samples/amazon-kinesis-video-streams-media-interface.git
