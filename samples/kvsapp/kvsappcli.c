@@ -24,42 +24,45 @@
 #endif /* HAVE_SIGNAL_H */
 
 /* Headers for KVS */
-#include "kvs/pool_allocator.h"
 #include "kvs/kvsapp.h"
 #include "kvs/port.h"
 
-#include "h264_file_loader.h"
 #include "sample_config.h"
 #include "option_configuration.h"
 
-#if ENABLE_AUDIO_TRACK
-#if USE_AUDIO_AAC_SAMPLE
-#include "aac_file_loader.h"
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-#include "g711_file_loader.h"
-#endif /* USE_AUDIO_G711_SAMPLE */
-#endif /* ENABLE_AUDIO_TRACK */
+#include "com/amazonaws/kinesis/video/capturer/AudioCapturer.h"
+#include "com/amazonaws/kinesis/video/capturer/VideoCapturer.h"
 
 #define ERRNO_NONE 0
 #define ERRNO_FAIL __LINE__
+
+#define VIDEO_FRAME_BUFFER_SIZE_BYTES (128 * 1024UL)
+#if ENABLE_AUDIO_TRACK
+#if USE_AUDIO_G711
+#define AUDIO_FRAME_BUFFER_SIZE_BYTES (320UL)
+#elif USE_AUDIO_AAC
+#define AUDIO_FRAME_BUFFER_SIZE_BYTES (1024UL)
+#endif
+#endif /* ENABLE_AUDIO_TRACK */
+#define MICROSECONDS_IN_A_MILLISECOND (1000LL)
 
 #ifdef KVS_USE_POOL_ALLOCATOR
 #include "kvs/pool_allocator.h"
 static char pMemPool[POOL_ALLOCATOR_SIZE];
 #endif
 
-static pthread_t videoTid;
-static H264FileLoaderHandle xVideoFileLoader = NULL;
+static VideoCapturerHandle videoCapturerHandle = NULL;
+static pthread_t videoThreadTid;
 
 #if ENABLE_AUDIO_TRACK
-static pthread_t audioTid;
-#if USE_AUDIO_AAC_SAMPLE
-static AacFileLoaderHandle xAudioFileLoader = NULL;
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-static G711FileLoaderHandle xAudioFileLoader = NULL;
-#endif /* USE_AUDIO_G711_SAMPLE */
+static AudioCapturerHandle audioCapturerHandle = NULL;
+static pthread_t audioThreadTid;
+static AudioTrackInfo_t audioTrackInfo = {
+    .pTrackName = AUDIO_TRACK_NAME,
+    .pCodecName = AUDIO_CODEC_NAME,
+    .uFrequency = AUDIO_FREQUENCY,
+    .uChannelNumber = AUDIO_CHANNEL_NUMBER,
+};
 #endif /* ENABLE_AUDIO_TRACK */
 
 /* A global variable to exit program if it's set to true. It can be set to true if signal.h is available and user press Ctrl+c. It can also be set to true via debugger. */
@@ -86,11 +89,11 @@ static FILE *fpDbgMedia = NULL;
 static int onMkvSent(uint8_t *pData, size_t uDataLen, void *pAppData)
 {
     int res = ERRNO_NONE;
-    char pFilename[ sizeof(MEDIA_FILENAME_FORMAT) + 21 ]; /* 20 digits for uint64_t, 1 digit for EOS */
+    char pFilename[sizeof(MEDIA_FILENAME_FORMAT) + 21]; /* 20 digits for uint64_t, 1 digit for EOS */
 
     if (fpDbgMedia == NULL)
     {
-        snprintf(pFilename, sizeof(pFilename)-1, MEDIA_FILENAME_FORMAT, getEpochTimestampInMs());
+        snprintf(pFilename, sizeof(pFilename) - 1, MEDIA_FILENAME_FORMAT, getEpochTimestampInMs());
         fpDbgMedia = fopen(pFilename, "wb");
         if (fpDbgMedia == NULL)
         {
@@ -113,43 +116,55 @@ static int onMkvSent(uint8_t *pData, size_t uDataLen, void *pAppData)
 
 static void *videoThread(void *arg)
 {
-    int res = 0;
-    KvsAppHandle kvsAppHandle = (KvsAppHandle)arg;
-
-    uint8_t *pData = NULL;
-    size_t uDataLen = 0;
-    uint64_t uTimestamp = 0;
-    const uint32_t uFps = VIDEO_FPS;
+    int res = ERRNO_NONE;
+    void *pFrameBuffer = NULL;
+    uint64_t timestamp = 0;
+    size_t frameSize = 0;
+    KvsAppHandle kvsAppHandle = (KvsAppHandle)(arg);
 
     if (kvsAppHandle == NULL)
     {
         printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
+        res = ERRNO_FAIL;
+    }
+    else if (videoCapturerAcquireStream(videoCapturerHandle))
+    {
+        printf("%s(): Failed to acquire video stream\n", __FUNCTION__);
+        res = ERRNO_FAIL;
     }
     else
     {
-        while (1)
+        while (true)
         {
             if (gStopRunning)
             {
                 break;
             }
 
-            if (H264FileLoaderLoadFrame(xVideoFileLoader, (char **)&pData, &uDataLen) != 0)
+            pFrameBuffer = malloc(VIDEO_FRAME_BUFFER_SIZE_BYTES);
+
+            if (!pFrameBuffer)
             {
-                printf("Failed to load data frame\n");
-                res = ERRNO_FAIL;
-                break;
+                printf("OOM\n");
+                continue;
+            }
+
+            if (videoCapturerGetFrame(videoCapturerHandle, pFrameBuffer, VIDEO_FRAME_BUFFER_SIZE_BYTES, &timestamp, &frameSize))
+            {
+                printf("videoCapturerGetFrame failed\n");
+                free(pFrameBuffer);
             }
             else
             {
-                uTimestamp = getEpochTimestampInMs();
-                KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_VIDEO);
+                // KvsApp will help to free pFrameBuffer
+                KvsApp_addFrame(kvsAppHandle, pFrameBuffer, frameSize, VIDEO_FRAME_BUFFER_SIZE_BYTES, timestamp / MICROSECONDS_IN_A_MILLISECOND, TRACK_VIDEO);
             }
 
-            sleepInMs(1000 / uFps);
+            pFrameBuffer = NULL;
         }
     }
 
+    videoCapturerReleaseStream(videoCapturerHandle);
     printf("video thread leaving, err:%d\n", res);
 
     return NULL;
@@ -158,45 +173,55 @@ static void *videoThread(void *arg)
 #if ENABLE_AUDIO_TRACK
 static void *audioThread(void *arg)
 {
-    KvsAppHandle kvsAppHandle = (KvsAppHandle)arg;
+    int res = ERRNO_NONE;
+    void *pFrameBuffer = NULL;
+    uint64_t timestamp = 0;
+    size_t frameSize = 0;
+    KvsAppHandle kvsAppHandle = (KvsAppHandle)(arg);
 
-    uint8_t *pData = NULL;
-    size_t uDataLen = 0;
-    uint64_t uTimestamp = 0;
-    uint32_t uFps = AUDIO_FPS;
-
-    if (kvsAppHandle == NULL)
+    if (!kvsAppHandle)
     {
         printf("%s(): Invalid argument: pKvs\n", __FUNCTION__);
+        res = ERRNO_FAIL;
+    }
+    else if (audioCapturerAcquireStream(audioCapturerHandle))
+    {
+        printf("%s(): Failed to acquire video stream\n", __FUNCTION__);
+        res = ERRNO_FAIL;
     }
     else
     {
-        while (1)
+        while (true)
         {
             if (gStopRunning)
             {
                 break;
             }
+            pFrameBuffer = malloc(AUDIO_FRAME_BUFFER_SIZE_BYTES);
 
-#if USE_AUDIO_AAC_SAMPLE
-            if (AacFileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-            if (G711FileLoaderLoadFrame(xAudioFileLoader, (char **)&pData, &uDataLen) != 0)
-#endif /* USE_AUDIO_G711_SAMPLE */
+            if (!pFrameBuffer)
             {
-                printf("Failed to load data frame\n");
-                break;
+                printf("OOM\n");
+                continue;
+            }
+
+            if (audioCapturerGetFrame(audioCapturerHandle, pFrameBuffer, AUDIO_FRAME_BUFFER_SIZE_BYTES, &timestamp, &frameSize))
+            {
+                printf("audioCapturerGetFrame failed\n");
+                free(pFrameBuffer);
             }
             else
             {
-                uTimestamp = getEpochTimestampInMs();
-                KvsApp_addFrame(kvsAppHandle, pData, uDataLen, uDataLen, uTimestamp, TRACK_AUDIO);
+                // KvsApp will help to free pFrameBuffer
+                KvsApp_addFrame(kvsAppHandle, pFrameBuffer, frameSize, AUDIO_FRAME_BUFFER_SIZE_BYTES, timestamp / MICROSECONDS_IN_A_MILLISECOND, TRACK_AUDIO);
             }
 
-            sleepInMs(1000 / uFps);
+            pFrameBuffer = NULL;
         }
     }
+
+    audioCapturerReleaseStream(videoCapturerHandle);
+    printf("audio thread leaving, err:%d\n", res);
 
     return NULL;
 }
@@ -243,20 +268,13 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
     }
 #endif /* ENABLE_IOT_CREDENTIAL */
 
-    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_VIDEO_TRACK_INFO, (const char *)H264FileLoaderGetVideoTrackInfo(xVideoFileLoader)) != 0)
-    {
-        printf("Failed to set video track info\n");
-    }
-
 #if ENABLE_AUDIO_TRACK
-#if USE_AUDIO_AAC_SAMPLE
-    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)AacFileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-    if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)G711FileLoaderGetAudioTrackInfo(xAudioFileLoader)) != 0)
-#endif /* USE_AUDIO_G711_SAMPLE */
+    if (audioCapturerHandle)
     {
-        printf("Failed to set audio track info\n");
+        if (KvsApp_setoption(kvsAppHandle, OPTION_KVS_AUDIO_TRACK_INFO, (const char *)(&audioTrackInfo)) != 0)
+        {
+            printf("Failed to set audio track info\n");
+        }
     }
 #endif /* ENABLE_AUDIO_TRACK */
 
@@ -286,14 +304,12 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 int main(int argc, char *argv[])
 {
     KvsAppHandle kvsAppHandle;
-    FileLoaderPara_t xVideoFileLoaderParam = {0};
-    FileLoaderPara_t xAudioFileLoaderParam = {0};
     uint64_t uLastPrintMemStatTimestamp = 0;
     ePutMediaFragmentAckEventType eAckEventType = eUnknown;
     uint64_t uFragmentTimecode = 0;
     unsigned int uErrorId = 0;
     const char *pKvsStreamName = NULL;
-    DoWorkExParamter_t xDoWorkExParamter = { 0 };
+    DoWorkExParamter_t xDoWorkExParamter = {0};
 
 #ifdef KVS_USE_POOL_ALLOCATOR
     poolAllocatorInit((void *)pMemPool, sizeof(pMemPool));
@@ -304,69 +320,68 @@ int main(int argc, char *argv[])
     signal(SIGINT, signalHandler);
 #endif /* HAVE_SIGNAL_H */
 
-    xVideoFileLoaderParam.pcTrackName = VIDEO_TRACK_NAME;
-    xVideoFileLoaderParam.pcFileFormat = H264_FILE_FORMAT;
-    xVideoFileLoaderParam.xFileStartIdx = H264_FILE_IDX_BEGIN;
-    xVideoFileLoaderParam.xFileEndIdx = H264_FILE_IDX_END;
-    xVideoFileLoaderParam.bKeepRotate = true;
-
-#if ENABLE_AUDIO_TRACK
-#if USE_AUDIO_AAC_SAMPLE
-    xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
-    xAudioFileLoaderParam.pcFileFormat = AAC_FILE_FORMAT;
-    xAudioFileLoaderParam.xFileStartIdx = AAC_FILE_IDX_BEGIN;
-    xAudioFileLoaderParam.xFileEndIdx = AAC_FILE_IDX_END;
-    xAudioFileLoaderParam.bKeepRotate = true;
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-    xAudioFileLoaderParam.pcTrackName = AUDIO_TRACK_NAME;
-    xAudioFileLoaderParam.pcFileFormat = G711_FILE_FORMAT;
-    xAudioFileLoaderParam.xFileStartIdx = G711_FILE_IDX_BEGIN;
-    xAudioFileLoaderParam.xFileEndIdx = G711_FILE_IDX_END;
-    xAudioFileLoaderParam.bKeepRotate = true;
-#endif /* USE_AUDIO_G711_SAMPLE */
-#endif /* ENABLE_AUDIO_TRACK */
-
     /* Resolve KVS stream name */
     pKvsStreamName = (argc >= 2) ? argv[1] : KVS_STREAM_NAME;
 
     if ((kvsAppHandle = KvsApp_create(OptCfg_getHostKinesisVideo(), OptCfg_getRegion(), OptCfg_getServiceKinesisVideo(), pKvsStreamName)) == NULL)
     {
         printf("Failed to initialize KVS\n");
+        return ERRNO_FAIL;
     }
-    else if ((xVideoFileLoader = H264FileLoaderCreate(&xVideoFileLoaderParam)) == NULL)
-    {
-        printf("Failed to initialize H264 file loader\n");
-    }
+
 #if ENABLE_AUDIO_TRACK
-#if USE_AUDIO_AAC_SAMPLE
-    else if ((xAudioFileLoader = AacFileLoaderCreate(&xAudioFileLoaderParam, AUDIO_MPEG_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-    else if ((xAudioFileLoader = G711FileLoaderCreate(&xAudioFileLoaderParam, AUDIO_PCM_OBJECT_TYPE, AUDIO_FREQUENCY, AUDIO_CHANNEL_NUMBER)) == NULL)
-#endif /* USE_AUDIO_G711_SAMPLE */
+#if USE_AUDIO_G711
+    AudioFormat audioFormat = AUD_FMT_G711A;
+#elif USE_AUDIO_AAC
+    AudioFormat audioFormat = AUD_FMT_AAC;
+#endif
+    if ((audioCapturerHandle = audioCapturerCreate()) == NULL)
     {
-        printf("Failed to initialize audio file loader\n");
+        printf("Failed to create audio capturer\n");
+    }
+    else if (audioCapturerSetFormat(audioCapturerHandle, audioFormat, AUD_CHN_MONO, AUD_SAM_8K, AUD_BIT_16))
+    {
+        printf("Failed to set audio format\n");
+        audioCapturerDestory(audioCapturerHandle);
+        audioCapturerHandle = NULL;
+    }
+    else if (pthread_create(&audioThreadTid, NULL, audioThread, kvsAppHandle))
+    {
+        printf("Failed to create audio thread\n");
+        audioCapturerDestory(audioCapturerHandle);
+        audioCapturerHandle = NULL;
+    }
+    else
+    {
+#if USE_AUDIO_G711
+        Mkv_generatePcmCodecPrivateData(AUDIO_CODEC_OBJECT_TYPE, audioTrackInfo.uFrequency, audioTrackInfo.uChannelNumber, &audioTrackInfo.pCodecPrivate, &audioTrackInfo.uCodecPrivateLen);
+#elif USE_AUDIO_AAC
+        Mkv_generateAacCodecPrivateData(AUDIO_CODEC_OBJECT_TYPE, audioTrackInfo.uFrequency, audioTrackInfo.uChannelNumber, &audioTrackInfo.pCodecPrivate, &audioTrackInfo.uCodecPrivateLen);
+#endif
     }
 #endif /* ENABLE_AUDIO_TRACK */
+
+    if ((videoCapturerHandle = videoCapturerCreate()) == NULL)
+    {
+        printf("Failed to create video capturer\n");
+    }
+    else if (videoCapturerSetFormat(videoCapturerHandle, VID_FMT_H264, VID_RES_1080P))
+    {
+        printf("Failed to set video format\n");
+    }
+    else if (pthread_create(&videoThreadTid, NULL, videoThread, kvsAppHandle))
+    {
+        printf("Failed to create video thread\n");
+    }
     else if (setKvsAppOptions(kvsAppHandle) != ERRNO_NONE)
     {
         printf("Failed to set options\n");
     }
-    else if (pthread_create(&videoTid, NULL, videoThread, kvsAppHandle) != 0)
-    {
-        printf("Failed to create video thread\n");
-    }
-#if ENABLE_AUDIO_TRACK
-    else if (pthread_create(&audioTid, NULL, audioThread, kvsAppHandle) != 0)
-    {
-        printf("Failed to create audio thread\n");
-    }
-#endif /* ENABLE_AUDIO_TRACK */
     else
     {
-        while (1)
+        while (true)
         {
+            /* FIXME: Check if network is reachable before running KVS. */
             if (gStopRunning)
             {
                 break;
@@ -378,13 +393,12 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            while (1)
+            while (true)
             {
                 if (gStopRunning)
                 {
                     break;
                 }
-
                 if (KvsApp_doWork(kvsAppHandle) != 0)
                 {
                     break;
@@ -405,11 +419,7 @@ int main(int argc, char *argv[])
 #ifdef KVS_USE_POOL_ALLOCATOR
                     PoolStats_t stats = {0};
                     poolAllocatorGetStats(&stats);
-                    printf("Sum of used/free memory:%zu/%zu, size of largest used/free block:%zu/%zu, number of used/free blocks:%zu/%zu\n",
-                        stats.uSumOfUsedMemory, stats.uSumOfFreeMemory,
-                        stats.uSizeOfLargestUsedBlock, stats.uSizeOfLargestFreeBlock,
-                        stats.uNumberOfUsedBlocks, stats.uNumberOfFreeBlocks
-                    );
+                    printf("Sum of used/free memory:%zu/%zu, size of largest used/free block:%zu/%zu, number of used/free blocks:%zu/%zu\n", stats.uSumOfUsedMemory, stats.uSumOfFreeMemory, stats.uSizeOfLargestUsedBlock, stats.uSizeOfLargestFreeBlock, stats.uNumberOfUsedBlocks, stats.uNumberOfFreeBlocks);
 #endif
                 }
             }
@@ -448,24 +458,19 @@ int main(int argc, char *argv[])
     }
 
     KvsApp_close(kvsAppHandle);
+    gStopRunning = true;
 
-    H264FileLoaderTerminate(xVideoFileLoader);
-    xVideoFileLoader = NULL;
-
+    pthread_join(videoThreadTid, NULL);
 #if ENABLE_AUDIO_TRACK
-#if USE_AUDIO_AAC_SAMPLE
-    AacFileLoaderTerminate(xAudioFileLoader);
-#endif /* USE_AUDIO_AAC_SAMPLE */
-#if USE_AUDIO_G711_SAMPLE
-    G711FileLoaderTerminate(xAudioFileLoader);
-#endif /* USE_AUDIO_G711_SAMPLE */
-    xAudioFileLoader = NULL;
+    pthread_join(audioThreadTid, NULL);
 #endif /* ENABLE_AUDIO_TRACK */
 
-    pthread_join(videoTid, NULL);
+    videoCapturerDestory(videoCapturerHandle);
+    videoCapturerHandle = NULL;
 #if ENABLE_AUDIO_TRACK
-    pthread_join(audioTid, NULL);
-#endif /* ENABLE_AUDIO_TRACK */
+    audioCapturerDestory(audioCapturerHandle);
+    audioCapturerHandle = NULL;
+#endif
 
     KvsApp_terminate(kvsAppHandle);
 
