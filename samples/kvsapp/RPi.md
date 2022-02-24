@@ -1,6 +1,6 @@
-# Raspberry Pi V4L2 Example
+# Sample for Raspberry Pi
 
-[Raspberry Pi V4L2 Example](https://github.com/aws-samples/amazon-kinesis-video-streams-producer-embedded-c/tree/main/samples/kvsapp-raspberry-pi) provides an out-of-box sample that allows user to capture frames from v4l2 camera(i.e. Pi Camera) to KVS. It can be used on Raspberry Pi and other Linux based machine that with v4l2 camera supports.
+Sample can be configured as reading real frames from V4L2 camera(like Pi camera), then upload to AWS KVS backend.
 
 ## Check Camera Capabilities
 
@@ -27,17 +27,30 @@ ioctl: VIDIOC_ENUM_FMT
 	[13]: 'RX24' (32-bit XBGR 8-8-8-8)
 ```
 
-## Build Raspberry Pi V4L2 Example
+## Build
 
 ```bash
 cd amazon-kinesis-video-streams-producer-embedded-c
-mkdir build; cd build
+mkdir build
+cd build
 cmake .. -DBOARD_RPI=ON
-make -j16
+cmake --build .
 ```
 
-## Run Raspberry Pi V4L2 Example
+## Set AWS credentials
+
+If you didn't configure sample configurations in file "samples/kvsapp/include/sample_config.h", you need to configure the following environment variables.
 
 ```bash
-./bin/kvsappcli-raspberry-pi
+export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxx
+export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_KVS_HOST=kinesisvideo.us-east-1.amazonaws.com
+```
+
+## Run
+
+```bash
+cd amazon-kinesis-video-streams-producer-embedded-c/build/
+./bin/kvsappcli
 ```
