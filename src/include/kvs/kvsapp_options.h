@@ -25,6 +25,7 @@ typedef enum KvsApp_streamPolicy
 
 static const char * const OPTION_AWS_ACCESS_KEY_ID = "Aws_accessKeyId";
 static const char * const OPTION_AWS_SECRET_ACCESS_KEY = "Aws_secretAccessKey";
+static const char * const OPTION_AWS_SESSION_TOKEN = "Aws_sessionToken";
 
 static const char * const OPTION_IOT_CREDENTIAL_HOST = "Iot_credentialHost";
 static const char * const OPTION_IOT_ROLE_ALIAS = "Iot_roleAlias";
