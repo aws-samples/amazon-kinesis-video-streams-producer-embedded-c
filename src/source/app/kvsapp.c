@@ -206,6 +206,31 @@ static void prvAudioTrackInfoTerminate(AudioTrackInfo_t *pAudioTrackInfo)
     }
 }
 
+static int prvMallocAndStrcpyHelper(char **destination, const char *source)
+{
+    int res = ERRNO_NONE;
+
+    if ((destination == NULL) || (source == NULL))
+    {
+        /*If strDestination or strSource is a NULL pointer[...]these functions return EINVAL */
+        res = ERRNO_FAIL;
+    }
+    else
+    {
+        if (*destination != NULL)
+        {
+            kvsFree(*destination);
+            *destination = NULL;
+        }
+        if (mallocAndStrcpy_s(destination, source) != 0)
+        {
+            res = ERRNO_FAIL;
+        }
+    }
+
+    return res;
+}
+
 static int prvBufMallocAndCopy(uint8_t **ppDst, size_t *puDstLen, uint8_t *pSrc, size_t uSrcLen)
 {
     int res = ERRNO_NONE;
@@ -332,8 +357,8 @@ static VideoTrackInfo_t *prvCopyVideoTrackInfo(VideoTrackInfo_t *pSrcVideoTrackI
     {
         memset(pDstVideoTrackInfo, 0, sizeof(VideoTrackInfo_t));
 
-        if (mallocAndStrcpy_s(&(pDstVideoTrackInfo->pTrackName), pSrcVideoTrackInfo->pTrackName) != 0 ||
-            mallocAndStrcpy_s(&(pDstVideoTrackInfo->pCodecName), pSrcVideoTrackInfo->pCodecName) != 0 ||
+        if (prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pTrackName), pSrcVideoTrackInfo->pTrackName) != 0 ||
+            prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pCodecName), pSrcVideoTrackInfo->pCodecName) != 0 ||
             (pDstVideoTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcVideoTrackInfo->uCodecPrivateLen)) == NULL)
         {
             res = ERRNO_FAIL;
@@ -370,8 +395,8 @@ static AudioTrackInfo_t *prvCopyAudioTrackInfo(AudioTrackInfo_t *pSrcAudioTrackI
     {
         memset(pDstAudioTrackInfo, 0, sizeof(AudioTrackInfo_t));
 
-        if (mallocAndStrcpy_s(&(pDstAudioTrackInfo->pTrackName), pSrcAudioTrackInfo->pTrackName) != 0 ||
-            mallocAndStrcpy_s(&(pDstAudioTrackInfo->pCodecName), pSrcAudioTrackInfo->pCodecName) != 0 ||
+        if (prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pTrackName), pSrcAudioTrackInfo->pTrackName) != 0 ||
+            prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pCodecName), pSrcAudioTrackInfo->pCodecName) != 0 ||
             (pDstAudioTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcAudioTrackInfo->uCodecPrivateLen)) == NULL)
         {
             res = ERRNO_FAIL;
@@ -852,8 +877,8 @@ KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char 
             res = ERRNO_FAIL;
         }
         else if (
-            mallocAndStrcpy_s(&(pKvs->pHost), pcHost) != 0 || mallocAndStrcpy_s(&(pKvs->pRegion), pcRegion) != 0 || mallocAndStrcpy_s(&(pKvs->pService), pcService) != 0 ||
-            mallocAndStrcpy_s(&(pKvs->pStreamName), pcStreamName) != 0)
+            prvMallocAndStrcpyHelper(&(pKvs->pHost), pcHost) != 0 || prvMallocAndStrcpyHelper(&(pKvs->pRegion), pcRegion) != 0 || prvMallocAndStrcpyHelper(&(pKvs->pService), pcService) != 0 ||
+            prvMallocAndStrcpyHelper(&(pKvs->pStreamName), pcStreamName) != 0)
         {
             LogError("OOM: parameters");
             res = ERRNO_FAIL;
@@ -1006,7 +1031,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
     {
         if (strcmp(pcOptionName, (const char *)OPTION_AWS_ACCESS_KEY_ID) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pAwsAccessKeyId), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pAwsAccessKeyId), pValue) != 0)
             {
                 LogError("Failed to set pAwsAccessKeyId");
                 res = ERRNO_FAIL;
@@ -1014,7 +1039,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_AWS_SECRET_ACCESS_KEY) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
             {
                 LogError("Failed to set pAwsSecretAccessKey");
                 res = ERRNO_FAIL;
@@ -1022,7 +1047,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_CREDENTIAL_HOST) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotCredentialHost), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotCredentialHost), pValue) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
                 res = ERRNO_FAIL;
@@ -1030,7 +1055,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_ROLE_ALIAS) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotRoleAlias), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotRoleAlias), pValue) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
                 res = ERRNO_FAIL;
@@ -1038,7 +1063,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_THING_NAME) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotThingName), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotThingName), pValue) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
                 res = ERRNO_FAIL;
@@ -1046,7 +1071,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_ROOTCA) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotX509RootCa), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509RootCa), pValue) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
                 res = ERRNO_FAIL;
@@ -1054,7 +1079,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_CERT) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotX509Certificate), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509Certificate), pValue) != 0)
             {
                 LogError("Failed to set pIotX509Certificate");
                 res = ERRNO_FAIL;
@@ -1062,7 +1087,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_KEY) == 0)
         {
-            if (mallocAndStrcpy_s(&(pKvs->pIotX509PrivateKey), pValue) != 0)
+            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509PrivateKey), pValue) != 0)
             {
                 LogError("Failed to set pIotX509PrivateKey");
                 res = ERRNO_FAIL;
