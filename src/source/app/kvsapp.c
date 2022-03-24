@@ -76,9 +76,10 @@ typedef struct KvsApp
     char *pStreamName;
     char *pDataEndpoint;
 
-    /* AWS access key and secret */
+    /* AWS access key, access secret and session token */
     char *pAwsAccessKeyId;
     char *pAwsSecretAccessKey;
+    char *pAwsSessionToken;
 
     /* Iot certificates */
     char *pIotCredentialHost;
@@ -488,7 +489,7 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
         {
             pKvs->xServicePara.pcAccessKey = pKvs->pAwsAccessKeyId;
             pKvs->xServicePara.pcSecretKey = pKvs->pAwsSecretAccessKey;
-            pKvs->xServicePara.pcToken = NULL;
+            pKvs->xServicePara.pcToken = pKvs->pAwsSessionToken;
         }
     }
 
@@ -960,6 +961,11 @@ void KvsApp_terminate(KvsAppHandle handle)
             kvsFree(pKvs->pAwsSecretAccessKey);
             pKvs->pAwsSecretAccessKey = NULL;
         }
+        if (pKvs->pAwsSessionToken != NULL)
+        {
+            kvsFree(pKvs->pAwsSessionToken);
+            pKvs->pAwsSessionToken = NULL;
+        }
         if (pKvs->pIotCredentialHost != NULL)
         {
             kvsFree(pKvs->pIotCredentialHost);
@@ -1042,6 +1048,22 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
             if (prvMallocAndStrcpyHelper(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
             {
                 LogError("Failed to set pAwsSecretAccessKey");
+                res = ERRNO_FAIL;
+            }
+        }
+        else if (strcmp(pcOptionName, (const char *)OPTION_AWS_SESSION_TOKEN) == 0)
+        {
+            if (pValue == NULL)
+            {
+                if (pKvs->pAwsSessionToken != NULL)
+                {
+                    kvsFree(pKvs->pAwsSessionToken);
+                }
+                pKvs->pAwsSessionToken = NULL;
+            }
+            else if (prvMallocAndStrcpyHelper(&(pKvs->pAwsSessionToken), pValue) != 0)
+            {
+                LogError("Failed to set pAwsSessionToken");
                 res = ERRNO_FAIL;
             }
         }
