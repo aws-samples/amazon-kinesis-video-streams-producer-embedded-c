@@ -91,9 +91,6 @@ include(libparson)
 include(libaziotsharedutil)
 include(libtlsf)
 include(libembedded-media)
-if(${BOARD_RPI})
-   include(libv4l2capturer)
-endif()
 
 # Add sources
 add_subdirectory(src)
