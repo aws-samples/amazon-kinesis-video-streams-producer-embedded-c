@@ -93,7 +93,7 @@ int NALU_getNaluFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t uNaluT
     uint32_t uAvccIdx = 0;
     uint32_t uNaluLen = 0;
 
-    if (pAvccBuf == NULL || uAvccLen < 5 || uNaluType >=32 || ppNalu == NULL || ppNalu == NULL)
+    if (pAvccBuf == NULL || uAvccLen < 5 || uNaluType == 0 || uNaluType >= 32 || ppNalu == NULL || puNaluLen == NULL)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -130,7 +130,7 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
     uint8_t *pNalu = NULL;
     size_t uNaluLen = 0;
 
-    if (pAnnexBBuf == NULL || uAnnexBLen < 5 || uNaluType >=32 || ppNalu == NULL || ppNalu == NULL)
+    if (pAnnexBBuf == NULL || uAnnexBLen < 5 || uNaluType >=32 || ppNalu == NULL || puNaluLen == NULL)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
@@ -170,6 +170,7 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
                         if (pNalu != NULL)
                         {
                             uNaluLen = pIdx - pNalu;
+                            break;
                         }
                         else if ((pIdx[3] & 0x80) == 0 && (pIdx[3] & 0x1F) == uNaluType)
                         {
@@ -215,13 +216,20 @@ bool NALU_isAnnexBFrame(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen)
 {
     bool bRes = false;
 
-    if (uAnnexbBufLen >=3 && pAnnexbBuf[0] == 0x00 && pAnnexbBuf[1] == 0x00 && pAnnexbBuf[2] == 0x01)
+    if (pAnnexbBuf == NULL || uAnnexbBufLen < 3)
     {
-        bRes = true;
+        LogError("Invalid argument");
     }
-    else if (uAnnexbBufLen >= 4 && pAnnexbBuf[0] == 0x00 && pAnnexbBuf[1] == 0x00 && pAnnexbBuf[2] == 0x00 && pAnnexbBuf[3] == 0x01)
+    else
     {
-        bRes = true;
+        if (uAnnexbBufLen >=3 && pAnnexbBuf[0] == 0x00 && pAnnexbBuf[1] == 0x00 && pAnnexbBuf[2] == 0x01)
+        {
+            bRes = true;
+        }
+        else if (uAnnexbBufLen >= 4 && pAnnexbBuf[0] == 0x00 && pAnnexbBuf[1] == 0x00 && pAnnexbBuf[2] == 0x00 && pAnnexbBuf[3] == 0x01)
+        {
+            bRes = true;
+        }
     }
 
     return bRes;
@@ -236,7 +244,7 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
     uint32_t uAvccTotalLen = 0;
     uint32_t uAvccIdx = 0;
 
-    if (pAnnexbBuf == NULL || uAnnexbBufLen <= 4 || pAvccLen == NULL)
+    if (pAnnexbBuf == NULL || uAnnexbBufLen <= 4 || uAnnexbBufSize < uAnnexbBufLen || pAvccLen == NULL)
     {
         LogError("Invalid argument");
         xRes = KVS_ERRNO_FAIL;
