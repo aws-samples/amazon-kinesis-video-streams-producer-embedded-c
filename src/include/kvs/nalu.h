@@ -16,6 +16,7 @@
 #ifndef KVS_NALU_H
 #define KVS_NALU_H
 
+#include <stddef.h>
 #include <stdbool.h>
 #include <inttypes.h>
 

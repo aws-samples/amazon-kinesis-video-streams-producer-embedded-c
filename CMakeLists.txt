@@ -9,6 +9,7 @@ option(USE_POOL_ALLOCATOR_LIB           "Use pool allocator on KVS lib only"    
 option(USE_POOL_ALLOCATOR_ALL           "Apply pool allocator on KVS lib and executable"    OFF)
 option(SAMPLE_OPTIONS_FROM_ENV_VAR      "Sample reads options from environment variable"    ON)
 option(BUILD_WEBRTC_SAMPLES             "Build a sample that kvs and web rtc share buffers" OFF)
+option(BUILD_TEST                       "Build the testing tree."                           OFF)
 
 set(USE_WEBRTC_MBEDTLS_LIB      OFF)
 
@@ -35,6 +36,7 @@ message(STATUS "USE_POOL_ALLOCATOR_LIB          = ${USE_POOL_ALLOCATOR_LIB}")
 message(STATUS "USE_POOL_ALLOCATOR_ALL          = ${USE_POOL_ALLOCATOR_ALL}")
 message(STATUS "SAMPLE_OPTIONS_FROM_ENV_VAR     = ${SAMPLE_OPTIONS_FROM_ENV_VAR}")
 message(STATUS "BUILD_WEBRTC_SAMPLES            = ${BUILD_WEBRTC_SAMPLES}")
+message(STATUS "BUILD_TEST                      = ${BUILD_TEST}")
 message(STATUS "CMAKE_BUILD_TYPE                = ${CMAKE_BUILD_TYPE}")
 
 if(${BUILD_WEBRTC_SAMPLES})
@@ -91,6 +93,9 @@ include(libparson)
 include(libaziotsharedutil)
 include(libtlsf)
 include(libembedded-media)
+if(${BUILD_TEST})
+    include(libgtest)
+endif()
 
 # Add sources
 add_subdirectory(src)
@@ -100,3 +105,8 @@ add_subdirectory(app)
 
 # Add samples
 add_subdirectory(samples)
+
+# Add test
+if(${BUILD_TEST})
+    add_subdirectory(tests)
+endif()
