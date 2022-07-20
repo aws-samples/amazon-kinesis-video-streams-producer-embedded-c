@@ -1,0 +1,28 @@
+#ifdef __cplusplus
+extern "C" {
+#include "kvs/errors.h"
+}
+#endif
+
+#include <gtest/gtest.h>
+
+TEST(KVS_GET_ERROR_MODULE_TYPE, valid_conversion)
+{
+    int commonErrorCode = 0x0001;
+    int restfulErrorCode = 0x0002;
+    int putMediaErrorCode = 0x0003;
+    int mbedErrorCode = -0x0004;
+    int callbackErrorCode = -0x0005;
+
+    EXPECT_TRUE(KVS_MODULE_COMMON == KVS_GET_ERROR_MODULE_TYPE(KVS_GENERATE_COMMON_ERROR(commonErrorCode)));
+    EXPECT_TRUE(KVS_MODULE_RESTFUL == KVS_GET_ERROR_MODULE_TYPE(KVS_GENERATE_RESTFUL_ERROR(restfulErrorCode)));
+    EXPECT_TRUE(KVS_MODULE_PUTMEDIA == KVS_GET_ERROR_MODULE_TYPE(KVS_GENERATE_PUTMEDIA_ERROR(putMediaErrorCode)));
+    EXPECT_TRUE(KVS_MODULE_MBEDTLS == KVS_GET_ERROR_MODULE_TYPE(KVS_GENERATE_MBEDTLS_ERROR(mbedErrorCode)));
+    EXPECT_TRUE(KVS_MODULE_CALLBACK == KVS_GET_ERROR_MODULE_TYPE(KVS_GENERATE_CALLBACK_ERROR(callbackErrorCode)));
+
+    EXPECT_TRUE(commonErrorCode == KVS_GET_ERROR_MODULE_CODE(KVS_GENERATE_COMMON_ERROR(commonErrorCode)));
+    EXPECT_TRUE(restfulErrorCode == KVS_GET_ERROR_MODULE_CODE(KVS_GENERATE_RESTFUL_ERROR(restfulErrorCode)));
+    EXPECT_TRUE(putMediaErrorCode == KVS_GET_ERROR_MODULE_CODE(KVS_GENERATE_PUTMEDIA_ERROR(putMediaErrorCode)));
+    EXPECT_TRUE(mbedErrorCode == KVS_GET_ERROR_MODULE_CODE(KVS_GENERATE_MBEDTLS_ERROR(mbedErrorCode)));
+    EXPECT_TRUE(callbackErrorCode == KVS_GET_ERROR_MODULE_CODE(KVS_GENERATE_CALLBACK_ERROR(callbackErrorCode)));
+}

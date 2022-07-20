@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "azure_c_shared_utility/xlogging.h"
 
 /* Public headers */
@@ -353,7 +353,7 @@ static uint32_t gMkvAACSamplingFrequenciesCount = sizeof(gMkvAACSamplingFrequenc
 
 static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t **ppBuf, uint32_t *puBufLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint32_t uHeaderLen = 0;
     uint8_t *pHeader = NULL;
     uint8_t *pIdx = NULL;
@@ -362,14 +362,11 @@ static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t *
     if (pVideoTrackInfo == NULL || pVideoTrackInfo->pCodecName == NULL || ppBuf == NULL || puBufLen == NULL)
     {
         LogError("Invalid arguments");
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
-        if (pVideoTrackInfo->pCodecPrivate != NULL && pVideoTrackInfo->uCodecPrivateLen != 0)
-        {
-            bHasCodecPrivateData = true;
-        }
+        bHasCodecPrivateData = (pVideoTrackInfo->pCodecPrivate != NULL && pVideoTrackInfo->uCodecPrivateLen != 0);
 
         /* Calculate header length */
         uHeaderLen = gSegmentTrackEntryHeaderSize;
@@ -383,8 +380,8 @@ static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t *
 
         if ((pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
         {
+            res = KVS_ERROR_OUT_OF_MEMORY;
             LogError("OOM: video track entry header");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -426,14 +423,14 @@ static int prvCreateVideoTrackEntry(VideoTrackInfo_t *pVideoTrackInfo, uint8_t *
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 
 static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t **ppBuf, uint32_t *pBufLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint32_t uHeaderLen = 0;
     uint8_t *pHeader = NULL;
     uint8_t *pIdx = NULL;
@@ -444,20 +441,13 @@ static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t *
 
     if (pAudioTrackInfo == NULL || ppBuf == NULL || pBufLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        if (pAudioTrackInfo->pCodecPrivate != NULL && pAudioTrackInfo->uCodecPrivateLen != 0)
-        {
-            bHasCodecPrivateData = true;
-        }
-
-        if (pAudioTrackInfo->uBitsPerSample > 0)
-        {
-            bHasBitsPerSampleField = true;
-        }
+        bHasCodecPrivateData = (pAudioTrackInfo->pCodecPrivate != NULL && pAudioTrackInfo->uCodecPrivateLen != 0);
+        bHasBitsPerSampleField = (pAudioTrackInfo->uBitsPerSample > 0);
 
         /* Calculate header length */
         uHeaderLen = gSegmentTrackEntryHeaderSize;
@@ -475,8 +465,8 @@ static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t *
 
         if ((pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
         {
+            res = KVS_ERROR_OUT_OF_MEMORY;
             LogError("OOM: audio track entry header");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -532,15 +522,14 @@ static int prvCreateAudioTrackEntry(AudioTrackInfo_t *pAudioTrackInfo, uint8_t *
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 
 int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrackInfo, AudioTrackInfo_t *pAudioTrackInfo)
 {
-    int xRes = KVS_ERRNO_NONE;
-    ;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pIdx = NULL;
     uint32_t uHeaderLen = 0;
     uint8_t pSegmentUuid[UUID_LEN] = {0};
@@ -557,8 +546,8 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
 
     if (pMkvHeader == NULL || pVideoTrackInfo == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -571,11 +560,11 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
 
         bHasAudioTrack = (pAudioTrackInfo != NULL) ? true : false;
 
-        if (prvCreateVideoTrackEntry(pVideoTrackInfo, &pSegmentVideo, &uSegmentVideoLen) != KVS_ERRNO_NONE ||
-            (bHasAudioTrack && prvCreateAudioTrackEntry(pAudioTrackInfo, &pSegmentAudio, &uSegmentAudioLen) != KVS_ERRNO_NONE))
+        if ((res = prvCreateVideoTrackEntry(pVideoTrackInfo, &pSegmentVideo, &uSegmentVideoLen)) != KVS_ERRNO_NONE ||
+            (bHasAudioTrack && (res = prvCreateAudioTrackEntry(pAudioTrackInfo, &pSegmentAudio, &uSegmentAudioLen)) != KVS_ERRNO_NONE))
         {
             LogError("Failed to create track entries");
-            xRes = KVS_ERRNO_FAIL;
+            /* Propagate the res error */
         }
         else
         {
@@ -592,7 +581,7 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
             if ((pMkvHeader->pHeader = (uint8_t *)kvsMalloc(uHeaderLen)) == NULL)
             {
                 LogError("OOM: MKV Header");
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_OUT_OF_MEMORY;
             }
             else
             {
@@ -641,7 +630,7 @@ int Mkv_initializeHeaders(MkvHeader_t *pMkvHeader, VideoTrackInfo_t *pVideoTrack
         kvsFree(pSegmentAudio);
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
@@ -687,14 +676,14 @@ int Mkv_initializeClusterHdr(
     uint64_t uAbsoluteTimestamp,
     uint16_t uDeltaTimestamp)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pIdx = NULL;
     size_t uMkvHeaderLen = Mkv_getClusterHdrLen(xType);
 
     if (pMkvHeader == NULL || uMkvHeaderLen > uMkvHeaderSize)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (xType == MKV_CLUSTER)
     {
@@ -720,17 +709,17 @@ int Mkv_initializeClusterHdr(
     }
     else
     {
+        res = KVS_ERROR_MKV_UNKNOWN_CLUSTER_TYPE;
         LogError("Unknown MKV cluster type");
-        xRes = KVS_ERRNO_FAIL;
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pSps = NULL;
     size_t uSpsLen = 0;
     uint8_t *pPps = NULL;
@@ -742,14 +731,14 @@ int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t 
     if (pAnnexBBuf == NULL || uAnnexBLen == 0 || ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERRNO_FAIL;
     }
     else if (
-        NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_SPS, &pSps, &uSpsLen) != KVS_ERRNO_NONE ||
-        NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_PPS, &pPps, &uPpsLen) != KVS_ERRNO_NONE)
+        (res = NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_SPS, &pSps, &uSpsLen)) != KVS_ERRNO_NONE ||
+        (res = NALU_getNaluFromAnnexBNalus(pAnnexBBuf, uAnnexBLen, NALU_TYPE_PPS, &pPps, &uPpsLen)) != KVS_ERRNO_NONE)
     {
         LogInfo("Failed to get SPS and PPS from Annex-B NALU");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -758,7 +747,7 @@ int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t 
         if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
             LogError("OOM: H264 codec private data");
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_OUT_OF_MEMORY;
         }
         else
         {
@@ -786,13 +775,13 @@ int Mkv_generateH264CodecPrivateDataFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t 
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pSps = NULL;
     size_t uSpsLen = 0;
     uint8_t *pPps = NULL;
@@ -803,15 +792,15 @@ int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvc
 
     if (pAvccBuf == NULL || uAvccLen == 0 || ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
-        NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_SPS, &pSps, &uSpsLen) != KVS_ERRNO_NONE ||
-        NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_PPS, &pPps, &uPpsLen) != KVS_ERRNO_NONE)
+        (res = NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_SPS, &pSps, &uSpsLen)) != KVS_ERRNO_NONE ||
+        (res = NALU_getNaluFromAvccNalus(pAvccBuf, uAvccLen, NALU_TYPE_PPS, &pPps, &uPpsLen)) != KVS_ERRNO_NONE)
     {
         LogInfo("Failed to get SPS and PPS from AVCC NALU");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -820,7 +809,7 @@ int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvc
         if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
             LogError("OOM: H264 codec private data");
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_OUT_OF_MEMORY;
         }
         else
         {
@@ -848,22 +837,22 @@ int Mkv_generateH264CodecPrivateDataFromAvccNalus(uint8_t *pAvccBuf, size_t uAvc
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 
 int Mkv_generateH264CodecPrivateDataFromSpsPps(uint8_t *pSps, size_t uSpsLen, uint8_t *pPps, size_t uPpsLen, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pCpdIdx = NULL;
     uint8_t *pCodecPrivateData = NULL;
     size_t uCodecPrivateLen = 0;
 
     if (pSps == NULL || uSpsLen == 0 || pPps == NULL || uPpsLen == 0 || ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -871,8 +860,8 @@ int Mkv_generateH264CodecPrivateDataFromSpsPps(uint8_t *pSps, size_t uSpsLen, ui
 
         if ((pCodecPrivateData = (uint8_t *)kvsMalloc(uCodecPrivateLen)) == NULL)
         {
+            res = KVS_ERROR_OUT_OF_MEMORY;
             LogError("OOM: H264 codec private data");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -900,14 +889,14 @@ int Mkv_generateH264CodecPrivateDataFromSpsPps(uint8_t *pSps, size_t uSpsLen, ui
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 
 int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t frequency, uint16_t channel, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pCodecPrivateData = NULL;
     size_t uCodecPrivateLen = 0;
     uint16_t uAacCodecPrivateData = 0;
@@ -917,8 +906,8 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
 
     if (ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -934,13 +923,13 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
 
         if (!bSamplingFreqFound)
         {
+            res = KVS_ERROR_MKV_INVALID_AUDIO_FREQUENCY;
             LogError("Invalid audio sampling frequency");
-            xRes = KVS_ERRNO_FAIL;
         }
         else if ((pCodecPrivateData = (uint8_t *)kvsMalloc(MKV_AAC_CPD_SIZE_BYTE)) == NULL)
         {
+            res = KVS_ERROR_OUT_OF_MEMORY;
             LogError("OOM: AAC codec private data");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -953,14 +942,14 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
         }
     }
 
-    return xRes;
+    return res;
 }
 
 /*-----------------------------------------------------------*/
 
 int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRate, uint16_t channels, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pCodecPrivateData = NULL;
     size_t uCodecPrivateLen = 0;
     uint8_t *pIdx = NULL;
@@ -970,13 +959,13 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
     if (ppCodecPrivateData == NULL || puCodecPrivateDataLen == NULL || (uSamplingRate < MIN_PCM_SAMPLING_RATE || uSamplingRate > MAX_PCM_SAMPLING_RATE) ||
         (channels != 1 && channels != 2))
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if ((pCodecPrivateData = (uint8_t *)kvsMalloc(MKV_PCM_CPD_SIZE_BYTE)) == NULL)
     {
+        res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: PCM codec private data");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -1006,5 +995,5 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
         *puCodecPrivateDataLen = uCodecPrivateLen;
     }
 
-    return xRes;
+    return res;
 }

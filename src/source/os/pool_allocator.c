@@ -13,14 +13,14 @@
  * permissions and limitations under the License.
  */
 
-#include <errno.h>
 #include <pthread.h>
 #include <string.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "tlsf.h"
 
 /* Public headers */
+#include "kvs/errors.h"
 #include "kvs/pool_allocator.h"
 
 static pthread_mutex_t memPoolMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -33,7 +33,7 @@ int poolAllocatorInit(void *pMemPool, size_t bytes)
 
     if (pMemPool == NULL)
     {
-        res = -EFAULT;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -45,7 +45,7 @@ int poolAllocatorInit(void *pMemPool, size_t bytes)
             if (tlsf == NULL)
             {
                 pMem = NULL;
-                res = -EFAULT;
+                res = KVS_ERROR_TLSF_FAILED_TO_CREATE_POOL;
             }
         }
         pthread_mutex_unlock(&memPoolMutex);

@@ -16,7 +16,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "azure_c_shared_utility/xlogging.h"
 
 /* Public headers */
@@ -89,14 +89,14 @@ int NALU_getNaluType(uint8_t *pBuf, size_t uLen)
 
 int NALU_getNaluFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t uNaluType, uint8_t **ppNalu, size_t *puNaluLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint32_t uAvccIdx = 0;
     uint32_t uNaluLen = 0;
 
     if (pAvccBuf == NULL || uAvccLen < 5 || uNaluType == 0 || uNaluType >= 32 || ppNalu == NULL || puNaluLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -116,16 +116,16 @@ int NALU_getNaluFromAvccNalus(uint8_t *pAvccBuf, size_t uAvccLen, uint8_t uNaluT
 
         if (uAvccIdx >= uAvccLen)
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_AVCC_NALU_IS_BROKEN;
         }
     }
 
-    return xRes;
+    return res;
 }
 
 int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t uNaluType, uint8_t **ppNalu, size_t *puNaluLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pIdx = pAnnexBBuf;
     uint8_t *pNalu = NULL;
     size_t uNaluLen = 0;
@@ -133,7 +133,7 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
     if (pAnnexBBuf == NULL || uAnnexBLen < 5 || uNaluType >=32 || ppNalu == NULL || puNaluLen == NULL)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -205,11 +205,11 @@ int NALU_getNaluFromAnnexBNalus(uint8_t *pAnnexBBuf, size_t uAnnexBLen, uint8_t 
         }
         else
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_NALU_TYPE_NOT_FOUND;
         }
     }
 
-    return xRes;
+    return res;
 }
 
 bool NALU_isAnnexBFrame(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen)
@@ -237,7 +237,7 @@ bool NALU_isAnnexBFrame(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen)
 
 int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen, uint32_t uAnnexbBufSize, uint32_t *pAvccLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint32_t i = 0;
     Nal_t xNals[ MAX_NALU_COUNT_IN_A_FRAME ];
     uint32_t uNalRbspCount = 0;
@@ -246,8 +246,8 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
 
     if (pAnnexbBuf == NULL || uAnnexbBufLen <= 4 || uAnnexbBufSize < uAnnexbBufLen || pAvccLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (!NALU_isAnnexBFrame(pAnnexbBuf, uAnnexbBufLen))
     {
@@ -284,7 +284,7 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
                         {
                             /* 0x00000000 is not allowed. */
                             LogInfo("Invalid NALU format");
-                            xRes = KVS_ERRNO_FAIL;
+                            res = KVS_ERROR_INVALID_NALU_FORMAT;
                             break;
                         }
                         else
@@ -325,13 +325,13 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
 
         if (uNalRbspCount == 0)
         {
+            res = KVS_ERROR_MISSING_NALU;
             LogInfo("No NALU is found in Annex-B frame");
-            xRes = KVS_ERRNO_FAIL;
         }
         else if (uNalRbspCount > MAX_NALU_COUNT_IN_A_FRAME)
         {
+            res = KVS_ERROR_EXCEED_MAX_NALU_COUNT_LIMIT;
             LogError("NAL RBSP count exceeds max count");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -350,7 +350,7 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
                 /* We don't have enough space to convert Annex-B to Avcc in place. */
                 LogInfo("No available space to convert Annex-B inplace");
                 *pAvccLen = 0;
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_NO_ENOUGH_SPACE_FOR_NALU_CONVERSION;
             }
             else
             {
@@ -379,27 +379,27 @@ int NALU_convertAnnexBToAvccInPlace(uint8_t *pAnnexbBuf, uint32_t uAnnexbBufLen,
         }
     }
 
-    return xRes;
+    return res;
 }
 
 int NALU_getH264VideoResolutionFromSps(uint8_t *pSps, size_t uSpsLen, uint16_t *puWidth, uint16_t *puHeight)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     if (pSps == NULL || uSpsLen < 2 || puWidth == NULL || puHeight == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if ((pSps[0] & 0x1F) != 7)
     {
+        res = KVS_ERROR_INVALID_NALU_FORMAT;
         LogError("Not a SPS NALU");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
         getH264VideoResolution((char *)(pSps + 1), uSpsLen - 1, puWidth, puHeight);
     }
 
-    return xRes;
+    return res;
 }

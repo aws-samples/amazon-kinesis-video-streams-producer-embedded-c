@@ -22,6 +22,7 @@
 #include "azure_c_shared_utility/xlogging.h"
 
 /* KVS headers */
+#include "kvs/errors.h"
 #include "kvs/iot_credential_provider.h"
 #include "kvs/nalu.h"
 #include "kvs/port.h"
@@ -33,9 +34,6 @@
 
 /* Internal headers */
 #include "os/allocator.h"
-
-#define ERRNO_NONE 0
-#define ERRNO_FAIL __LINE__
 
 #define VIDEO_CODEC_NAME "V_MPEG4/ISO/AVC"
 #define VIDEO_TRACK_NAME "kvs video track"
@@ -143,7 +141,7 @@ static int defaultOnDataFrameTerminate(uint8_t *pData, size_t uDataLen, uint64_t
         free(pData);
     }
 
-    return ERRNO_NONE;
+    return KVS_ERRNO_NONE;
 }
 
 static void prvCallOnDataFrameTerminate(DataFrameIn_t *pDataFrameIn)
@@ -209,12 +207,12 @@ static void prvAudioTrackInfoTerminate(AudioTrackInfo_t *pAudioTrackInfo)
 
 static int prvMallocAndStrcpyHelper(char **destination, const char *source)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     if ((destination == NULL) || (source == NULL))
     {
         /*If strDestination or strSource is a NULL pointer[...]these functions return EINVAL */
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -225,7 +223,7 @@ static int prvMallocAndStrcpyHelper(char **destination, const char *source)
         }
         if (mallocAndStrcpy_s(destination, source) != 0)
         {
-            res = ERRNO_FAIL;
+            res = KVS_ERROR_OUT_OF_MEMORY;
         }
     }
 
@@ -234,17 +232,17 @@ static int prvMallocAndStrcpyHelper(char **destination, const char *source)
 
 static int prvBufMallocAndCopy(uint8_t **ppDst, size_t *puDstLen, uint8_t *pSrc, size_t uSrcLen)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pDst = NULL;
     size_t uDstLen = 0;
 
     if (ppDst == NULL || puDstLen == NULL || pSrc == NULL || uSrcLen == 0)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else if ((pDst = (uint8_t *)kvsMalloc(uSrcLen)) == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_OUT_OF_MEMORY;
     }
     else
     {
@@ -253,7 +251,7 @@ static int prvBufMallocAndCopy(uint8_t **ppDst, size_t *puDstLen, uint8_t *pSrc,
         *puDstLen = uSrcLen;
     }
 
-    if (res != ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         if (pDst != NULL)
         {
@@ -284,7 +282,7 @@ static void prvStreamFlush(KvsApp_t *pKvs)
 
 static int prvStreamFlushToNextCluster(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     StreamHandle xStreamHandle = pKvs->xStreamHandle;
     DataFrameHandle xDataFrameHandle = NULL;
     DataFrameIn_t *pDataFrameIn = NULL;
@@ -293,12 +291,12 @@ static int prvStreamFlushToNextCluster(KvsApp_t *pKvs)
     {
         if (xStreamHandle == NULL)
         {
-            res = ERRNO_FAIL;
+            res = KVS_ERROR_INVALID_ARGUMENT;
             break;
         }
         else if ((xDataFrameHandle = Kvs_streamPeek(xStreamHandle)) == NULL)
         {
-            res = ERRNO_FAIL;
+            res = KVS_ERROR_STREAM_NO_AVAILABLE_DATA_FRAME;
             break;
         }
         else
@@ -347,22 +345,25 @@ static void prvStreamFlushHeadUntilMem(KvsApp_t *pKvs, size_t uMemLimit)
 
 static VideoTrackInfo_t *prvCopyVideoTrackInfo(VideoTrackInfo_t *pSrcVideoTrackInfo)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     VideoTrackInfo_t *pDstVideoTrackInfo = NULL;
 
     if ((pDstVideoTrackInfo = (VideoTrackInfo_t *)kvsMalloc(sizeof(VideoTrackInfo_t))) == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_OUT_OF_MEMORY;
     }
     else
     {
         memset(pDstVideoTrackInfo, 0, sizeof(VideoTrackInfo_t));
 
-        if (prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pTrackName), pSrcVideoTrackInfo->pTrackName) != 0 ||
-            prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pCodecName), pSrcVideoTrackInfo->pCodecName) != 0 ||
-            (pDstVideoTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcVideoTrackInfo->uCodecPrivateLen)) == NULL)
+        if ((res = prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pTrackName), pSrcVideoTrackInfo->pTrackName)) != KVS_ERRNO_NONE ||
+            (res = prvMallocAndStrcpyHelper(&(pDstVideoTrackInfo->pCodecName), pSrcVideoTrackInfo->pCodecName)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
+        }
+        else if ((pDstVideoTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcVideoTrackInfo->uCodecPrivateLen)) == NULL)
+        {
+            res = KVS_ERROR_OUT_OF_MEMORY;
         }
         else
         {
@@ -374,7 +375,7 @@ static VideoTrackInfo_t *prvCopyVideoTrackInfo(VideoTrackInfo_t *pSrcVideoTrackI
         }
     }
 
-    if (res != ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         prvVideoTrackInfoTerminate(pDstVideoTrackInfo);
         pDstVideoTrackInfo = NULL;
@@ -385,22 +386,25 @@ static VideoTrackInfo_t *prvCopyVideoTrackInfo(VideoTrackInfo_t *pSrcVideoTrackI
 
 static AudioTrackInfo_t *prvCopyAudioTrackInfo(AudioTrackInfo_t *pSrcAudioTrackInfo)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     AudioTrackInfo_t *pDstAudioTrackInfo = NULL;
 
     if ((pDstAudioTrackInfo = (AudioTrackInfo_t *)kvsMalloc(sizeof(AudioTrackInfo_t))) == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_OUT_OF_MEMORY;
     }
     else
     {
         memset(pDstAudioTrackInfo, 0, sizeof(AudioTrackInfo_t));
 
-        if (prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pTrackName), pSrcAudioTrackInfo->pTrackName) != 0 ||
-            prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pCodecName), pSrcAudioTrackInfo->pCodecName) != 0 ||
-            (pDstAudioTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcAudioTrackInfo->uCodecPrivateLen)) == NULL)
+        if ((res = prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pTrackName), pSrcAudioTrackInfo->pTrackName) != KVS_ERRNO_NONE) ||
+            (res = prvMallocAndStrcpyHelper(&(pDstAudioTrackInfo->pCodecName), pSrcAudioTrackInfo->pCodecName)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
+        }
+        else if ((pDstAudioTrackInfo->pCodecPrivate = (uint8_t *)kvsMalloc(pSrcAudioTrackInfo->uCodecPrivateLen)) == NULL)
+        {
+            res = KVS_ERROR_OUT_OF_MEMORY;
         }
         else
         {
@@ -413,7 +417,7 @@ static AudioTrackInfo_t *prvCopyAudioTrackInfo(AudioTrackInfo_t *pSrcAudioTrackI
         }
     }
 
-    if (res != ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         prvAudioTrackInfoTerminate(pDstAudioTrackInfo);
         pDstAudioTrackInfo = NULL;
@@ -464,7 +468,7 @@ static void updateIotCredential(KvsApp_t *pKvs)
 
 static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     pKvs->xServicePara.pcHost = pKvs->pHost;
     pKvs->xServicePara.pcRegion = pKvs->pRegion;
@@ -482,8 +486,8 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
     {
         if (pKvs->pAwsAccessKeyId == NULL || pKvs->pAwsSecretAccessKey == NULL)
         {
+            res = KVS_ERROR_NO_AWS_ACCESS_KEY_OR_SECRET_KEY;
             LogError("No available aws access key");
-            res = ERRNO_FAIL;
         }
         else
         {
@@ -493,7 +497,7 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
         }
     }
 
-    if (res == ERRNO_NONE)
+    if (res == KVS_ERRNO_NONE)
     {
         pKvs->xDescPara.pcStreamName = pKvs->pStreamName;
 
@@ -513,38 +517,56 @@ static int updateAndVerifyRestfulReqParameters(KvsApp_t *pKvs)
 
 static int setupDataEndpoint(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     unsigned int uHttpStatusCode = 0;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         if (pKvs->xServicePara.pcPutMediaEndpoint != NULL)
         {
+            /* Since we already have the endpoint, we needn't update it again. */
         }
         else
         {
             LogInfo("Try to describe stream");
-            if (Kvs_describeStream(&(pKvs->xServicePara), &(pKvs->xDescPara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
+            if ((res = Kvs_describeStream(&(pKvs->xServicePara), &(pKvs->xDescPara), &uHttpStatusCode)) != KVS_ERRNO_NONE)
+            {
+                LogError("Unable to describe stream");
+                /* Propagate the res error */
+            }
+            else if (uHttpStatusCode != 200)
             {
                 LogInfo("Failed to describe stream, status code:%u", uHttpStatusCode);
+                res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
+
                 LogInfo("Try to create stream");
-                if (Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
+                if ((res = Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode)) != KVS_ERRNO_NONE)
+                {
+                    LogError("Unable to create stream");
+                    /* Propagate the res error */
+                }
+                else if (uHttpStatusCode != 200)
                 {
                     LogInfo("Failed to create stream, status code:%u", uHttpStatusCode);
-                    res = ERRNO_FAIL;
+                    res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
                 }
             }
 
-            if (res == ERRNO_NONE)
+            if (res == KVS_ERRNO_NONE)
             {
-                if (Kvs_getDataEndpoint(&(pKvs->xServicePara), &(pKvs->xGetDataEpPara), &uHttpStatusCode, &(pKvs->pDataEndpoint)) != 0 || uHttpStatusCode != 200)
+                if ((res = Kvs_getDataEndpoint(&(pKvs->xServicePara), &(pKvs->xGetDataEpPara), &uHttpStatusCode, &(pKvs->pDataEndpoint))) != KVS_ERRNO_NONE)
+                {
+                    LogError("Unable to get data endpoint");
+                    /* Propagate the res error */
+                }
+                else if (uHttpStatusCode != 200)
                 {
                     LogInfo("Failed to get data endpoint, status code:%u", uHttpStatusCode);
-                    res = ERRNO_FAIL;
+                    res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
                 }
                 else
                 {
@@ -554,7 +576,7 @@ static int setupDataEndpoint(KvsApp_t *pKvs)
         }
     }
 
-    if (res == ERRNO_NONE)
+    if (res == KVS_ERRNO_NONE)
     {
         LogInfo("PUT MEDIA endpoint: %s", pKvs->xServicePara.pcPutMediaEndpoint);
     }
@@ -564,21 +586,23 @@ static int setupDataEndpoint(KvsApp_t *pKvs)
 
 static int updateEbmlHeader(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pEbmlSeg = NULL;
     size_t uEbmlSegLen = 0;
 
-    if (pKvs->xPutMediaHandle != NULL && !pKvs->isEbmlHeaderUpdated)
+    if (pKvs->xPutMediaHandle != NULL && !(pKvs->isEbmlHeaderUpdated))
     {
         LogInfo("Flush to next cluster");
-        if (prvStreamFlushToNextCluster(pKvs) != ERRNO_NONE)
+        if ((res = prvStreamFlushToNextCluster(pKvs)) != KVS_ERRNO_NONE)
         {
             LogInfo("No cluster frame is found");
+            /* Propagate the res error */
         }
-        else if (Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen) != 0 || Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen) != 0)
+        else if ((res = Kvs_streamGetMkvEbmlSegHdr(pKvs->xStreamHandle, &pEbmlSeg, &uEbmlSegLen)) != KVS_ERRNO_NONE ||
+                 (res = Kvs_putMediaUpdateRaw(pKvs->xPutMediaHandle, pEbmlSeg, uEbmlSegLen)) != KVS_ERRNO_NONE)
         {
-            LogError("Failed to update ebml header");
-            res = ERRNO_FAIL;
+            LogError("Failed to update EBML header");
+            /* Propagate the res error */
         }
         else
         {
@@ -597,7 +621,7 @@ static int updateEbmlHeader(KvsApp_t *pKvs)
 
 static int createStream(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     VideoTrackInfo_t xVideoTrackInfo = {0};
     uint8_t *pCodecPrivateData = NULL;
     size_t uCodecPrivateDataLen = 0;
@@ -606,10 +630,12 @@ static int createStream(KvsApp_t *pKvs)
     {
         if (pKvs->pVideoTrackInfo == NULL && pKvs->pSps != NULL && pKvs->pPps != NULL)
         {
-            if (NALU_getH264VideoResolutionFromSps(pKvs->pSps, pKvs->uSpsLen, &(xVideoTrackInfo.uWidth), &(xVideoTrackInfo.uHeight)) != ERRNO_NONE ||
-                Mkv_generateH264CodecPrivateDataFromSpsPps(pKvs->pSps, pKvs->uSpsLen, pKvs->pPps, pKvs->uPpsLen, &pCodecPrivateData, &uCodecPrivateDataLen) != ERRNO_NONE)
+            /* We don't have video track info, but we have SPS & PPS to generate video track info from it. */
+            if ((res = NALU_getH264VideoResolutionFromSps(pKvs->pSps, pKvs->uSpsLen, &(xVideoTrackInfo.uWidth), &(xVideoTrackInfo.uHeight))) != KVS_ERRNO_NONE ||
+                (res = Mkv_generateH264CodecPrivateDataFromSpsPps(pKvs->pSps, pKvs->uSpsLen, pKvs->pPps, pKvs->uPpsLen, &pCodecPrivateData, &uCodecPrivateDataLen)) != KVS_ERRNO_NONE)
             {
                 LogError("Failed to generate video track info");
+                /* Propagate the res error */
             }
             else
             {
@@ -630,7 +656,7 @@ static int createStream(KvsApp_t *pKvs)
         {
             if ((pKvs->xStreamHandle = Kvs_streamCreate(pKvs->pVideoTrackInfo, pKvs->pAudioTrackInfo)) == NULL)
             {
-                res = ERRNO_FAIL;
+                res = KVS_ERROR_FAIL_TO_CREATE_STREAM_HANDLE;
             }
             else
             {
@@ -646,7 +672,7 @@ static int createStream(KvsApp_t *pKvs)
 
 static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, TrackType_t xTrackType)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     uint8_t *pSps = NULL;
     size_t uSpsLen = 0;
     uint8_t *pPps = NULL;
@@ -657,24 +683,24 @@ static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, 
         /* Try to build video track info from frames. */
         if (pKvs->pVideoTrackInfo == NULL && xTrackType == TRACK_VIDEO)
         {
-            if (pKvs->pSps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_SPS, &pSps, &uSpsLen) == ERRNO_NONE)
+            if (pKvs->pSps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_SPS, &pSps, &uSpsLen) == KVS_ERRNO_NONE)
             {
                 LogInfo("SPS is found");
-                if (prvBufMallocAndCopy(&(pKvs->pSps), &(pKvs->uSpsLen), pSps, uSpsLen) != ERRNO_NONE)
+                if ((res = prvBufMallocAndCopy(&(pKvs->pSps), &(pKvs->uSpsLen), pSps, uSpsLen)) != KVS_ERRNO_NONE)
                 {
-                    res = ERRNO_FAIL;
+                    /* Propagate the res error */
                 }
                 else
                 {
                     LogInfo("SPS is set");
                 }
             }
-            if (pKvs->pPps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_PPS, &pPps, &uPpsLen) == ERRNO_NONE)
+            if (pKvs->pPps == NULL && NALU_getNaluFromAvccNalus(pData, uDataLen, NALU_TYPE_PPS, &pPps, &uPpsLen) == KVS_ERRNO_NONE)
             {
                 LogInfo("PPS is found");
-                if (prvBufMallocAndCopy(&(pKvs->pPps), &(pKvs->uPpsLen), pPps, uPpsLen) != ERRNO_NONE)
+                if ((res = prvBufMallocAndCopy(&(pKvs->pPps), &(pKvs->uPpsLen), pPps, uPpsLen)) != KVS_ERRNO_NONE)
                 {
-                    res = ERRNO_FAIL;
+                    /* Propagate the res error */
                 }
                 else
                 {
@@ -685,7 +711,7 @@ static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, 
 
         if (pKvs->pSps != NULL && pKvs->pPps != NULL)
         {
-            createStream(pKvs);
+            res = createStream(pKvs);
         }
     }
 
@@ -694,14 +720,15 @@ static int checkAndBuildStream(KvsApp_t *pKvs, uint8_t *pData, size_t uDataLen, 
 
 static int prvCheckOnDataFrameToBeSent(DataFrameHandle xDataFrameHandle)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retval = 0;
     DataFrameIn_t *pDataFrameIn = NULL;
     DataFrameUserData_t *pUserData = NULL;
     OnDataFrameToBeSentInfo_t *pOnDataFrameToBeSentCallbackInfo = NULL;
 
     if (xDataFrameHandle == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -710,7 +737,11 @@ static int prvCheckOnDataFrameToBeSent(DataFrameHandle xDataFrameHandle)
         pOnDataFrameToBeSentCallbackInfo = &(pUserData->xCallbacks.onDataFrameToBeSentInfo);
         if (pOnDataFrameToBeSentCallbackInfo->onDataFrameToBeSent != NULL)
         {
-            res = pOnDataFrameToBeSentCallbackInfo->onDataFrameToBeSent((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pOnDataFrameToBeSentCallbackInfo->pAppData);
+            retval = pOnDataFrameToBeSentCallbackInfo->onDataFrameToBeSent((uint8_t *)(pDataFrameIn->pData), pDataFrameIn->uDataLen, pDataFrameIn->uTimestampMs, pDataFrameIn->xTrackType, pOnDataFrameToBeSentCallbackInfo->pAppData);
+            if (retval != 0)
+            {
+                res = KVS_GENERATE_CALLBACK_ERROR(retval);
+            }
         }
     }
 
@@ -719,7 +750,8 @@ static int prvCheckOnDataFrameToBeSent(DataFrameHandle xDataFrameHandle)
 
 static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
     DataFrameHandle xDataFrameHandle = NULL;
     DataFrameIn_t *pDataFrameIn = NULL;
     uint8_t *pData = NULL;
@@ -735,23 +767,23 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
     {
         if ((xDataFrameHandle = Kvs_streamPop(pKvs->xStreamHandle)) == NULL)
         {
+            res = KVS_ERROR_STREAM_NO_AVAILABLE_DATA_FRAME;
             LogError("Failed to get data frame");
-            res = ERRNO_FAIL;
         }
-        else if (prvCheckOnDataFrameToBeSent(xDataFrameHandle) != ERRNO_NONE)
+        else if ((res = prvCheckOnDataFrameToBeSent(xDataFrameHandle)) != KVS_ERRNO_NONE)
         {
             LogInfo("Failed to check OnDataFrameToBeSent");
-            /* We don't treat this condition as error because it's a validation error. */
+            /* Propagate the res error */
         }
-        else if (Kvs_dataFrameGetContent(xDataFrameHandle, &pMkvHeader, &uMkvHeaderLen, &pData, &uDataLen) != 0)
+        else if ((res = Kvs_dataFrameGetContent(xDataFrameHandle, &pMkvHeader, &uMkvHeaderLen, &pData, &uDataLen)) != KVS_ERRNO_NONE)
         {
             LogError("Failed to get data and mkv header to send");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
         }
-        else if (Kvs_putMediaUpdate(pKvs->xPutMediaHandle, pMkvHeader, uMkvHeaderLen, pData, uDataLen) != 0)
+        else if ((res = Kvs_putMediaUpdate(pKvs->xPutMediaHandle, pMkvHeader, uMkvHeaderLen, pData, uDataLen)) != KVS_ERRNO_NONE)
         {
             LogError("Failed to update");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
         }
         else
         {
@@ -763,10 +795,18 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
             if (pKvs->onMkvSentCallbackInfo.onMkvSentCallback != NULL)
             {
                 /* FIXME: Handle the return value in a proper way. */
-                pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pMkvHeader, uMkvHeaderLen, pKvs->onMkvSentCallbackInfo.pAppData);
-
-                /* FIXME: Handle the return value in a proper way. */
-                pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pData, uDataLen, pKvs->onMkvSentCallbackInfo.pAppData);
+                if ((retVal = pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pMkvHeader, uMkvHeaderLen, pKvs->onMkvSentCallbackInfo.pAppData)) != 0)
+                {
+                    res = KVS_GENERATE_CALLBACK_ERROR(retVal);
+                }
+                else if ((retVal = pKvs->onMkvSentCallbackInfo.onMkvSentCallback(pData, uDataLen, pKvs->onMkvSentCallbackInfo.pAppData)) != 0)
+                {
+                    res = KVS_GENERATE_CALLBACK_ERROR(retVal);
+                }
+                else
+                {
+                    /* nop */
+                }
             }
         }
 
@@ -792,26 +832,26 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
 
 static int prvPutMediaDoWorkDefault(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     int xSendCnt = 0;
 
     do
     {
-        if (updateEbmlHeader(pKvs) != ERRNO_NONE)
+        if ((res = updateEbmlHeader(pKvs)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
 
-        if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
+        if ((res = Kvs_putMediaDoWork(pKvs->xPutMediaHandle)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
 
-        if (prvPutMediaSendData(pKvs, &xSendCnt, false) != ERRNO_NONE)
+        if ((res = prvPutMediaSendData(pKvs, &xSendCnt, false)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
     } while (false);
@@ -826,26 +866,26 @@ static int prvPutMediaDoWorkDefault(KvsApp_t *pKvs)
 
 static int prvPutMediaDoWorkSendEndOfFrames(KvsApp_t *pKvs)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     int xSendCnt = 0;
 
     do
     {
-        if (updateEbmlHeader(pKvs) != ERRNO_NONE)
+        if ((res = updateEbmlHeader(pKvs)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
 
-        if (Kvs_putMediaDoWork(pKvs->xPutMediaHandle) != ERRNO_NONE)
+        if ((res = Kvs_putMediaDoWork(pKvs->xPutMediaHandle)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
 
-        if (prvPutMediaSendData(pKvs, &xSendCnt, true) != ERRNO_NONE)
+        if ((res = prvPutMediaSendData(pKvs, &xSendCnt, true)) != KVS_ERRNO_NONE)
         {
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
             break;
         }
     } while (xSendCnt > 0);
@@ -855,18 +895,18 @@ static int prvPutMediaDoWorkSendEndOfFrames(KvsApp_t *pKvs)
 
 KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char *pcService, const char *pcStreamName)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = NULL;
 
     if (pcHost == NULL || pcRegion == NULL || pcService == NULL || pcStreamName == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid parameter");
-        res = ERRNO_FAIL;
     }
     else if ((pKvs = (KvsApp_t *)kvsMalloc(sizeof(KvsApp_t))) == NULL)
     {
+        res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: pKvs");
-        res = ERRNO_FAIL;
     }
     else
     {
@@ -874,15 +914,17 @@ KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char 
 
         if ((pKvs->xLock = Lock_Init()) == NULL)
         {
+            res = KVS_ERROR_LOCK_ERROR;
             LogError("Failed to init lock");
-            res = ERRNO_FAIL;
         }
         else if (
-            prvMallocAndStrcpyHelper(&(pKvs->pHost), pcHost) != 0 || prvMallocAndStrcpyHelper(&(pKvs->pRegion), pcRegion) != 0 || prvMallocAndStrcpyHelper(&(pKvs->pService), pcService) != 0 ||
-            prvMallocAndStrcpyHelper(&(pKvs->pStreamName), pcStreamName) != 0)
+            (res = prvMallocAndStrcpyHelper(&(pKvs->pHost), pcHost)) != KVS_ERRNO_NONE ||
+            (res = prvMallocAndStrcpyHelper(&(pKvs->pRegion), pcRegion)) != KVS_ERRNO_NONE ||
+            (res = prvMallocAndStrcpyHelper(&(pKvs->pService), pcService)) != KVS_ERRNO_NONE ||
+            (res = prvMallocAndStrcpyHelper(&(pKvs->pStreamName), pcStreamName)) != KVS_ERRNO_NONE)
         {
             LogError("OOM: parameters");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
         }
         else
         {
@@ -909,6 +951,12 @@ KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char 
             pKvs->isAudioTrackPresent = false;
             pKvs->pAudioTrackInfo = NULL;
         }
+    }
+
+    if (res != KVS_ERRNO_NONE)
+    {
+        KvsApp_terminate(pKvs);
+        pKvs = NULL;
     }
 
     return (KvsAppHandle)pKvs;
@@ -1026,21 +1074,21 @@ void KvsApp_terminate(KvsAppHandle handle)
 
 int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *pValue)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
     if (pKvs == NULL || pcOptionName == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         if (strcmp(pcOptionName, (const char *)OPTION_AWS_ACCESS_KEY_ID) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pAwsAccessKeyId), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pAwsAccessKeyId), pValue)) != 0)
             {
                 LogError("Failed to set pAwsAccessKeyId");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_AWS_SECRET_ACCESS_KEY) == 0)
@@ -1048,7 +1096,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
             if (prvMallocAndStrcpyHelper(&(pKvs->pAwsSecretAccessKey), pValue) != 0)
             {
                 LogError("Failed to set pAwsSecretAccessKey");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_AWS_SESSION_TOKEN) == 0)
@@ -1061,66 +1109,66 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 }
                 pKvs->pAwsSessionToken = NULL;
             }
-            else if (prvMallocAndStrcpyHelper(&(pKvs->pAwsSessionToken), pValue) != 0)
+            else if ((res = prvMallocAndStrcpyHelper(&(pKvs->pAwsSessionToken), pValue)) != 0)
             {
                 LogError("Failed to set pAwsSessionToken");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_CREDENTIAL_HOST) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotCredentialHost), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotCredentialHost), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_ROLE_ALIAS) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotRoleAlias), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotRoleAlias), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_THING_NAME) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotThingName), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotThingName), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_ROOTCA) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509RootCa), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotX509RootCa), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509RootCa");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_CERT) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509Certificate), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotX509Certificate), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509Certificate");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_IOT_X509_KEY) == 0)
         {
-            if (prvMallocAndStrcpyHelper(&(pKvs->pIotX509PrivateKey), pValue) != 0)
+            if ((res = prvMallocAndStrcpyHelper(&(pKvs->pIotX509PrivateKey), pValue)) != 0)
             {
                 LogError("Failed to set pIotX509PrivateKey");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
         else if (strcmp(pcOptionName, (const char *)OPTION_KVS_DATA_RETENTION_IN_HOURS) == 0)
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value for KVS data retention in hours");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1131,11 +1179,12 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to KVS video track info");
-                res = ERRNO_FAIL;
             }
             else if ((pKvs->pVideoTrackInfo = prvCopyVideoTrackInfo((VideoTrackInfo_t *)pValue)) == NULL)
             {
+                res = KVS_ERROR_OUT_OF_MEMORY;
                 LogError("failed to copy video track info");
             }
         }
@@ -1143,11 +1192,12 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to KVS audio track info");
-                res = ERRNO_FAIL;
             }
             else if ((pKvs->pAudioTrackInfo = prvCopyAudioTrackInfo((AudioTrackInfo_t *)pValue)) == NULL)
             {
+                res = KVS_ERROR_OUT_OF_MEMORY;
                 LogError("failed to copy audio track info");
             }
         }
@@ -1155,8 +1205,8 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to stream strategy");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1164,6 +1214,7 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
                 if (xPolicy < STREAM_POLICY_NONE || xPolicy >= STREAM_POLICY_MAX)
                 {
                     LogError("Invalid policy val: %d", xPolicy);
+                    res = KVS_ERROR_INVALID_STREAM_POLICY;
                 }
                 else
                 {
@@ -1179,13 +1230,13 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to parameter of ring buffer policy");
-                res = ERRNO_FAIL;
             }
             else if (pKvs->xStrategy.xPolicy != STREAM_POLICY_RING_BUFFER)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Cannot set parameter to policy: %d ", (int)(pKvs->xStrategy.xPolicy));
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1197,8 +1248,8 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to connection timeout");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1211,8 +1262,8 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to streaming recv timeout");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1227,8 +1278,8 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
         {
             if (pValue == NULL)
             {
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 LogError("Invalid value set to streaming send timeout");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1250,38 +1301,43 @@ int KvsApp_setoption(KvsAppHandle handle, const char *pcOptionName, const char *
 
 int KvsApp_open(KvsAppHandle handle)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
     unsigned int uHttpStatusCode = 0;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         updateIotCredential(pKvs);
-        if (updateAndVerifyRestfulReqParameters(pKvs) != ERRNO_NONE)
+        if ((res = updateAndVerifyRestfulReqParameters(pKvs)) != KVS_ERRNO_NONE)
         {
             LogError("Failed to setup KVS");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
         }
-        else if (setupDataEndpoint(pKvs) != ERRNO_NONE)
+        else if ((res = setupDataEndpoint(pKvs)) != KVS_ERRNO_NONE)
         {
             LogError("Failed to setup data endpoint");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
         }
-        else if (Kvs_putMediaStart(&(pKvs->xServicePara), &(pKvs->xPutMediaPara), &uHttpStatusCode, &(pKvs->xPutMediaHandle)) != 0 || uHttpStatusCode != 200)
+        else if ((res = Kvs_putMediaStart(&(pKvs->xServicePara), &(pKvs->xPutMediaPara), &uHttpStatusCode, &(pKvs->xPutMediaHandle))) != KVS_ERRNO_NONE)
         {
             LogError("Failed to setup PUT MEDIA");
-            res = ERRNO_FAIL;
+            /* Propagate the res error */
+        }
+        else if (uHttpStatusCode != 200)
+        {
+            res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
+            LogError("PUT MEDIA http status code:%d\n", uHttpStatusCode);
         }
         else
         {
-            if (createStream(pKvs) != ERRNO_NONE)
+            if ((res = createStream(pKvs)) != KVS_ERRNO_NONE)
             {
                 LogError("Failed to setup KVS stream");
-                res = ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
     }
@@ -1291,7 +1347,7 @@ int KvsApp_open(KvsAppHandle handle)
 
 int KvsApp_close(KvsAppHandle handle)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     DataFrameHandle xDataFrameHandle = NULL;
     DataFrameIn_t *pDataFrameIn = NULL;
 
@@ -1299,7 +1355,7 @@ int KvsApp_close(KvsAppHandle handle)
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -1307,8 +1363,8 @@ int KvsApp_close(KvsAppHandle handle)
         {
             if (Lock(pKvs->xLock) != LOCK_OK)
             {
+                res = KVS_ERROR_LOCK_ERROR;
                 LogError("Failed to lock");
-                res = ERRNO_FAIL;
             }
             else
             {
@@ -1330,37 +1386,40 @@ int KvsApp_addFrame(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t
 
 int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDataLen, size_t uDataSize, uint64_t uTimestamp, TrackType_t xTrackType, DataFrameCallbacks_t *pCallbacks)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
     DataFrameIn_t xDataFrameIn = {0};
     DataFrameUserData_t *pUserData = NULL;
 
     if (pKvs == NULL || pData == NULL || uDataLen == 0)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else if (uTimestamp < pKvs->uEarliestTimestamp)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_ADD_FRAME_WHOSE_TIMESTAMP_GOES_BACK;
     }
-    else if (xTrackType == TRACK_VIDEO && NALU_isAnnexBFrame(pData, uDataLen) && NALU_convertAnnexBToAvccInPlace(pData, uDataLen, uDataSize, (uint32_t *)&uDataLen) != ERRNO_NONE)
+    else if (
+        xTrackType == TRACK_VIDEO && NALU_isAnnexBFrame(pData, uDataLen) &&
+        (res = NALU_convertAnnexBToAvccInPlace(pData, uDataLen, uDataSize, (uint32_t *)&uDataLen)) != KVS_ERRNO_NONE)
     {
         LogError("Failed to convert Annex-B to Avcc in place");
-        res = ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (checkAndBuildStream(pKvs, pData, uDataLen, xTrackType) != ERRNO_NONE)
+    else if ((res = checkAndBuildStream(pKvs, pData, uDataLen, xTrackType)) != KVS_ERRNO_NONE)
     {
         LogError("Failed to build stream buffer");
-        res = ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if (pKvs->xStreamHandle == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_STREAM_NOT_READY;
     }
     else if ((pUserData = (DataFrameUserData_t *)kvsMalloc(sizeof(DataFrameUserData_t))) == NULL)
     {
+        res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: pUserData");
-        res = ERRNO_FAIL;
     }
     else
     {
@@ -1393,22 +1452,26 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
 
         if (Kvs_streamAddDataFrame(pKvs->xStreamHandle, &xDataFrameIn) == NULL)
         {
+            res = KVS_ERROR_FAIL_TO_ADD_DATA_FRAME_TO_STREAM;
             LogError("Failed to add data frame");
-            res = ERRNO_FAIL;
         }
     }
 
-    if (res != ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         if (pData != NULL)
         {
             if (pCallbacks != NULL && pCallbacks->onDataFrameTerminateInfo.onDataFrameTerminate != NULL)
             {
-                pCallbacks->onDataFrameTerminateInfo.onDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+                retVal = pCallbacks->onDataFrameTerminateInfo.onDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
             }
             else
             {
-                defaultOnDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+                retVal = defaultOnDataFrameTerminate(pData, uDataLen, uTimestamp, xTrackType, NULL);
+            }
+            if (retVal != 0)
+            {
+                res = KVS_GENERATE_CALLBACK_ERROR(retVal);
             }
         }
         if (pUserData != NULL)
@@ -1422,12 +1485,12 @@ int KvsApp_addFrameWithCallbacks(KvsAppHandle handle, uint8_t *pData, size_t uDa
 
 int KvsApp_doWork(KvsAppHandle handle)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -1439,12 +1502,12 @@ int KvsApp_doWork(KvsAppHandle handle)
 
 int KvsApp_doWorkEx(KvsAppHandle handle, DoWorkExParamter_t *pPara)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -1458,7 +1521,7 @@ int KvsApp_doWorkEx(KvsAppHandle handle, DoWorkExParamter_t *pPara)
         }
         else
         {
-            res = ERRNO_FAIL;
+            res = KVS_ERROR_KVSAPP_UNKNOWN_DO_WORK_TYPE;
         }
     }
 
@@ -1467,12 +1530,12 @@ int KvsApp_doWorkEx(KvsAppHandle handle, DoWorkExParamter_t *pPara)
 
 int KvsApp_readFragmentAck(KvsAppHandle handle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -1487,7 +1550,7 @@ size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle)
     size_t uMemTotal = 0;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
-    if (pKvs != NULL && pKvs->xStreamHandle != NULL && Kvs_streamMemStatTotal(pKvs->xStreamHandle, &uMemTotal) == 0)
+    if (pKvs != NULL && pKvs->xStreamHandle != NULL && Kvs_streamMemStatTotal(pKvs->xStreamHandle, &uMemTotal) == KVS_ERRNO_NONE)
     {
         return uMemTotal;
     }
@@ -1499,12 +1562,12 @@ size_t KvsApp_getStreamMemStatTotal(KvsAppHandle handle)
 
 int KvsApp_setOnMkvSentCallback(KvsAppHandle handle, OnMkvSentCallback_t onMkvSentCallback, void *pAppData)
 {
-    int res = ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     KvsApp_t *pKvs = (KvsApp_t *)handle;
 
     if (pKvs == NULL)
     {
-        res = ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {

@@ -27,21 +27,21 @@
 
 int platformInit(void)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     srand(time(NULL));
 
-    return xRes;
+    return res;
 }
 
 int getTimeInIso8601(char *pBuf, size_t uBufSize)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     time_t xTimeUtcNow = {0};
 
     if (pBuf == NULL || uBufSize < DATE_TIME_ISO_8601_FORMAT_STRING_SIZE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -49,7 +49,7 @@ int getTimeInIso8601(char *pBuf, size_t uBufSize)
         /* Current time should not less than a specific old time. If it does, then it means system time is incorrect. */
         if ((long)xTimeUtcNow < (long)PAST_OLD_TIME_IN_EPOCH)
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_PAST_OLD_TIME;
         }
         else
         {
@@ -57,7 +57,7 @@ int getTimeInIso8601(char *pBuf, size_t uBufSize)
         }
     }
 
-    return xRes;
+    return res;
 }
 
 uint64_t getEpochTimestampInMs(void)

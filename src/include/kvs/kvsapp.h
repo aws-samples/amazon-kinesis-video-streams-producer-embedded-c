@@ -19,6 +19,7 @@
 #include "kvs/kvsapp_options.h"
 #include "kvs/mkv_generator.h"
 #include "kvs/restapi.h"
+#include "kvs/errors.h"
 #include <inttypes.h>
 
 typedef struct KvsApp *KvsAppHandle;
