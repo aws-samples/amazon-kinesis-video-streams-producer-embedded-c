@@ -4,6 +4,7 @@ project(embedded_producer_tests)
 enable_testing()
 
 add_executable(${PROJECT_NAME}
+    errors_test.cpp
     nalu_test.cpp
 )
 

@@ -105,7 +105,7 @@ static int prvValidateServiceParameter(KvsServiceParameter_t *pServPara)
     if (pServPara == NULL || pServPara->pcAccessKey == NULL || pServPara->pcSecretKey == NULL || pServPara->pcRegion == NULL || pServPara->pcService == NULL ||
         pServPara->pcHost == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -117,7 +117,7 @@ static int prvValidateDescribeStreamParameter(KvsDescribeStreamParameter_t *pDes
 {
     if (pDescPara == NULL || pDescPara->pcStreamName == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -129,7 +129,7 @@ static int prvValidateCreateStreamParameter(KvsCreateStreamParameter_t *pCreateP
 {
     if (pCreatePara == NULL || pCreatePara->pcStreamName == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -141,7 +141,7 @@ static int prvValidateGetDataEndpointParameter(KvsGetDataEndpointParameter_t *pG
 {
     if (pGetDataEpPara == NULL || pGetDataEpPara->pcStreamName == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -153,7 +153,7 @@ static int prvValidatePutMediaParameter(KvsPutMediaParameter_t *pPutMediaPara)
 {
     if (pPutMediaPara == NULL || pPutMediaPara->pcStreamName == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -163,7 +163,7 @@ static int prvValidatePutMediaParameter(KvsPutMediaParameter_t *pPutMediaPara)
 
 static AwsSigV4Handle prvSign(KvsServiceParameter_t *pServPara, char *pcUri, char *pcQuery, HTTP_HEADERS_HANDLE xHeadersToSign, const char *pcHttpBody)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
     const char *pcVal;
@@ -171,76 +171,76 @@ static AwsSigV4Handle prvSign(KvsServiceParameter_t *pServPara, char *pcUri, cha
 
     if ((xAwsSigV4Handle = AwsSigV4_Create(HTTP_METHOD_POST, pcUri, pcQuery)) == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_CREATE_SIGV4_HANDLE;
     }
     else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_CONNECTION)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_CONNECTION, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_HOST)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_HOST, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_TRANSFER_ENCODING)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_TRANSFER_ENCODING, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if ((pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_USER_AGENT)) != NULL && AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_USER_AGENT, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcXAmzDate = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_DATE)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_DATE, pcXAmzDate) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZ_SECURITY_TOKEN)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZ_SECURITY_TOKEN, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_ACK_REQUIRED)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_ACK_REQUIRED, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_FRAG_T_TYPE)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_FRAG_T_TYPE, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_PRODUCER_START_T)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_PRODUCER_START_T, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (
         (pcVal = HTTPHeaders_FindHeaderValue(xHeadersToSign, HDR_X_AMZN_STREAM_NAME)) != NULL &&
         AwsSigV4_AddCanonicalHeader(xAwsSigV4Handle, HDR_X_AMZN_STREAM_NAME, pcVal) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_ADD_CANONICAL_HEADER;
     }
     else if (AwsSigV4_AddCanonicalBody(xAwsSigV4Handle, pcHttpBody, strlen(pcHttpBody)) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERRNO_FAIL;
     }
-    else if (AwsSigV4_Sign(xAwsSigV4Handle, pServPara->pcAccessKey, pServPara->pcSecretKey, pServPara->pcRegion, pServPara->pcService, pcXAmzDate) != KVS_ERRNO_NONE)
+    else if ((res = AwsSigV4_Sign(xAwsSigV4Handle, pServPara->pcAccessKey, pServPara->pcSecretKey, pServPara->pcRegion, pServPara->pcService, pcXAmzDate)) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
         /* nop */
     }
 
-    if (xRes != KVS_ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         AwsSigV4_Terminate(xAwsSigV4Handle);
         xAwsSigV4Handle = NULL;
@@ -251,7 +251,7 @@ static AwsSigV4Handle prvSign(KvsServiceParameter_t *pServPara, char *pcUri, cha
 
 static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char **ppcEndpoint)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     STRING_HANDLE xStJson = NULL;
     JSON_Value *pxRootValue = NULL;
     JSON_Object *pxRootObject = NULL;
@@ -262,20 +262,20 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
 
     if (pcJsonSrc == NULL || uJsonSrcLen == 0 || ppcEndpoint == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if ((xStJson = STRING_construct_n(pcJsonSrc, uJsonSrcLen)) == NULL)
     {
+        res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: parse data endpoint");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
         (pxRootValue = json_parse_string(STRING_c_str(xStJson))) == NULL || (pxRootObject = json_value_get_object(pxRootValue)) == NULL ||
         (pcDataEndpoint = json_object_dotget_serialize_to_string(pxRootObject, "DataEndpoint", true)) == NULL)
     {
+        res = KVS_ERROR_FAIL_TO_PARSE_DATA_ENDPOINT;
         LogError("Failed to parse data endpoint");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -301,7 +301,7 @@ static int prvParseDataEndpoint(const char *pcJsonSrc, size_t uJsonSrcLen, char 
 
     STRING_delete(xStJson);
 
-    return xRes;
+    return res;
 }
 
 static char *prvGetTimecodeValue(FragmentTimecodeType_t xTimecodeType)
@@ -316,14 +316,35 @@ static char *prvGetTimecodeValue(FragmentTimecodeType_t xTimecodeType)
     }
     else
     {
-        LogError("Invalid timecode type:%d\r\n", xTimecodeType);
+        LogError("Invalid timecode type:%d", xTimecodeType);
         return "";
     }
 }
 
+static int prvGetEpochTimestampInStr(uint64_t uProducerStartTimestampMs, STRING_HANDLE *pxStProducerStartTimestamp)
+{
+    int res = KVS_ERRNO_NONE;
+    uint64_t uProducerStartTimestamp = 0;
+    STRING_HANDLE xStProducerStartTimestamp = NULL;
+
+    uProducerStartTimestamp = (uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : uProducerStartTimestampMs;
+    xStProducerStartTimestamp = STRING_construct_sprintf("%." PRIu64 ".%03d", uProducerStartTimestamp / 1000, uProducerStartTimestamp % 1000);
+
+    if (xStProducerStartTimestamp == NULL)
+    {
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
+    }
+    else
+    {
+        *pxStProducerStartTimestamp = xStProducerStartTimestamp;
+    }
+
+    return res;
+}
+
 static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen, size_t *puBytesRead)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     size_t uMsgLen = 0;
     size_t uBytesRead = 0;
     size_t i = 0;
@@ -331,7 +352,7 @@ static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen,
 
     if (pcSrc == NULL || uLen == 0 || puMsgLen == NULL || puBytesRead == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -359,16 +380,16 @@ static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen,
             }
             else
             {
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_FAIL_TO_PARSE_FRAGMENT_ACK_LENGTH;
             }
         }
     }
 
-    if (xRes == KVS_ERRNO_NONE)
+    if (res == KVS_ERRNO_NONE)
     {
         if (uBytesRead < 3 || (uBytesRead + uMsgLen + 2) > uLen || pcSrc[uBytesRead + uMsgLen] != '\r' || pcSrc[uBytesRead + uMsgLen + 1] != '\n')
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_FAIL_TO_PARSE_FRAGMENT_ACK_LENGTH;
         }
         else
         {
@@ -377,7 +398,7 @@ static int prvParseFragmentAckLength(char *pcSrc, size_t uLen, size_t *puMsgLen,
         }
     }
 
-    return xRes;
+    return res;
 }
 
 static ePutMediaFragmentAckEventType prvGetEventType(char *pcEventType)
@@ -411,9 +432,9 @@ static ePutMediaFragmentAckEventType prvGetEventType(char *pcEventType)
     return ev;
 }
 
-static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFragmentAck)
+static int parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFragmentAck)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     JSON_Value *pxRootValue = NULL;
     JSON_Object *pxRootObject = NULL;
     char *pcEventType = NULL;
@@ -422,18 +443,18 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
 
     if (pcFragmentMsg == NULL || pxFragmentAck == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if ((pxRootValue = json_parse_string(pcFragmentMsg)) == NULL || (pxRootObject = json_value_get_object(pxRootValue)) == NULL)
     {
-        LogInfo("Failed to parse fragment msg:%s\r\n", pcFragmentMsg);
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_PARSE_FRAGMENT_ACK_MSG;
+        LogInfo("Failed to parse fragment msg:%s", pcFragmentMsg);
     }
     else if ((pcEventType = json_object_dotget_serialize_to_string(pxRootObject, JSON_KEY_EVENT_TYPE, false)) == NULL)
     {
-        LogInfo("Unknown fragment ack:%s\r\n", pcFragmentMsg);
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_UNKNOWN_FRAGMENT_ACK_TYPE;
+        LogInfo("Unknown fragment ack:%s", pcFragmentMsg);
     }
     else
     {
@@ -456,30 +477,31 @@ static int32_t parseFragmentMsg(const char *pcFragmentMsg, FragmentAck_t *pxFrag
         json_value_free(pxRootValue);
     }
 
-    return xRes;
+    return res;
 }
 
 static int prvParseFragmentAck(char *pcSrc, size_t uLen, FragmentAck_t *pxFragAck, size_t *puFragAckLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     size_t uMsgLen = 0;
     size_t uBytesRead = 0;
     STRING_HANDLE xStFragMsg = NULL;
 
     if (pcSrc == NULL || uLen == 0 || pxFragAck == NULL || puFragAckLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
-    else if (prvParseFragmentAckLength(pcSrc, uLen, &uMsgLen, &uBytesRead) != KVS_ERRNO_NONE)
+    else if ((res = prvParseFragmentAckLength(pcSrc, uLen, &uMsgLen, &uBytesRead)) != KVS_ERRNO_NONE)
     {
         LogInfo("Unknown fragment ack:%.*s", (int)uLen, pcSrc);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if ((xStFragMsg = STRING_construct_n(pcSrc + uBytesRead, uMsgLen)) == NULL || parseFragmentMsg(STRING_c_str(xStFragMsg), pxFragAck) != KVS_ERRNO_NONE)
+    else if ((xStFragMsg = STRING_construct_n(pcSrc + uBytesRead, uMsgLen)) == NULL ||
+             parseFragmentMsg(STRING_c_str(xStFragMsg), pxFragAck) != KVS_ERRNO_NONE)
     {
+        res = KVS_ERROR_FAIL_TO_PARSE_FRAGMENT_ACK_MSG;
         LogInfo("Failed to parse fragment ack");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -488,7 +510,7 @@ static int prvParseFragmentAck(char *pcSrc, size_t uLen, FragmentAck_t *pxFragAc
 
     STRING_delete(xStFragMsg);
 
-    return xRes;
+    return res;
 }
 
 static void prvLogFragmentAck(FragmentAck_t *pFragmentAck)
@@ -546,16 +568,16 @@ static void prvLogPendingFragmentAcks(PutMedia_t *pPutMedia)
 
 static int prvPushFragmentAck(PutMedia_t *pPutMedia, FragmentAck_t *pFragmentAckSrc)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     FragmentAck_t *pFragmentAck = NULL;
 
     if (pPutMedia == NULL || pFragmentAckSrc == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else if ((pFragmentAck = (FragmentAck_t *)kvsMalloc(sizeof(FragmentAck_t))) == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_OUT_OF_MEMORY;
     }
     else
     {
@@ -564,7 +586,7 @@ static int prvPushFragmentAck(PutMedia_t *pPutMedia, FragmentAck_t *pFragmentAck
 
         if (Lock(pPutMedia->xLock) != LOCK_OK)
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_LOCK_ERROR;
         }
         else
         {
@@ -574,7 +596,7 @@ static int prvPushFragmentAck(PutMedia_t *pPutMedia, FragmentAck_t *pFragmentAck
         }
     }
 
-    if (xRes != KVS_ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         if (pFragmentAck != NULL)
         {
@@ -582,18 +604,18 @@ static int prvPushFragmentAck(PutMedia_t *pPutMedia, FragmentAck_t *pFragmentAck
         }
     }
 
-    return xRes;
+    return res;
 }
 
 static PutMedia_t *prvCreateDefaultPutMediaHandle()
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = NULL;
 
     if ((pPutMedia = (PutMedia_t *)kvsMalloc(sizeof(PutMedia_t))) == NULL)
     {
+        res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: pPutMedia");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -601,8 +623,8 @@ static PutMedia_t *prvCreateDefaultPutMediaHandle()
 
         if ((pPutMedia->xLock = Lock_Init()) == NULL)
         {
+            res = KVS_ERROR_LOCK_ERROR;
             LogError("Failed to initialize lock");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
@@ -610,7 +632,7 @@ static PutMedia_t *prvCreateDefaultPutMediaHandle()
         }
     }
 
-    if (xRes != KVS_ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         if (pPutMedia != NULL)
         {
@@ -628,7 +650,7 @@ static PutMedia_t *prvCreateDefaultPutMediaHandle()
 
 static FragmentAck_t *prvReadFragmentAck(PutMedia_t *pPutMedia)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PDLIST_ENTRY pxListHead = NULL;
     PDLIST_ENTRY pxListItem = NULL;
     FragmentAck_t *pFragmentAck = NULL;
@@ -658,7 +680,7 @@ static void prvFlushFragmentAck(PutMedia_t *pPutMedia)
 
 int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParameter_t *pDescPara, unsigned int *puHttpStatusCode)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
@@ -675,28 +697,30 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
 
     if (puHttpStatusCode != NULL)
     {
-        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
+        *puHttpStatusCode = 0; /* Set to zero to avoid misuse from the previous value. */
     }
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateDescribeStreamParameter(pDescPara) != KVS_ERRNO_NONE)
+    if ((res = prvValidateServiceParameter(pServPara)) != KVS_ERRNO_NONE ||
+        (res = prvValidateDescribeStreamParameter(pDescPara)) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate)) != KVS_ERRNO_NONE)
+    else if ((res = getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate))) != KVS_ERRNO_NONE)
     {
         LogError("Failed to get time");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if (
         (xStHttpBody = STRING_construct_sprintf(DESCRIBE_STREAM_HTTP_BODY_TEMPLATE, pDescPara->pcStreamName)) == NULL ||
         (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
+        res = KVS_ERROR_UNABLE_TO_ALLOCATE_HTTP_BODY;
         LogError("Failed to allocate HTTP body");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
-        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
@@ -704,32 +728,38 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
         (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
+        res = KVS_ERROR_UNABLE_TO_GENERATE_HTTP_HEADER;
         LogError("Failed to generate HTTP headers");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
         (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_DESCRIBE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
+        res = KVS_ERROR_FAIL_TO_SIGN_HTTP_REQ;
         LogError("Failed to sign");
-        xRes = KVS_ERRNO_FAIL;
+    }
+    else if ((xNetIoHandle = NetIo_create()) == NULL)
+    {
+        res = KVS_ERROR_FAIL_TO_CREATE_NETIO_HANDLE;
+        LogError("Failed to create NetIo handle");
     }
     else if (
-        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
-        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+        (res = NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to connect to %s\r\n", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to connect to %s", pServPara->pcHost);
+        /* Propagate the res error */
     }
-    else if (Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_DESCRIBE_STREAM, xHttpReqHeaders, STRING_c_str(xStHttpBody)) != KVS_ERRNO_NONE)
+    else if ((res = Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_DESCRIBE_STREAM, xHttpReqHeaders, STRING_c_str(xStHttpBody))) != KVS_ERRNO_NONE)
     {
         LogError("Failed send http request to %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen))
+    else if ((res = Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen)) != KVS_ERRNO_NONE)
     {
         LogError("Failed recv http response from %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -753,12 +783,12 @@ int Kvs_describeStream(KvsServiceParameter_t *pServPara, KvsDescribeStreamParame
     STRING_delete(xStContentLength);
     STRING_delete(xStHttpBody);
 
-    return xRes;
+    return res;
 }
 
 int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_t *pCreatePara, unsigned int *puHttpStatusCode)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
@@ -778,25 +808,27 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
     }
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateCreateStreamParameter(pCreatePara) != KVS_ERRNO_NONE)
+    if ((res = prvValidateServiceParameter(pServPara)) != KVS_ERRNO_NONE ||
+        (res = prvValidateCreateStreamParameter(pCreatePara)) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate)) != KVS_ERRNO_NONE)
+    else if ((res = getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate))) != KVS_ERRNO_NONE)
     {
         LogError("Failed to get time");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if (
         (xStHttpBody = STRING_construct_sprintf(CREATE_STREAM_HTTP_BODY_TEMPLATE, pCreatePara->pcStreamName, pCreatePara->uDataRetentionInHours)) == NULL ||
         (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
+        res = KVS_ERROR_UNABLE_TO_ALLOCATE_HTTP_BODY;
         LogError("Failed to allocate HTTP body");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
-        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
@@ -804,32 +836,38 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
         (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
+        res = KVS_ERROR_UNABLE_TO_GENERATE_HTTP_HEADER;
         LogError("Failed to generate HTTP headers");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
         (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_CREATE_STREAM, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
         LogError("Failed to sign");
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_FAIL_TO_SIGN_HTTP_REQ;
+    }
+    else if ((xNetIoHandle = NetIo_create()) == NULL)
+    {
+        res = KVS_ERROR_FAIL_TO_CREATE_NETIO_HANDLE;
+        LogError("Failed to create NetIo handle");
     }
     else if (
-        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
-        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+        (res = NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to connect to %s\r\n", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to connect to %s", pServPara->pcHost);
+        /* Propagate the res error */
     }
-    else if (Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_CREATE_STREAM, xHttpReqHeaders, STRING_c_str(xStHttpBody)) != KVS_ERRNO_NONE)
+    else if ((res = Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_CREATE_STREAM, xHttpReqHeaders, STRING_c_str(xStHttpBody))) != KVS_ERRNO_NONE)
     {
         LogError("Failed send http request to %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen))
+    else if ((res = Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen)) != KVS_ERRNO_NONE)
     {
         LogError("Failed recv http response from %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -853,12 +891,12 @@ int Kvs_createStream(KvsServiceParameter_t *pServPara, KvsCreateStreamParameter_
     STRING_delete(xStContentLength);
     STRING_delete(xStHttpBody);
 
-    return xRes;
+    return res;
 }
 
 int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointParameter_t *pGetDataEpPara, unsigned int *puHttpStatusCode, char **ppcDataEndpoint)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
     STRING_HANDLE xStHttpBody = NULL;
     STRING_HANDLE xStContentLength = NULL;
@@ -878,25 +916,27 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
     }
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidateGetDataEndpointParameter(pGetDataEpPara) != KVS_ERRNO_NONE)
+    if ((res = prvValidateServiceParameter(pServPara)) != KVS_ERRNO_NONE ||
+        (res = prvValidateGetDataEndpointParameter(pGetDataEpPara)) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate)) != KVS_ERRNO_NONE)
+    else if ((res = getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate))) != KVS_ERRNO_NONE)
     {
         LogError("Failed to get time");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if (
         (xStHttpBody = STRING_construct_sprintf(GET_DATA_ENDPOINT_HTTP_BODY_TEMPLATE, pGetDataEpPara->pcStreamName)) == NULL ||
         (xStContentLength = STRING_construct_sprintf("%u", STRING_length(xStHttpBody))) == NULL)
     {
+        res = KVS_ERROR_UNABLE_TO_ALLOCATE_HTTP_BODY;
         LogError("Failed to allocate HTTP body");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
-        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcHost) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_LENGTH, STRING_c_str(xStContentLength)) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
@@ -904,32 +944,38 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_DATE, pcXAmzDate) != HTTP_HEADERS_OK ||
         (pServPara->pcToken != NULL && (HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZ_SECURITY_TOKEN, pServPara->pcToken) != HTTP_HEADERS_OK)))
     {
+        res = KVS_ERROR_UNABLE_TO_GENERATE_HTTP_HEADER;
         LogError("Failed to generate HTTP headers");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
         (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_GET_DATA_ENDPOINT, URI_QUERY_EMPTY, xHttpReqHeaders, STRING_c_str(xStHttpBody))) == NULL ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
+        res = KVS_ERROR_FAIL_TO_SIGN_HTTP_REQ;
         LogError("Failed to sign");
-        xRes = KVS_ERRNO_FAIL;
+    }
+    else if ((xNetIoHandle = NetIo_create()) == NULL)
+    {
+        res = KVS_ERROR_FAIL_TO_CREATE_NETIO_HANDLE;
+        LogError("Failed to create NetIo handle");
     }
     else if (
-        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
-        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS) != KVS_ERRNO_NONE)
+        (res = NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_connect(xNetIoHandle, pServPara->pcHost, PORT_HTTPS)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to connect to %s\r\n", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to connect to %s", pServPara->pcHost);
+        /* Propagate the res error */
     }
-    else if (Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_GET_DATA_ENDPOINT, xHttpReqHeaders, STRING_c_str(xStHttpBody)) != KVS_ERRNO_NONE)
+    else if ((res = Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_GET_DATA_ENDPOINT, xHttpReqHeaders, STRING_c_str(xStHttpBody))) != KVS_ERRNO_NONE)
     {
         LogError("Failed send http request to %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen))
+    else if ((res = Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen)) != KVS_ERRNO_NONE)
     {
         LogError("Failed recv http response from %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -945,10 +991,10 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
         }
         else
         {
-            if (prvParseDataEndpoint(pRspBody, uRspBodyLen, ppcDataEndpoint) != KVS_ERRNO_NONE)
+            if ((res = prvParseDataEndpoint(pRspBody, uRspBodyLen, ppcDataEndpoint)) != KVS_ERRNO_NONE)
             {
                 LogError("Failed to parse data endpoint");
-                xRes = KVS_ERRNO_FAIL;
+                /* Propagate the res error */
             }
         }
     }
@@ -961,17 +1007,17 @@ int Kvs_getDataEndpoint(KvsServiceParameter_t *pServPara, KvsGetDataEndpointPara
     STRING_delete(xStContentLength);
     STRING_delete(xStHttpBody);
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *pPutMediaPara, unsigned int *puHttpStatusCode, PutMediaHandle *pPutMediaHandle)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = NULL;
 
     char pcXAmzDate[DATE_TIME_ISO_8601_FORMAT_STRING_SIZE] = {0};
     STRING_HANDLE xStProducerStartTimestamp = NULL;
-    uint64_t uProducerStartTimestamp = 0;
+
 
     AwsSigV4Handle xAwsSigV4Handle = NULL;
 
@@ -988,25 +1034,30 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         *puHttpStatusCode = 0; /* Set to zero to avoid misuse from previous value. */
     }
 
-    if (prvValidateServiceParameter(pServPara) != KVS_ERRNO_NONE || prvValidatePutMediaParameter(pPutMediaPara) != KVS_ERRNO_NONE || pPutMediaHandle == NULL)
+    if ((res = prvValidateServiceParameter(pServPara)) != KVS_ERRNO_NONE ||
+        (res = prvValidatePutMediaParameter(pPutMediaPara)) != KVS_ERRNO_NONE)
     {
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate)) != KVS_ERRNO_NONE)
+    else if (pPutMediaHandle == NULL)
+    {
+        res = KVS_ERROR_INVALID_ARGUMENT;
+        LogError("Invalid argument");
+    }
+    else if ((res = getTimeInIso8601(pcXAmzDate, sizeof(pcXAmzDate))) != KVS_ERRNO_NONE)
     {
         LogError("Failed to get time");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (
-        ((uProducerStartTimestamp = (pPutMediaPara->uProducerStartTimestampMs == 0) ? getEpochTimestampInMs() : pPutMediaPara->uProducerStartTimestampMs) == 0) ||
-        (xStProducerStartTimestamp = STRING_construct_sprintf("%." PRIu64 ".%03d", uProducerStartTimestamp / 1000, uProducerStartTimestamp % 1000)) == NULL)
+    else if ((res = prvGetEpochTimestampInStr(pPutMediaPara->uProducerStartTimestampMs, &xStProducerStartTimestamp)) != KVS_ERRNO_NONE)
     {
         LogError("Failed to get epoch time");
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if (
-        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL || HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcPutMediaEndpoint) != HTTP_HEADERS_OK ||
+        (xHttpReqHeaders = HTTPHeaders_Alloc()) == NULL ||
+        HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_HOST, pServPara->pcPutMediaEndpoint) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_ACCEPT, VAL_ACCEPT_ANY) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONNECTION, VAL_KEEP_ALIVE) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_CONTENT_TYPE, VAL_CONTENT_TYPE_APPLICATION_jSON) != HTTP_HEADERS_OK ||
@@ -1020,32 +1071,38 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_X_AMZN_STREAM_NAME, pPutMediaPara->pcStreamName) != HTTP_HEADERS_OK ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, "expect", "100-continue") != HTTP_HEADERS_OK)
     {
+        res = KVS_ERROR_UNABLE_TO_GENERATE_HTTP_HEADER;
         LogError("Failed to generate HTTP headers");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (
         (xAwsSigV4Handle = prvSign(pServPara, KVS_URI_PUT_MEDIA, URI_QUERY_EMPTY, xHttpReqHeaders, HTTP_BODY_EMPTY)) == NULL ||
         HTTPHeaders_AddHeaderNameValuePair(xHttpReqHeaders, HDR_AUTHORIZATION, AwsSigV4_GetAuthorization(xAwsSigV4Handle)) != HTTP_HEADERS_OK)
     {
+        res = KVS_ERROR_FAIL_TO_SIGN_HTTP_REQ;
         LogError("Failed to sign");
-        xRes = KVS_ERRNO_FAIL;
+    }
+    else if ((xNetIoHandle = NetIo_create()) == NULL)
+    {
+        res = KVS_ERROR_FAIL_TO_CREATE_NETIO_HANDLE;
+        LogError("Failed to create NetIo handle");
     }
     else if (
-        (xNetIoHandle = NetIo_create()) == NULL || NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs) != KVS_ERRNO_NONE ||
-        NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs) != KVS_ERRNO_NONE || NetIo_connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS) != KVS_ERRNO_NONE)
+        (res = NetIo_setRecvTimeout(xNetIoHandle, pServPara->uRecvTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_setSendTimeout(xNetIoHandle, pServPara->uSendTimeoutMs)) != KVS_ERRNO_NONE ||
+        (res = NetIo_connect(xNetIoHandle, pServPara->pcPutMediaEndpoint, PORT_HTTPS)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to connect to %s\r\n", pServPara->pcPutMediaEndpoint);
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to connect to %s", pServPara->pcPutMediaEndpoint);
+        /* Propagate the res error */
     }
-    else if (Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_PUT_MEDIA, xHttpReqHeaders, HTTP_BODY_EMPTY) != KVS_ERRNO_NONE)
+    else if ((res = Http_executeHttpReq(xNetIoHandle, HTTP_METHOD_POST, KVS_URI_PUT_MEDIA, xHttpReqHeaders, HTTP_BODY_EMPTY)) != KVS_ERRNO_NONE)
     {
         LogError("Failed send http request to %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
-    else if (Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen))
+    else if ((res = Http_recvHttpRsp(xNetIoHandle, &uHttpStatusCode, &pRspBody, &uRspBodyLen)) != KVS_ERRNO_NONE)
     {
         LogError("Failed recv http response from %s", pServPara->pcHost);
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
@@ -1063,8 +1120,8 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
         {
             if ((pPutMedia = prvCreateDefaultPutMediaHandle()) == NULL)
             {
+                res = KVS_ERROR_FAIL_TO_CREATE_PUT_MEDIA_HANDLE;
                 LogError("Failed to create pPutMedia");
-                xRes = KVS_ERRNO_FAIL;
             }
             else
             {
@@ -1089,12 +1146,12 @@ int Kvs_putMediaStart(KvsServiceParameter_t *pServPara, KvsPutMediaParameter_t *
     AwsSigV4_Terminate(xAwsSigV4Handle);
     STRING_delete(xStProducerStartTimestamp);
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaUpdate(PutMediaHandle xPutMediaHandle, uint8_t *pMkvHeader, size_t uMkvHeaderLen, uint8_t *pData, size_t uDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     int xChunkedHeaderLen = 0;
     char pcChunkedHeader[sizeof(size_t) * 2 + 3];
@@ -1107,26 +1164,26 @@ int Kvs_putMediaUpdate(PutMediaHandle xPutMediaHandle, uint8_t *pMkvHeader, size
 
     if (pPutMedia == NULL || pMkvHeader == NULL || uMkvHeaderLen == 0)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
         xChunkedHeaderLen = snprintf(pcChunkedHeader, sizeof(pcChunkedHeader), "%lx\r\n", (unsigned long)(uMkvHeaderLen + uDataLen));
         if (xChunkedHeaderLen <= 0)
         {
+            res = KVS_ERROR_C_UTIL_STRING_ERROR;
             LogError("Failed to init chunk size");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
-            if (NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
-                NetIo_send(pPutMedia->xNetIoHandle, pMkvHeader, uMkvHeaderLen) != 0 ||
-                (pData != NULL && uDataLen > 0 && NetIo_send(pPutMedia->xNetIoHandle, pData, uDataLen) != 0) ||
-                NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
+            if ((res = NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen)) != KVS_ERRNO_NONE ||
+                (res = NetIo_send(pPutMedia->xNetIoHandle, pMkvHeader, uMkvHeaderLen)) != KVS_ERRNO_NONE ||
+                (pData != NULL && uDataLen > 0 && (res = NetIo_send(pPutMedia->xNetIoHandle, pData, uDataLen)) != KVS_ERRNO_NONE) ||
+                (res = NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd))) != KVS_ERRNO_NONE)
             {
                 LogError("Failed to send data frame");
-                xRes = KVS_ERRNO_FAIL;
+                /* Propagate the res error */
             }
             else
             {
@@ -1135,12 +1192,12 @@ int Kvs_putMediaUpdate(PutMediaHandle xPutMediaHandle, uint8_t *pMkvHeader, size
         }
     }
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t uLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     int xChunkedHeaderLen = 0;
     char pcChunkedHeader[sizeof(size_t) * 2 + 3];
@@ -1148,24 +1205,25 @@ int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t 
 
     if (pPutMedia == NULL || pBuf == NULL || uLen == 0)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
         xChunkedHeaderLen = snprintf(pcChunkedHeader, sizeof(pcChunkedHeader), "%lx\r\n", (unsigned long)uLen);
         if (xChunkedHeaderLen <= 0)
         {
+            res = KVS_ERROR_C_UTIL_STRING_ERROR;
             LogError("Failed to init chunk size");
-            xRes = KVS_ERRNO_FAIL;
         }
         else
         {
-            if (NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen) != 0 ||
-                NetIo_send(pPutMedia->xNetIoHandle, pBuf, uLen) != 0 || NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd)) != 0)
+            if ((res = NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedHeader, (size_t)xChunkedHeaderLen)) != KVS_ERRNO_NONE ||
+                (res = NetIo_send(pPutMedia->xNetIoHandle, pBuf, uLen)) != KVS_ERRNO_NONE ||
+                (res = NetIo_send(pPutMedia->xNetIoHandle, (const unsigned char *)pcChunkedEnd, strlen(pcChunkedEnd))) != KVS_ERRNO_NONE)
             {
                 LogError("Failed to send data frame");
-                xRes = KVS_ERRNO_FAIL;
+                /* Propagate the res error */
             }
             else
             {
@@ -1174,12 +1232,12 @@ int Kvs_putMediaUpdateRaw(PutMediaHandle xPutMediaHandle, uint8_t *pBuf, size_t 
         }
     }
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     BUFFER_HANDLE xBufRecv = NULL;
     size_t uBytesTotalReceived = 0;
@@ -1189,68 +1247,72 @@ int Kvs_putMediaDoWork(PutMediaHandle xPutMediaHandle)
 
     if (pPutMedia == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
-    }
-    else if ((xBufRecv = BUFFER_create_with_size(DEFAULT_RECV_BUFSIZE)) == NULL)
-    {
-        LogError("OOM: xBufRecv");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
-        prvFlushFragmentAck(pPutMedia);
-
-        while (NetIo_isDataAvailable(pPutMedia->xNetIoHandle))
+        if (NetIo_isDataAvailable(pPutMedia->xNetIoHandle))
         {
-            if (BUFFER_length(xBufRecv) == uBytesTotalReceived && BUFFER_enlarge(xBufRecv, BUFFER_length(xBufRecv) * 2) != 0)
+            if ((xBufRecv = BUFFER_create_with_size(DEFAULT_RECV_BUFSIZE)) == NULL)
             {
+                res = KVS_ERROR_C_UTIL_UNABLE_TO_CREATE_BUFFER;
                 LogError("OOM: xBufRecv");
-                xRes = KVS_ERRNO_FAIL;
-                break;
             }
-
-            if (NetIo_recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived) !=
-                KVS_ERRNO_NONE)
+            else
             {
-                LogError("Failed to receive");
-                xRes = KVS_ERRNO_FAIL;
-                break;
-            }
-
-            uBytesTotalReceived += uBytesReceived;
-        }
-
-        if (xRes == KVS_ERRNO_NONE && uBytesTotalReceived > 0)
-        {
-            uBytesReceived = 0;
-            while (uBytesReceived < uBytesTotalReceived)
-            {
-                memset(&xFragmentAck, 0, sizeof(FragmentAck_t));
-                if (prvParseFragmentAck((char *)BUFFER_u_char(xBufRecv) + uBytesReceived, uBytesTotalReceived - uBytesReceived, &xFragmentAck, &uFragAckLen) != KVS_ERRNO_NONE ||
-                    uFragAckLen == 0)
+                prvFlushFragmentAck(pPutMedia);
+                while (NetIo_isDataAvailable(pPutMedia->xNetIoHandle))
                 {
-                    break;
-                }
-                else
-                {
-                    prvLogFragmentAck(&xFragmentAck);
-                    prvPushFragmentAck(pPutMedia, &xFragmentAck);
-                    if (xFragmentAck.eventType == eError)
+                    if (BUFFER_length(xBufRecv) == uBytesTotalReceived && BUFFER_enlarge(xBufRecv, BUFFER_length(xBufRecv) * 2) != 0)
                     {
-                        xRes = KVS_ERRNO_FAIL;
+                        res = KVS_ERROR_C_UTIL_UNABLE_TO_ENLARGE_BUFFER;
+                        LogError("OOM: xBufRecv");
                         break;
                     }
+
+                    if ((res = NetIo_recv(pPutMedia->xNetIoHandle, BUFFER_u_char(xBufRecv) + uBytesTotalReceived, BUFFER_length(xBufRecv) - uBytesTotalReceived, &uBytesReceived)) !=KVS_ERRNO_NONE)
+                    {
+                        LogError("Failed to receive");
+                        /* Propagate the res error */
+                        break;
+                    }
+
+                    uBytesTotalReceived += uBytesReceived;
                 }
-                uBytesReceived += uFragAckLen;
+
+                if (res == KVS_ERRNO_NONE && uBytesTotalReceived > 0)
+                {
+                    uBytesReceived = 0;
+                    while (uBytesReceived < uBytesTotalReceived)
+                    {
+                        memset(&xFragmentAck, 0, sizeof(FragmentAck_t));
+                        if (prvParseFragmentAck((char *)BUFFER_u_char(xBufRecv) + uBytesReceived, uBytesTotalReceived - uBytesReceived, &xFragmentAck, &uFragAckLen) != KVS_ERRNO_NONE ||
+                            uFragAckLen == 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            prvLogFragmentAck(&xFragmentAck);
+                            prvPushFragmentAck(pPutMedia, &xFragmentAck);
+                            if (xFragmentAck.eventType == eError)
+                            {
+                                res = KVS_GENERATE_PUTMEDIA_ERROR(xFragmentAck.uErrorId);
+                                break;
+                            }
+                        }
+                        uBytesReceived += uFragAckLen;
+                    }
+                    // prvLogPendingFragmentAcks(pPutMedia);
+                }
             }
-            // prvLogPendingFragmentAcks(pPutMedia);
         }
     }
 
     BUFFER_delete(xBufRecv);
 
-    return xRes;
+    return res;
 }
 
 void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
@@ -1272,59 +1334,59 @@ void Kvs_putMediaFinish(PutMediaHandle xPutMediaHandle)
 
 int Kvs_putMediaUpdateRecvTimeout(PutMediaHandle xPutMediaHandle, unsigned int uRecvTimeoutMs)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
 
     if (pPutMedia == NULL || pPutMedia->xNetIoHandle == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
-    else if (NetIo_setRecvTimeout(pPutMedia->xNetIoHandle, uRecvTimeoutMs) != KVS_ERRNO_NONE)
+    else if ((res = NetIo_setRecvTimeout(pPutMedia->xNetIoHandle, uRecvTimeoutMs)) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
         /* nop */
     }
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaUpdateSendTimeout(PutMediaHandle xPutMediaHandle, unsigned int uSendTimeoutMs)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
 
     if (pPutMedia == NULL || pPutMedia->xNetIoHandle == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
-    else if (NetIo_setSendTimeout(pPutMedia->xNetIoHandle, uSendTimeoutMs) != KVS_ERRNO_NONE)
+    else if ((res = NetIo_setSendTimeout(pPutMedia->xNetIoHandle, uSendTimeoutMs)) != KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else
     {
         /* nop */
     }
 
-    return xRes;
+    return res;
 }
 
 int Kvs_putMediaReadFragmentAck(PutMediaHandle xPutMediaHandle, ePutMediaFragmentAckEventType *peAckEventType, uint64_t *puFragmentTimecode, unsigned int *puErrorId)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     PutMedia_t *pPutMedia = xPutMediaHandle;
     FragmentAck_t *pFragmentAck = NULL;
 
     if (pPutMedia == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else if ((pFragmentAck = prvReadFragmentAck(pPutMedia)) == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_NO_PUTMEDIA_FRAGMENT_ACK_AVAILABLE;
     }
     else
     {
@@ -1343,5 +1405,5 @@ int Kvs_putMediaReadFragmentAck(PutMediaHandle xPutMediaHandle, ePutMediaFragmen
         kvsFree(pFragmentAck);
     }
 
-    return xRes;
+    return res;
 }

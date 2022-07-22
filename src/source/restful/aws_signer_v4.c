@@ -15,7 +15,7 @@
 
 #include <stddef.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
 #include "mbedtls/md.h"
@@ -74,11 +74,11 @@ static int prvValidateHttpMethod(const char *pcHttpMethod)
 {
     if (pcHttpMethod == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else if (!strcmp(pcHttpMethod, HTTP_METHOD_POST) && !strcmp(pcHttpMethod, HTTP_METHOD_GET) && !strcmp(pcHttpMethod, HTTP_METHOD_PUT))
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -92,7 +92,7 @@ static int prvValidateUri(const char *pcUri)
 
     if (pcUri == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -106,7 +106,7 @@ static int prvValidateHttpHeader(const char *pcHeader, const char *pcValue)
 
     if (pcHeader == NULL || pcValue == NULL)
     {
-        return KVS_ERRNO_FAIL;
+        return KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -116,18 +116,19 @@ static int prvValidateHttpHeader(const char *pcHeader, const char *pcValue)
 
 static int prvHexEncodedSha256(const unsigned char *pMsg, size_t uMsgLen, char pcHexEncodedHash[HEX_ENCODED_SHA_256_STRING_SIZE])
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
     int i = 0;
     char *p = NULL;
     unsigned char pHashBuf[SHA256_DIGEST_LENGTH] = {0};
 
     if (pMsg == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
-    else if (mbedtls_sha256_ret(pMsg, uMsgLen, pHashBuf, 0) != 0)
+    else if ((retVal = mbedtls_sha256_ret(pMsg, uMsgLen, pHashBuf, 0)) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
     }
     else
     {
@@ -138,22 +139,22 @@ static int prvHexEncodedSha256(const unsigned char *pMsg, size_t uMsgLen, char p
         }
     }
 
-    return xRes;
+    return res;
 }
 
 AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     AwsSigV4_t *pxAwsSigV4 = NULL;
 
-    if (prvValidateHttpMethod(pcHttpMethod) == KVS_ERRNO_NONE && prvValidateUri(pcUri) == KVS_ERRNO_NONE)
+    if ((res = prvValidateHttpMethod(pcHttpMethod) == KVS_ERRNO_NONE && prvValidateUri(pcUri)) == KVS_ERRNO_NONE)
     {
         do
         {
             pxAwsSigV4 = (AwsSigV4_t *)kvsMalloc(sizeof(AwsSigV4_t));
             if (pxAwsSigV4 == NULL)
             {
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_OUT_OF_MEMORY;
                 break;
             }
             memset(pxAwsSigV4, 0, sizeof(AwsSigV4_t));
@@ -166,12 +167,12 @@ AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
 
             if (pxAwsSigV4->xStCanonicalRequest == NULL || pxAwsSigV4->xStSignedHeaders == NULL || pxAwsSigV4->xStHmacHexEncoded == NULL)
             {
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_INVALID_ARGUMENT;
                 break;
             }
         } while (0);
 
-        if (xRes == KVS_ERRNO_FAIL)
+        if (res == KVS_ERRNO_FAIL)
         {
             LogError("Failed to init canonical request");
             AwsSigV4_Terminate(pxAwsSigV4);
@@ -199,66 +200,71 @@ void AwsSigV4_Terminate(AwsSigV4Handle xSigV4Handle)
 
 int AwsSigV4_AddCanonicalHeader(AwsSigV4Handle xSigV4Handle, const char *pcHeader, const char *pcValue)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     AwsSigV4_t *pxAwsSigV4 = (AwsSigV4_t *)xSigV4Handle;
 
-    if (pxAwsSigV4 == NULL || prvValidateHttpHeader(pcHeader, pcValue) != KVS_ERRNO_NONE)
+    if (pxAwsSigV4 == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
+    }
+    else if ((res = prvValidateHttpHeader(pcHeader, pcValue)) != KVS_ERRNO_NONE)
+    {
+        /* Propagate the res error */
     }
     else if (STRING_sprintf(pxAwsSigV4->xStCanonicalRequest, "%s:%s\n", pcHeader, pcValue) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else if (STRING_length(pxAwsSigV4->xStSignedHeaders) > 0 && STRING_concat(pxAwsSigV4->xStSignedHeaders, ";") != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else if (STRING_concat(pxAwsSigV4->xStSignedHeaders, pcHeader) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else
     {
         /* nop */
     }
 
-    return xRes;
+    return res;
 }
 
 int AwsSigV4_AddCanonicalBody(AwsSigV4Handle xSigV4Handle, const char *pBody, size_t uBodyLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     AwsSigV4_t *pxAwsSigV4 = (AwsSigV4_t *)xSigV4Handle;
     char pcBodyHexEncodedSha256[HEX_ENCODED_SHA_256_STRING_SIZE] = {0};
 
     if (pxAwsSigV4 == NULL || pBody == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else if (STRING_sprintf(pxAwsSigV4->xStCanonicalRequest, "\n%s\n", STRING_c_str(pxAwsSigV4->xStSignedHeaders)) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else if (prvHexEncodedSha256((const unsigned char *)pBody, uBodyLen, pcBodyHexEncodedSha256) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else if (STRING_concat(pxAwsSigV4->xStCanonicalRequest, pcBodyHexEncodedSha256) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     else
     {
         /* nop */
     }
 
-    return xRes;
+    return res;
 }
 
 int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecretKey, char *pcRegion, char *pcService, const char *pcXAmzDate)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
     AwsSigV4_t *pxAwsSigV4 = (AwsSigV4_t *)xSigV4Handle;
     char pcCanonicalReqHexEncSha256[HEX_ENCODED_SHA_256_STRING_SIZE] = {0};
     const mbedtls_md_info_t *pxMdInfo = NULL;
@@ -269,53 +275,50 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
 
     if (pxAwsSigV4 == NULL || pcSecretKey == NULL || pcRegion == NULL || pcService == NULL || pcXAmzDate == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     /* Do SHA256 on canonical request and then hex encode it. */
     else if (
-        prvHexEncodedSha256((const unsigned char *)STRING_c_str(pxAwsSigV4->xStCanonicalRequest), STRING_length(pxAwsSigV4->xStCanonicalRequest), pcCanonicalReqHexEncSha256) !=
+        (res = prvHexEncodedSha256((const unsigned char *)STRING_c_str(pxAwsSigV4->xStCanonicalRequest), STRING_length(pxAwsSigV4->xStCanonicalRequest), pcCanonicalReqHexEncSha256)) !=
         KVS_ERRNO_NONE)
     {
-        xRes = KVS_ERRNO_FAIL;
+        /* Propagate the res error */
     }
     else if ((pxMdInfo = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256)) == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_UNKNOWN_MBEDTLS_MESSAGE_DIGEST;
     }
     /* HMAC size of SHA256 should be 32. */
     else if ((uHmacSize = mbedtls_md_get_size(pxMdInfo)) == 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_MBEDTLS_MESSAGE_DIGEST_SIZE;
     }
     /* Generate the scope string. */
     else if (STRING_sprintf(pxAwsSigV4->xStScope, TEMPLATE_CANONICAL_SCOPE, SIGNATURE_DATE_STRING_LEN, pcXAmzDate, pcRegion, pcService, AWS_SIG_V4_SIGNATURE_END) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     /* Generate the signed string. */
     else if (
         (xStSignedStr =
              STRING_construct_sprintf(TEMPLATE_CANONICAL_SIGNED_STRING, AWS_SIG_V4_ALGORITHM, pcXAmzDate, STRING_c_str(pxAwsSigV4->xStScope), pcCanonicalReqHexEncSha256)) == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
-    /* Generatue the beginning of the signature. */
+    /* Generate the beginning of the signature. */
     else if (snprintf(pHmac, AWS_SIG_V4_MAX_HMAC_SIZE, TEMPLATE_SIGNATURE_START, AWS_SIG_V4_SIGNATURE_START, pcSecretKey) == 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_C_UTIL_STRING_ERROR;
     }
     /* Calculate the HMAC of date, region, service, signature end, and signed string*/
     else if (
-        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, strlen(pHmac), (const unsigned char *)pcXAmzDate, SIGNATURE_DATE_STRING_LEN, (unsigned char *)pHmac) != 0 ||
-        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcRegion, strlen(pcRegion), (unsigned char *)pHmac) != 0 ||
-        mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcService, strlen(pcService), (unsigned char *)pHmac) != 0 ||
-        mbedtls_md_hmac(
-            pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)AWS_SIG_V4_SIGNATURE_END, sizeof(AWS_SIG_V4_SIGNATURE_END) - 1, (unsigned char *)pHmac) !=
-            0 ||
-        mbedtls_md_hmac(
-            pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)STRING_c_str(xStSignedStr), STRING_length(xStSignedStr), (unsigned char *)pHmac) != 0)
+        (retVal = mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, strlen(pHmac), (const unsigned char *)pcXAmzDate, SIGNATURE_DATE_STRING_LEN, (unsigned char *)pHmac)) != 0 ||
+        (retVal = mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcRegion, strlen(pcRegion), (unsigned char *)pHmac)) != 0 ||
+        (retVal = mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)pcService, strlen(pcService), (unsigned char *)pHmac)) != 0 ||
+        (retVal = mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)AWS_SIG_V4_SIGNATURE_END, sizeof(AWS_SIG_V4_SIGNATURE_END) - 1, (unsigned char *)pHmac)) != 0 ||
+        (retVal = mbedtls_md_hmac(pxMdInfo, (const unsigned char *)pHmac, uHmacSize, (const unsigned char *)STRING_c_str(xStSignedStr), STRING_length(xStSignedStr), (unsigned char *)pHmac)) != 0)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
     }
     else
     {
@@ -323,12 +326,12 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
         {
             if (STRING_sprintf(pxAwsSigV4->xStHmacHexEncoded, "%02x", pHmac[i] & 0xFF) != 0)
             {
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_C_UTIL_STRING_ERROR;
                 break;
             }
         }
 
-        if (xRes == 0)
+        if (res == 0)
         {
             if (STRING_sprintf(
                     pxAwsSigV4->xStAuthorization,
@@ -338,14 +341,14 @@ int AwsSigV4_Sign(AwsSigV4Handle xSigV4Handle, char *pcAccessKey, char *pcSecret
                     STRING_c_str(pxAwsSigV4->xStSignedHeaders),
                     STRING_c_str(pxAwsSigV4->xStHmacHexEncoded)) != 0)
             {
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_ERROR_C_UTIL_STRING_ERROR;
             }
         }
     }
 
     STRING_delete(xStSignedStr);
 
-    return xRes;
+    return res;
 }
 
 const char *AwsSigV4_GetAuthorization(AwsSigV4Handle xSigV4Handle)

@@ -20,7 +20,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "azure_c_shared_utility/xlogging.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
@@ -57,12 +57,17 @@ typedef struct NetIo
 
 static int prvCreateX509Cert(NetIo_t *pxNet)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
 
-    if (pxNet == NULL || (pxNet->pRootCA = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
-        (pxNet->pCert = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL || (pxNet->pPrivKey = (mbedtls_pk_context *)kvsMalloc(sizeof(mbedtls_pk_context))) == NULL)
+    if (pxNet == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
+    }
+    else if ((pxNet->pRootCA = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pCert = (mbedtls_x509_crt *)kvsMalloc(sizeof(mbedtls_x509_crt))) == NULL ||
+        (pxNet->pPrivKey = (mbedtls_pk_context *)kvsMalloc(sizeof(mbedtls_pk_context))) == NULL)
+    {
+        res = KVS_ERROR_OUT_OF_MEMORY;
     }
     else
     {
@@ -71,25 +76,26 @@ static int prvCreateX509Cert(NetIo_t *pxNet)
         mbedtls_pk_init(pxNet->pPrivKey);
     }
 
-    return xRes;
+    return res;
 }
 
 static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
 
     if (pxNet == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         mbedtls_ssl_set_bio(&(pxNet->xSsl), &(pxNet->xFd), mbedtls_net_send, NULL, mbedtls_net_recv_timeout);
 
-        if (mbedtls_ssl_config_defaults(&(pxNet->xConf), MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0)
+        if ((retVal = mbedtls_ssl_config_defaults(&(pxNet->xConf), MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
         {
-            LogError("Failed to config ssl");
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+            LogError("Failed to config ssl (err:-%X)", -res);
         }
         else
         {
@@ -99,22 +105,22 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
 
             if (pcRootCA != NULL && pcCert != NULL && pcPrivKey != NULL)
             {
-                if (mbedtls_x509_crt_parse(pxNet->pRootCA, (void *)pcRootCA, strlen(pcRootCA) + 1) != 0 ||
-                    mbedtls_x509_crt_parse(pxNet->pCert, (void *)pcCert, strlen(pcCert) + 1) != 0 ||
-                    mbedtls_pk_parse_key(pxNet->pPrivKey, (void *)pcPrivKey, strlen(pcPrivKey) + 1, NULL, 0) != 0)
+                if ((retVal = mbedtls_x509_crt_parse(pxNet->pRootCA, (void *)pcRootCA, strlen(pcRootCA) + 1)) != 0 ||
+                    (retVal = mbedtls_x509_crt_parse(pxNet->pCert, (void *)pcCert, strlen(pcCert) + 1)) != 0 ||
+                    (retVal = mbedtls_pk_parse_key(pxNet->pPrivKey, (void *)pcPrivKey, strlen(pcPrivKey) + 1, NULL, 0)) != 0)
                 {
-                    LogError("Failed to parse x509");
-                    xRes = KVS_ERRNO_FAIL;
+                    res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+                    LogError("Failed to parse x509 (err:-%X)", -res);
                 }
                 else
                 {
                     mbedtls_ssl_conf_authmode(&(pxNet->xConf), MBEDTLS_SSL_VERIFY_REQUIRED);
                     mbedtls_ssl_conf_ca_chain(&(pxNet->xConf), pxNet->pRootCA, NULL);
 
-                    if (mbedtls_ssl_conf_own_cert(&(pxNet->xConf), pxNet->pCert, pxNet->pPrivKey) != 0)
+                    if ((retVal = mbedtls_ssl_conf_own_cert(&(pxNet->xConf), pxNet->pCert, pxNet->pPrivKey)) != 0)
                     {
-                        LogError("Failed to conf own cert");
-                        xRes = KVS_ERRNO_FAIL;
+                        res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+                        LogError("Failed to conf own cert (err:-%X)", -res);
                     }
                 }
             }
@@ -125,54 +131,54 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
         }
     }
 
-    if (xRes == KVS_ERRNO_NONE)
+    if (res == KVS_ERRNO_NONE)
     {
-        if (mbedtls_ssl_setup(&(pxNet->xSsl), &(pxNet->xConf)) != 0)
+        if ((retVal = mbedtls_ssl_setup(&(pxNet->xSsl), &(pxNet->xConf))) != 0)
         {
-            LogError("Failed to setup ssl");
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+            LogError("Failed to setup ssl (err:-%X)", -res);
         }
     }
 
-    return xRes;
+    return res;
 }
 
 static int prvConnect(NetIo_t *pxNet, const char *pcHost, const char *pcPort, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
 {
-    int xRes = KVS_ERRNO_NONE;
-    int ret = 0;
+    int res = KVS_ERRNO_NONE;
+    int retVal = 0;
 
     if (pxNet == NULL || pcHost == NULL || pcPort == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
-    else if ((pcRootCA != NULL && pcCert != NULL && pcPrivKey != NULL) && prvCreateX509Cert(pxNet) != KVS_ERRNO_NONE)
+    else if ((pcRootCA != NULL && pcCert != NULL && pcPrivKey != NULL) && (res = prvCreateX509Cert(pxNet)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to init x509");
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to init x509 (err:-%X)", -res);
+        /* Propagate the res error */
     }
-    else if ((ret = mbedtls_net_connect(&(pxNet->xFd), pcHost, pcPort, MBEDTLS_NET_PROTO_TCP)) != 0)
+    else if ((retVal = mbedtls_net_connect(&(pxNet->xFd), pcHost, pcPort, MBEDTLS_NET_PROTO_TCP)) != 0)
     {
-        LogError("Failed to connect to %s:%s", pcHost, pcPort);
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+        LogError("Failed to connect to %s:%s (err:-%X)", pcHost, pcPort, -res);
     }
-    else if (prvInitConfig(pxNet, pcRootCA, pcCert, pcPrivKey) != KVS_ERRNO_NONE)
+    else if ((res = prvInitConfig(pxNet, pcRootCA, pcCert, pcPrivKey)) != KVS_ERRNO_NONE)
     {
-        LogError("Failed to config ssl");
-        xRes = KVS_ERRNO_FAIL;
+        LogError("Failed to config ssl (err:-%X)", -res);
+        /* Propagate the res error */
     }
-    else if ((ret = mbedtls_ssl_handshake(&(pxNet->xSsl))) != 0)
+    else if ((retVal = mbedtls_ssl_handshake(&(pxNet->xSsl))) != 0)
     {
-        LogError("ssl handshake err (%d)", ret);
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
+        LogError("ssl handshake err (-%X)", -res);
     }
     else
     {
         /* nop */
     }
 
-    return xRes;
+    return res;
 }
 
 NetIoHandle NetIo_create(void)
@@ -261,24 +267,30 @@ void NetIo_disconnect(NetIoHandle xNetIoHandle)
 int NetIo_send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uBytesToSend)
 {
     int n = 0;
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
     size_t uBytesRemaining = uBytesToSend;
     char *pIndex = (char *)pBuffer;
 
     if (pxNet == NULL || pBuffer == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         do
         {
             n = mbedtls_ssl_write(&(pxNet->xSsl), (const unsigned char *)pIndex, uBytesRemaining);
-            if (n < 0 || n > uBytesRemaining)
+            if (n < 0)
             {
-                LogError("SSL send error %d", n);
-                xRes = KVS_ERRNO_FAIL;
+                res = KVS_GENERATE_MBEDTLS_ERROR(n);
+                LogError("SSL send error -%X", -res);
+                break;
+            }
+            else if (n > uBytesRemaining)
+            {
+                res = KVS_ERROR_NETIO_SEND_MORE_THAN_REMAINING_DATA;
+                LogError("SSL send error -%X", -res);
                 break;
             }
             uBytesRemaining -= n;
@@ -286,26 +298,31 @@ int NetIo_send(NetIoHandle xNetIoHandle, const unsigned char *pBuffer, size_t uB
         } while (uBytesRemaining > 0);
     }
 
-    return xRes;
+    return res;
 }
 
 int NetIo_recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferSize, size_t *puBytesReceived)
 {
     int n;
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
 
     if (pxNet == NULL || pBuffer == NULL || puBytesReceived == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
         n = mbedtls_ssl_read(&(pxNet->xSsl), pBuffer, uBufferSize);
-        if (n < 0 || n > uBufferSize)
+        if (n < 0)
         {
-            LogError("SSL recv error %d", n);
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_GENERATE_MBEDTLS_ERROR(n);
+            LogError("SSL recv error -%X", -res);
+        }
+        else if (n > uBufferSize)
+        {
+            res = KVS_ERROR_NETIO_RECV_MORE_THAN_AVAILABLE_SPACE;
+            LogError("SSL recv error -%X", -res);
         }
         else
         {
@@ -313,23 +330,18 @@ int NetIo_recv(NetIoHandle xNetIoHandle, unsigned char *pBuffer, size_t uBufferS
         }
     }
 
-    return xRes;
+    return res;
 }
 
 bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle)
 {
-    int xRes = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
     bool bDataAvailable = false;
     struct timeval tv = {0};
     fd_set read_fds = {0};
     int fd = 0;
 
-    if (pxNet == NULL)
-    {
-        xRes = KVS_ERRNO_FAIL;
-    }
-    else
+    if (pxNet != NULL)
     {
         fd = pxNet->xFd.fd;
         if (fd >= 0)
@@ -355,12 +367,12 @@ bool NetIo_isDataAvailable(NetIoHandle xNetIoHandle)
 
 int NetIo_setRecvTimeout(NetIoHandle xNetIoHandle, unsigned int uRecvTimeoutMs)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
 
     if (pxNet == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -368,19 +380,19 @@ int NetIo_setRecvTimeout(NetIoHandle xNetIoHandle, unsigned int uRecvTimeoutMs)
         mbedtls_ssl_conf_read_timeout(&(pxNet->xConf), pxNet->uRecvTimeoutMs);
     }
 
-    return xRes;
+    return res;
 }
 
 int NetIo_setSendTimeout(NetIoHandle xNetIoHandle, unsigned int uSendTimeoutMs)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     NetIo_t *pxNet = (NetIo_t *)xNetIoHandle;
     int fd = 0;
     struct timeval tv = {0};
 
     if (pxNet == NULL)
     {
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_ARGUMENT;
     }
     else
     {
@@ -395,7 +407,7 @@ int NetIo_setSendTimeout(NetIoHandle xNetIoHandle, unsigned int uSendTimeoutMs)
         }
         else if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (void *)&tv, sizeof(tv)) != 0)
         {
-            xRes = KVS_ERRNO_FAIL;
+            res = KVS_ERROR_NETIO_UNABLE_TO_SET_SEND_TIMEOUT;
         }
         else
         {
@@ -403,5 +415,5 @@ int NetIo_setSendTimeout(NetIoHandle xNetIoHandle, unsigned int uSendTimeoutMs)
         }
     }
 
-    return xRes;
+    return res;
 }

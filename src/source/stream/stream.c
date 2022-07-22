@@ -16,7 +16,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-/* Thirdparty headers */
+/* Third party headers */
 #include "azure_c_shared_utility/doublylinkedlist.h"
 #include "azure_c_shared_utility/lock.h"
 #include "azure_c_shared_utility/xlogging.h"
@@ -166,18 +166,18 @@ void Kvs_streamTermintate(StreamHandle xStreamHandle)
 
 int Kvs_streamGetMkvEbmlSegHdr(StreamHandle xStreamHandle, uint8_t **ppMkvHeader, size_t *puMkvHeaderLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     Stream_t *pxStream = xStreamHandle;
 
     if (pxStream == NULL || ppMkvHeader == NULL || puMkvHeaderLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else if (pxStream->pMkvEbmlSeg == NULL || pxStream->uMkvEbmlSegLen == 0)
     {
+        res = KVS_ERROR_STREAM_MKV_IS_NOT_INITIALIZED;
         LogError("Mkv EBML and segment are not initialized");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -185,12 +185,12 @@ int Kvs_streamGetMkvEbmlSegHdr(StreamHandle xStreamHandle, uint8_t **ppMkvHeader
         *puMkvHeaderLen = pxStream->uMkvEbmlSegLen;
     }
 
-    return xRes;
+    return res;
 }
 
 DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t *pxDataFrameIn)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     Stream_t *pxStream = xStreamHandle;
     DataFrame_t *pxDataFrame = NULL;
     size_t uMkvHdrLen = 0;
@@ -205,18 +205,23 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
 
     if (pxStream == NULL || pxDataFrameIn == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
-    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0 || (pxDataFrame = (DataFrame_t *)kvsMalloc(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
+    else if ((uMkvHdrLen = Mkv_getClusterHdrLen(pxDataFrameIn->xClusterType)) == 0)
     {
-        LogError("Failed to create data frame");
-        xRes = KVS_ERRNO_FAIL;
+        res = KVS_ERROR_INVALID_CLUSTER_HDR_LEN;
+        LogError("Invalid cluster len");
+    }
+    else if ((pxDataFrame = (DataFrame_t *)kvsMalloc(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
+    {
+        res = KVS_ERROR_OUT_OF_MEMORY;
+        LogError("OOM: pxDataFrame");
     }
     else if (Lock(pxStream->xLock) != LOCK_OK)
     {
+        res = KVS_ERROR_LOCK_ERROR;
         LogError("Failed to Lock");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -304,7 +309,7 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         Unlock(pxStream->xLock);
     }
 
-    if (xRes != KVS_ERRNO_NONE)
+    if (res != KVS_ERRNO_NONE)
     {
         if (pxDataFrame != NULL)
         {
@@ -389,7 +394,7 @@ bool Kvs_streamAvailOnTrack(StreamHandle xStreamHandle, TrackType_t xTrackType)
 
 int Kvs_streamMemStatTotal(StreamHandle xStreamHandle, size_t *puMemTotal)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     Stream_t *pxStream = xStreamHandle;
     DataFrame_t *pxDataFrame = NULL;
     PDLIST_ENTRY pxListHead = NULL;
@@ -398,10 +403,12 @@ int Kvs_streamMemStatTotal(StreamHandle xStreamHandle, size_t *puMemTotal)
 
     if (pxStream == NULL || puMemTotal == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
     }
     else if (Lock(pxStream->xLock) != LOCK_OK)
     {
+        res = KVS_ERROR_LOCK_ERROR;
         LogError("Failed to Lock");
     }
     else
@@ -422,18 +429,18 @@ int Kvs_streamMemStatTotal(StreamHandle xStreamHandle, size_t *puMemTotal)
         Unlock(pxStream->xLock);
     }
 
-    return xRes;
+    return res;
 }
 
 int Kvs_dataFrameGetContent(DataFrameHandle xDataFrameHandle, uint8_t **ppMkvHeader, size_t *puMkvHeaderLen, uint8_t **ppData, size_t *puDataLen)
 {
-    int xRes = KVS_ERRNO_NONE;
+    int res = KVS_ERRNO_NONE;
     DataFrame_t *pxDataFrame = xDataFrameHandle;
 
     if (pxDataFrame == NULL || ppMkvHeader == NULL || puMkvHeaderLen == NULL || ppData == NULL || puDataLen == NULL)
     {
+        res = KVS_ERROR_INVALID_ARGUMENT;
         LogError("Invalid argument");
-        xRes = KVS_ERRNO_FAIL;
     }
     else
     {
@@ -443,7 +450,7 @@ int Kvs_dataFrameGetContent(DataFrameHandle xDataFrameHandle, uint8_t **ppMkvHea
         *puDataLen = pxDataFrame->xDataFrameIn.uDataLen;
     }
 
-    return xRes;
+    return res;
 }
 
 void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
@@ -455,4 +462,3 @@ void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
         kvsFree(pxDataFrame);
     }
 }
-
