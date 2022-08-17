@@ -49,8 +49,8 @@ target_link_libraries(${APP_NAME}
     kvsCommonLws
     kvspicUtils
     websockets
-    kvsapp-static
-    frame-ring-buffer-static
+    kvs-embedded-c
+    frame-ring-buffer
     ${LINKER_FLAGS_FOR_MEM_WRAPPER}
 )
 
