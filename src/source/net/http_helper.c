@@ -21,7 +21,6 @@
 #include "azure_c_shared_utility/httpheaders.h"
 #include "azure_c_shared_utility/strings.h"
 #include "azure_c_shared_utility/xlogging.h"
-#include "llhttp.h"
 
 /* Public headers */
 #include "kvs/errors.h"
@@ -30,15 +29,9 @@
 #include "os/allocator.h"
 #include "net/http_helper.h"
 #include "net/netio.h"
+#include "net/http_parser_adapter.h"
 
 #define DEFAULT_HTTP_RECV_BUFSIZE 2048
-
-typedef struct
-{
-    llhttp_settings_t xSettings;
-    const char *pBodyLoc;
-    size_t uBodyLen;
-} llhttp_settings_ex_t;
 
 static int prvGenerateHttpReq(const char *pcHttpMethod, const char *pcUri, HTTP_HEADERS_HANDLE xHttpReqHeaders, const char *pcBody, STRING_HANDLE *pStringHandle)
 {
@@ -103,41 +96,6 @@ static int prvGenerateHttpReq(const char *pcHttpMethod, const char *pcUri, HTTP_
     }
 
     return res;
-}
-
-static int prvHandleHttpOnBodyComplete(llhttp_t *pHttpParser, const char *at, size_t length)
-{
-    llhttp_settings_ex_t *pxSettings = (llhttp_settings_ex_t *)(pHttpParser->settings);
-    pxSettings->pBodyLoc = at;
-    pxSettings->uBodyLen = length;
-    return 0;
-}
-
-static enum llhttp_errno prvParseHttpResponse(const char *pBuf, size_t uLen, unsigned int *puStatusCode, const char **ppBodyLoc, size_t *puBodyLen)
-{
-    llhttp_t xHttpParser = {0};
-    llhttp_settings_ex_t xSettings = {0};
-    enum llhttp_errno xHttpErrno = HPE_OK;
-
-    llhttp_settings_init(&(xSettings.xSettings));
-    xSettings.xSettings.on_body = prvHandleHttpOnBodyComplete;
-    llhttp_init(&xHttpParser, HTTP_RESPONSE, (llhttp_settings_t *)&xSettings);
-
-    xHttpErrno = llhttp_execute(&xHttpParser, pBuf, (size_t)uLen);
-    if (xHttpErrno == HPE_OK)
-    {
-        if (puStatusCode != NULL)
-        {
-            *puStatusCode = xHttpParser.status_code;
-        }
-        if (ppBodyLoc != NULL && puBodyLen != NULL)
-        {
-            *ppBodyLoc = xSettings.pBodyLoc;
-            *puBodyLen = xSettings.uBodyLen;
-        }
-    }
-
-    return xHttpErrno;
 }
 
 int Http_executeHttpReq(NetIoHandle xNetIoHandle, const char *pcHttpMethod, const char *pcUri, HTTP_HEADERS_HANDLE xHttpReqHeaders, const char *pcBody)
@@ -215,9 +173,9 @@ int Http_recvHttpRsp(NetIoHandle xNetIoHandle, unsigned int *puHttpStatus, char 
             else
             {
                 uBytesTotalReceived += uBytesReceived;
-                if (prvParseHttpResponse((const char *)BUFFER_u_char(xBufRecv), uBytesTotalReceived, &uHttpStatusCode, &pBodyLoc, &uBodyLen) != HPE_OK)
+                if ((res = HttpParser_parseHttpResponse((const char *)BUFFER_u_char(xBufRecv), uBytesTotalReceived, &uHttpStatusCode, &pBodyLoc, &uBodyLen)) != KVS_ERRNO_NONE)
                 {
-                    res = KVS_ERROR_LLHTTP_PARSE_EXECUTE_FAIL;
+                    /* Propagate the res error */
                 }
                 /* If it's 100-continue, then we need to discard previous result and do it again. */
                 else if (uHttpStatusCode / 100 == 1)
