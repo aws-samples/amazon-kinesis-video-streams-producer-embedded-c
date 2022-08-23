@@ -33,6 +33,7 @@ set(LIB_SRC
     ${LIB_DIR}/source/mkv/mkv_generator.c
     ${LIB_DIR}/source/net/http_helper.c
     ${LIB_DIR}/source/net/http_helper.h
+    ${LIB_DIR}/source/net/http_parser_adapter.h
     ${LIB_DIR}/source/net/netio.c
     ${LIB_DIR}/source/net/netio.h
     ${LIB_DIR}/source/os/allocator.c
@@ -55,11 +56,23 @@ set(LIB_PRV_INC
 )
 
 set(LINK_LIBS
-    llhttp
     parson
     aziotsharedutil
     tlsf
 )
+
+if(${USE_LLHTTP})
+    set(LIB_SRC ${LIB_SRC}
+        ${LIB_DIR}/source/net/http_parser_adapter_llhttp.c
+    )
+    set(LINK_LIBS ${LINK_LIBS}
+        llhttp
+    )
+else()
+    set(LIB_SRC ${LIB_SRC}
+        ${LIB_DIR}/source/net/http_parser_adapter_default.c
+    )
+endif()
 
 if(NOT ${USE_WEBRTC_MBEDTLS_LIB})
     set(LINK_LIBS ${LINK_LIBS}
