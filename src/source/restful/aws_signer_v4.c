@@ -167,12 +167,12 @@ AwsSigV4Handle AwsSigV4_Create(char *pcHttpMethod, char *pcUri, char *pcQuery)
 
             if (pxAwsSigV4->xStCanonicalRequest == NULL || pxAwsSigV4->xStSignedHeaders == NULL || pxAwsSigV4->xStHmacHexEncoded == NULL)
             {
-                res = KVS_ERROR_INVALID_ARGUMENT;
+                res = KVS_ERROR_OUT_OF_MEMORY;
                 break;
             }
         } while (0);
 
-        if (res == KVS_ERRNO_FAIL)
+        if (res != KVS_ERRNO_NONE)
         {
             LogError("Failed to init canonical request");
             AwsSigV4_Terminate(pxAwsSigV4);
