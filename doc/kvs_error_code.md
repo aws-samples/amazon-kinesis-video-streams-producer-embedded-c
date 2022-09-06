@@ -1,6 +1,6 @@
 # KVS Error Code
 
-In the KVS library, a zero value error code is treated as a success, and a negative integer value error code is treated as a failure. The error code might come from other modules or libraries like RESTful HTTP status code, MbedTLS error code, PutMedia error code, etc. Since all error codes from these modules or libraries are less than the maximum value of 16 bits integer, we keep the 0th~15th bit error code and use the 16th~19th bit as the module type.
+In the KVS library, a zero value error code is treated as a success, and a negative integer value error code is treated as a failure. The error code might come from other modules or libraries like RESTful HTTP status code, MbedTLS error code, PutMedia error code, etc. Since all error codes from these modules or libraries are less than the maximum value of 16 bits integer, we keep the 0th-15th bit error code and use the 16th-19th bit as the module type.
 
 ```text
 +-------+-------------+-------------------------------------------------+
