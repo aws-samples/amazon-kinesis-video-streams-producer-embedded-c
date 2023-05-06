@@ -58,11 +58,11 @@ Before running the example, you need to edit the file "*samples/kvsapp/sample_co
 
 #define H264_FILE_FORMAT                "/path/to/samples/h264SampleFrames/frame-%03d.h264"
 
-#define CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
-#define ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
-#define THING_NAME                      KVS_STREAM_NAME
+#define AWS_IOT_CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
+#define AWS_IOT_ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
+#define AWS_IOT_THING_NAME                      KVS_STREAM_NAME
 
-#define ROOT_CA \
+#define AWS_IOT_ROOT_CA \
 "-----BEGIN CERTIFICATE-----\n" \
 "......" \
 "-----END CERTIFICATE-----\n"
@@ -82,9 +82,9 @@ Before running the example, you need to edit the file "*samples/kvsapp/sample_co
 The values of these settings come from the procedure of setting up the credentials provider by following instructions in this document "[how-iot](https://docs.aws.amazon.com/kinesisvideostreams/latest/dg/how-iot.html)".
 
 *   KVS_STREAM_NAME: It's the stream name.
-*   CREDENTIALS_HOST: It's the IoT credentials host we setup earier.
-*   ROLE_ALIAS: It's the role alias we setup earier.
-*   ROOT_CA, CERTIFICATE, PRIVATE_KEY: These are X509 certificates.  Please filled in your X509 certificates.
+*   AWS_IOT_CREDENTIALS_HOST: It's the IoT credentials host we setup earier.
+*   AWS_IOT_ROLE_ALIAS: It's the role alias we setup earier.
+*   AWS_IOT_ROOT_CA, CERTIFICATE, PRIVATE_KEY: These are X509 certificates.  Please filled in your X509 certificates.
 *   H264_FILE_FORMAT: It's H264 file location.
 
 ### Build and Run Example
