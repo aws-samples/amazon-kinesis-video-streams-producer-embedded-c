@@ -79,7 +79,7 @@ static int prvCreateX509Cert(NetIo_t *pxNet)
     return res;
 }
 
-static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
+static int prvInitConfig(NetIo_t *pxNet, const char *pcHost, const char *pcRootCA, const char *pcCert, const char *pcPrivKey)
 {
     int res = KVS_ERRNO_NONE;
     int retVal = 0;
@@ -100,6 +100,7 @@ static int prvInitConfig(NetIo_t *pxNet, const char *pcRootCA, const char *pcCer
         else
         {
             mbedtls_ssl_conf_rng(&(pxNet->xConf), mbedtls_ctr_drbg_random, &(pxNet->xCtrDrbg));
+            mbedtls_ssl_set_hostname(&(pxNet->xSsl), pcHost);
             mbedtls_ssl_conf_read_timeout(&(pxNet->xConf), pxNet->uRecvTimeoutMs);
             NetIo_setSendTimeout(pxNet, pxNet->uSendTimeoutMs);
 
@@ -163,7 +164,7 @@ static int prvConnect(NetIo_t *pxNet, const char *pcHost, const char *pcPort, co
         res = KVS_GENERATE_MBEDTLS_ERROR(retVal);
         LogError("Failed to connect to %s:%s (err:-%X)", pcHost, pcPort, -res);
     }
-    else if ((res = prvInitConfig(pxNet, pcRootCA, pcCert, pcPrivKey)) != KVS_ERRNO_NONE)
+    else if ((res = prvInitConfig(pxNet, pcHost, pcRootCA, pcCert, pcPrivKey)) != KVS_ERRNO_NONE)
     {
         LogError("Failed to config ssl (err:-%X)", -res);
         /* Propagate the res error */
