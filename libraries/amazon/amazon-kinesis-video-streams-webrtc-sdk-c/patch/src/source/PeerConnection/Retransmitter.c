@@ -247,7 +247,7 @@ STATUS resendPacketOnNack(PRtcpPacket pRtcpPacket, PKvsPeerConnection pKvsPeerCo
             pRtpPacket = NULL;
         }
     }
-    CleanUp:
+CleanUp:
 
     MUTEX_LOCK(pSenderTranceiver->statsLock);
     pSenderTranceiver->outboundStats.nackCount += nackCount;
