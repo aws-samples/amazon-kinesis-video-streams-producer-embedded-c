@@ -25,6 +25,33 @@ extern "C" {
 #pragma clang diagnostic pop
 #endif
 
+/* TODO: Potentially move these call to PIC instead. Moving to PIC in the future would not cause any backward compatibility issues */
+#define PROFILE_CALL(f, msg)                                                                                                                         \
+    do {                                                                                                                                             \
+        startTimeInMacro = GETTIME();                                                                                                                \
+        f;                                                                                                                                           \
+        DLOGP("[%s] Time taken: %" PRIu64 " ms", (msg), (GETTIME() - startTimeInMacro) / HUNDREDS_OF_NANOS_IN_A_MILLISECOND);                        \
+    } while (FALSE)
+
+#define PROFILE_CALL_WITH_T_OBJ(f, t, msg)                                                                                                           \
+    do {                                                                                                                                             \
+        startTimeInMacro = GETTIME();                                                                                                                \
+        f;                                                                                                                                           \
+        t = (GETTIME() - startTimeInMacro) / HUNDREDS_OF_NANOS_IN_A_MILLISECOND;                                                                     \
+        DLOGP("[%s] Time taken: %" PRIu64 " ms", (msg), (t));                                                                                        \
+    } while (FALSE)
+
+#define PROFILE_WITH_START_TIME(t, msg)                                                                                                              \
+    do {                                                                                                                                             \
+        DLOGP("[%s] Time taken: %" PRIu64 " ms", msg, (GETTIME() - (t)) / HUNDREDS_OF_NANOS_IN_A_MILLISECOND);                                       \
+    } while (FALSE)
+
+#define PROFILE_WITH_START_TIME_OBJ(t1, t2, msg)                                                                                                     \
+    do {                                                                                                                                             \
+        t2 = (GETTIME() - (t1)) / HUNDREDS_OF_NANOS_IN_A_MILLISECOND;                                                                                \
+        DLOGP("[%s] Time taken: %" PRIu64 " ms", (msg), t2);                                                                                         \
+    } while (FALSE)
+
 /*! \addtogroup StatusCodes
  * WEBRTC related status codes. Each value is an positive integer formed by adding
  * a base integer inticating the category to an index. Users may run scripts/parse_status.py
@@ -143,6 +170,10 @@ extern "C" {
 #define STATUS_GET_SOCKET_FLAG_FAILED              STATUS_NETWORKING_BASE + 0x00000024
 #define STATUS_SET_SOCKET_FLAG_FAILED              STATUS_NETWORKING_BASE + 0x00000025
 #define STATUS_CLOSE_SOCKET_FAILED                 STATUS_NETWORKING_BASE + 0x00000026
+#define STATUS_CREATE_SOCKET_PAIR_FAILED           STATUS_NETWORKING_BASE + 0x00000027
+#define STATUS_SOCKET_WRITE_FAILED                 STATUS_NETWORKING_BASE + 0X00000028
+#define STATUS_INVALID_ADDRESS_LENGTH              STATUS_NETWORKING_BASE + 0X00000029
+
 /*!@} */
 
 /////////////////////////////////////////////////////
@@ -205,6 +236,7 @@ extern "C" {
 #define STATUS_TURN_CONNECTION_PEER_NOT_USABLE                             STATUS_ICE_BASE + 0x00000027
 #define STATUS_ICE_SERVER_INDEX_INVALID                                    STATUS_ICE_BASE + 0x00000028
 #define STATUS_ICE_CANDIDATE_STRING_MISSING_TYPE                           STATUS_ICE_BASE + 0x00000029
+#define STATUS_TURN_CONNECTION_ALLOCAITON_FAILED                           STATUS_ICE_BASE + 0x0000002a
 /*!@} */
 
 /////////////////////////////////////////////////////
@@ -299,6 +331,7 @@ extern "C" {
 #define STATUS_SIGNALING_DELETE_CALL_FAILED                        STATUS_SIGNALING_BASE + 0x00000031
 #define STATUS_SIGNALING_INVALID_METRICS_VERSION                   STATUS_SIGNALING_BASE + 0x00000032
 #define STATUS_SIGNALING_INVALID_CLIENT_INFO_CACHE_FILE_PATH_LEN   STATUS_SIGNALING_BASE + 0x00000033
+#define STATUS_SIGNALING_LWS_CALL_FAILED                           STATUS_SIGNALING_BASE + 0x00000034
 
 /*!@} */
 
@@ -322,7 +355,7 @@ extern "C" {
 /////////////////////////////////////////////////////
 
 /*! \addtogroup SCTPStatusCodes
- * WEBRTC SCTP related codes. Values are derived from STATUS_STUN_BASE (0x5f000000)
+ * WEBRTC SCTP related codes. Values are derived from STATUS_SCTP_BASE (0x5f000000)
  *  @{
  */
 #define STATUS_SCTP_BASE                 STATUS_PEERCONNECTION_BASE + 0x01000000
@@ -485,7 +518,7 @@ extern "C" {
 /**
  * Version of SignalingClientInfo structure
  */
-#define SIGNALING_CLIENT_INFO_CURRENT_VERSION 1
+#define SIGNALING_CLIENT_INFO_CURRENT_VERSION 2
 
 /**
  * Version of SignalingClientCallbacks structure
@@ -495,7 +528,7 @@ extern "C" {
 /**
  * Version of signaling client
  */
-#define SIGNALING_CLIENT_CURRENT_VERSION 0
+#define SIGNALING_CLIENT_CURRENT_VERSION 1
 
 /**
  * Version of SignalingChannelDescription structure
@@ -525,7 +558,17 @@ extern "C" {
 /**
  * Version of SignalingClientMetrics structure
  */
-#define SIGNALING_CLIENT_METRICS_CURRENT_VERSION 0
+#define SIGNALING_CLIENT_METRICS_CURRENT_VERSION 1
+
+/**
+ * Version of PeerConnectionMetrics structure
+ */
+#define PEER_CONNECTION_METRICS_CURRENT_VERSION 0
+
+/**
+ * Version of KvsIceAgentMetrics structure
+ */
+#define ICE_AGENT_METRICS_CURRENT_VERSION 0
 
 /*!@} */
 
@@ -574,20 +617,31 @@ extern "C" {
 #define SIGNALING_CONNECT_STATE_TIMEOUT (15 * HUNDREDS_OF_NANOS_IN_A_SECOND)
 
 /**
+ * Default disconnect sync API timeout
+ */
+#define SIGNALING_DISCONNECT_STATE_TIMEOUT (15 * HUNDREDS_OF_NANOS_IN_A_SECOND)
+
+/**
  * Default refresh ICE server config API timeout
  */
-#define SIGNALING_REFRESH_ICE_CONFIG_STATE_TIMEOUT (15 * HUNDREDS_OF_NANOS_IN_A_SECOND)
+#define SIGNALING_REFRESH_ICE_CONFIG_STATE_TIMEOUT (20 * HUNDREDS_OF_NANOS_IN_A_SECOND)
 
 /**
  * Default signaling connection establishment timeout
  */
 #define SIGNALING_CONNECT_TIMEOUT (5 * HUNDREDS_OF_NANOS_IN_A_SECOND)
 
+#ifdef _WIN32
+/**
+ * Default timeout for sending data
+ */
+#define SIGNALING_SEND_TIMEOUT (15 * HUNDREDS_OF_NANOS_IN_A_SECOND)
+#else
 /**
  * Default timeout for sending data
  */
 #define SIGNALING_SEND_TIMEOUT (5 * HUNDREDS_OF_NANOS_IN_A_SECOND)
-
+#endif
 /**
  * Default timeout for deleting a channel
  */
@@ -612,12 +666,19 @@ extern "C" {
 /**
  * Maximum sequence number in rtp packet/jitter buffer
  */
-#define MAX_SEQUENCE_NUM ((UINT32) MAX_UINT16)
+#define MAX_RTP_SEQUENCE_NUM ((UINT32) MAX_UINT16)
+
+/**
+ * Maximum timestamp in rtp packet/jitter buffer
+ */
+#define MAX_RTP_TIMESTAMP ((UINT32) MAX_UINT32)
 
 /**
  * Parameterized string for KVS STUN Server
  */
-#define KINESIS_VIDEO_STUN_URL "stun:stun.kinesisvideo.%s.amazonaws.com:443"
+#define KINESIS_VIDEO_STUN_URL_POSTFIX    "amazonaws.com"
+#define KINESIS_VIDEO_STUN_URL_POSTFIX_CN "amazonaws.com.cn"
+#define KINESIS_VIDEO_STUN_URL            "stun:stun.kinesisvideo.%s.%s:443"
 
 /**
  * Default signaling SSL port
@@ -635,7 +696,7 @@ extern "C" {
 /**
  * Signaling states default retry count. This will evaluate to the last call being made 20 seconds in which will hit a timeout first.
  */
-#define SIGNALING_STATES_DEFAULT_RETRY_COUNT 10
+#define SIGNALING_STATES_DEFAULT_RETRY_COUNT 1
 
 /**
  * Signaling caching policy default TTL period
@@ -646,6 +707,11 @@ extern "C" {
  * Signaling caching policy TTL period sentinel value which will force the default period.
  */
 #define SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE 0
+
+/**
+ * Signaling caching policy TTL period sentinel value which will force the default period.
+ */
+#define CREATE_SIGNALING_CLIENT_RETRY_ATTEMPTS_SENTINEL_VALUE -1
 
 /**
  * @brief Definition of the signaling client handle
@@ -716,6 +782,7 @@ typedef enum {
     RTC_CODEC_VP8 = 3,                                                            //!< VP8 video codec.
     RTC_CODEC_MULAW = 4,                                                          //!< MULAW audio codec
     RTC_CODEC_ALAW = 5,                                                           //!< ALAW audio codec
+    RTC_CODEC_UNKNOWN = 6,
 } RTC_CODEC;
 
 /**
@@ -1170,16 +1237,22 @@ typedef struct {
  * @brief Populate Signaling client with client ID and application log level
  */
 typedef struct {
-    UINT32 version;                                 //!< Version of the structure
-    CHAR clientId[MAX_SIGNALING_CLIENT_ID_LEN + 1]; //!< Client id to use. Defines if the client is a producer/consumer
-    UINT32 loggingLevel;                            //!< Verbosity level for the logging. One of LOG_LEVEL_XXX
-                                                    //!< values or the default verbosity will be assumed. Currently,
-                                                    //!< default value is LOG_LEVEL_WARNING
-    PCHAR cacheFilePath;                            //!< File cache path override. The default
-                                                    //!< path is "./.SignalingCache_vN" which might not work for
-                                                    //!< devices which have read only partition where the code is
-                                                    //!< located. For default value or when file caching is not
-                                                    //!< being used this value can be NULL or point to an EMPTY_STRING.
+    UINT32 version;                                            //!< Version of the structure
+    CHAR clientId[MAX_SIGNALING_CLIENT_ID_LEN + 1];            //!< Client id to use. Defines if the client is a producer/consumer
+    UINT32 loggingLevel;                                       //!< Verbosity level for the logging. One of LOG_LEVEL_XXX
+                                                               //!< values or the default verbosity will be assumed. Currently,
+                                                               //!< default value is LOG_LEVEL_WARNING
+    PCHAR cacheFilePath;                                       //!< File cache path override. The default
+                                                               //!< path is "./.SignalingCache_vN" which might not work for
+                                                               //!< devices which have read only partition where the code is
+                                                               //!< located. For default value or when file caching is not
+                                                               //!< being used this value can be NULL or point to an EMPTY_STRING.
+    KvsRetryStrategyCallbacks signalingRetryStrategyCallbacks; //!< Retry strategy callbacks used while creating signaling client
+    INT32 signalingClientCreationMaxRetryAttempts;             //!< Max attempts to create signaling client before returning error to the caller
+    UINT32 stateMachineRetryCountReadOnly; //!< Retry count of state machine. Note that this **MUST NOT** be modified by the user. It is a read only
+                                           //!< field
+    UINT32 signalingMessagesMinimumThreads;
+    UINT32 signalingMessagesMaximumThreads;
 } SignalingClientInfo, *PSignalingClientInfo;
 
 /**
@@ -1321,8 +1394,9 @@ typedef struct {
     UINT32 version;                                       //!< Current version of the structure
     UINT64 customData;                                    //!< Custom data passed by the caller
     SignalingClientMessageReceivedFunc messageReceivedFn; //!< Callback registration for received SDP
-    SignalingClientErrorReportFunc errorReportFn;         //!<  Error reporting function. This is an optional member
+    SignalingClientErrorReportFunc errorReportFn;         //!< Error reporting function. This is an optional member
     SignalingClientStateChangedFunc stateChangeFn;        //!< Signaling client state change callback
+    GetCurrentTimeFunc getCurrentTimeFn;                  //!< callback to override system time, used for testing clock skew
 } SignalingClientCallbacks, *PSignalingClientCallbacks;
 
 /**
@@ -1411,6 +1485,22 @@ typedef struct {
     UINT32 version;                            //!< Structure version
     SignalingClientStats signalingClientStats; //!< Signaling client metrics stats. Reference in Stats.h
 } SignalingClientMetrics, *PSignalingClientMetrics;
+
+/**
+ * @brief KVS ICE Agent Collection of ICE agent related stats. Can be expanded in the future
+ */
+typedef struct {
+    UINT32 version;                    //!< Structure version
+    KvsIceAgentStats kvsIceAgentStats; //!< ICE agent metrics. Reference in Stats.h
+} KvsIceAgentMetrics, *PKvsIceAgentMetrics;
+
+/**
+ * @brief SignalingStats Collection of signaling related stats. Can be expanded in the future
+ */
+typedef struct {
+    UINT32 version;                          //!< Structure version
+    PeerConnectionStats peerConnectionStats; //!< Peer connection metrics stats. Reference in Stats.h
+} PeerConnectionMetrics, *PPeerConnectionMetrics;
 
 /**
  * @brief The stats object is populated based on RTCStatsType request
@@ -1919,6 +2009,16 @@ PUBLIC_API STATUS signalingClientGetIceConfigInfoCount(SIGNALING_CLIENT_HANDLE, 
 PUBLIC_API STATUS signalingClientGetIceConfigInfo(SIGNALING_CLIENT_HANDLE, UINT32, PIceConfigInfo*);
 
 /**
+ * @brief Fetches all assets needed to ready the state machine before attempting to connect.
+ *        Can also be used to reallocate missing / expired assets before reconnecting.
+ *
+ * @param[in] SIGNALING_CLIENT_HANDLE Signaling client handle
+ *
+ * @return STATUS code of the execution. STATUS_SUCCESS on success
+ */
+PUBLIC_API STATUS signalingClientFetchSync(SIGNALING_CLIENT_HANDLE);
+
+/**
  * @brief Connects the signaling client to the web socket in order to send/receive messages.
  *
  * NOTE: The call will succeed only when the signaling client is in a ready state.
@@ -1983,6 +2083,22 @@ PUBLIC_API STATUS signalingClientDeleteSync(SIGNALING_CLIENT_HANDLE);
  * @param[in,out] PSignalingClientMetrics Signaling stats
  */
 PUBLIC_API STATUS signalingClientGetMetrics(SIGNALING_CLIENT_HANDLE, PSignalingClientMetrics);
+
+/**
+ * @brief Get peer connection related metrics
+ *
+ * @param[in] PRtcPeerConnection Peer connection object
+ * @param[in,out] PPeerConnectionMetrics Peer connection stats object
+ */
+PUBLIC_API STATUS peerConnectionGetMetrics(PRtcPeerConnection, PPeerConnectionMetrics);
+
+/**
+ * @brief Get peer connection related metrics
+ *
+ * @param[in] PRtcPeerConnection Peer connection object
+ * @param[in,out] PKvsIceAgentMetrics KVS ICE agent stats object
+ */
+PUBLIC_API STATUS iceAgentGetMetrics(PRtcPeerConnection, PKvsIceAgentMetrics);
 
 /**
  * @brief Get the relevant/all metrics based on the RTCStatsType field. This does not include

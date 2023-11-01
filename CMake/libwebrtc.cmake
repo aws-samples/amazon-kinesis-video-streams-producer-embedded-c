@@ -8,7 +8,7 @@ if (EXISTS "${WEBRTC_REPO}")
 else()
     file(MAKE_DIRECTORY "${WEBRTC_REPO}")
     file(DOWNLOAD
-        https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c/archive/refs/tags/v1.6.0.tar.gz
+        https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c/archive/refs/tags/v1.8.1.tar.gz
         ${CMAKE_CURRENT_BINARY_DIR}/webrtc.tar.gz
     )
     execute_process(COMMAND tar -zxf ${CMAKE_CURRENT_BINARY_DIR}/webrtc.tar.gz -C ${WEBRTC_REPO} --strip-components=1)
