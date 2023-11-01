@@ -40,11 +40,11 @@ You also need to setup these settings. Please refer to linux example for more in
 #define AWS_KVS_SERVICE                 "kinesisvideo"
 #define AWS_KVS_HOST                    AWS_KVS_SERVICE "." AWS_KVS_REGION ".amazonaws.com"
 ...
-#define CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
-#define ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
-#define THING_NAME                      KVS_STREAM_NAME
+#define AWS_IOT_CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
+#define AWS_IOT_ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
+#define AWS_IOT_THING_NAME                      KVS_STREAM_NAME
 
-#define ROOT_CA \
+#define AWS_IOT_ROOT_CA \
 "-----BEGIN CERTIFICATE-----\n" \
 "......" \
 "-----END CERTIFICATE-----\n"
