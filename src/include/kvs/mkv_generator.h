@@ -38,6 +38,22 @@
 
 #define MKV_TRACK_SIZE          ( 2 )
 
+
+#define MAX_TAG_NAME_LEN    128
+#define MAX_TAG_VALUE_LEN   256
+
+//https://github.com/awslabs/amazon-kinesis-video-streams-pic/blob/c98c2a256a7bb3dfc4db41ae26d45e28ac7eec56/src/mkvgen/include/com/amazonaws/kinesis/video/mkvgen/Include.h#L99
+//https://github.com/awslabs/amazon-kinesis-video-streams-pic/blob/c98c2a256a7bb3dfc4db41ae26d45e28ac7eec56/src/mkvgen/include/com/amazonaws/kinesis/video/mkvgen/Include.h#L104C31-L104C34
+
+typedef struct {
+
+    char key[MAX_TAG_NAME_LEN];
+    char value[MAX_TAG_VALUE_LEN];
+
+} MkvTag_t;
+
+
+
 typedef enum TrackType
 {
     TRACK_VIDEO = 1,
@@ -212,5 +228,13 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
  * @return 0 on success, non-zero value otherwise
  */
 int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRate, uint16_t channels, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen);
+
+
+
+int Mkv_initializeTagsHdr(uint8_t *pTagHdr,
+                          size_t uTagHdrLen,
+                          uint32_t numTags,
+                          const MkvTag_t *tags);
+
 
 #endif /* KVS_MKV_GENERATOR_H */

@@ -997,3 +997,148 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
 
     return res;
 }
+
+
+/**
+ * @brief Initializes the MKV (Matroska) Tags header
+ *
+ * This function sets up the header for MKV Tags, which are used to add metadata
+ * to the MKV container. It populates the provided buffer with the necessary
+ * header information based on the given tags.
+ *
+ * @param pTagHdr Pointer to the buffer where the tag header will be written
+ * @param uTagHdrLen Size of the buffer pointed to by pTagHdr
+ * @param numTags Number of tags to be added
+ * @param tags Pointer to an array of MkvTag_t structures containing the tag data
+ *
+ * @return int Returns 0 on success, or a negative error code on failure
+ *
+ * @note The caller is responsible for ensuring that pTagHdr is large enough to
+ *       hold the entire tag header.
+ *
+ * @see MkvTag_t  https://www.matroska.org/technical/elements.html
+ */
+int Mkv_initializeTagsHdr(uint8_t *pTagHdr, size_t uTagHdrLen, uint32_t numTags, const MkvTag_t *tags) {
+
+    if (pTagHdr == NULL || tags == NULL) {
+        LogError("Null pointer provided for Tag Header and Tag Initialization");
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    uint8_t *pIdx = pTagHdr;
+    uint8_t *pEndBuffer = pTagHdr + uTagHdrLen;
+
+    // Write Tags master element (ID: 0x1254C367)
+    *(pIdx++) = 0x12;
+    *(pIdx++) = 0x54;
+    *(pIdx++) = 0xC3;
+    *(pIdx++) = 0x67;
+
+    // Write Tags size field (8 bytes, placeholder for now)
+    *(pIdx++) = 0x01; // Size length indicator
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+    *(pIdx++) = 0x00;
+
+    // Process each tag
+    for (uint32_t i = 0; i < numTags; i++) {
+        size_t tagNameLen = strlen(tags[i].key);
+        size_t tagValueLen = strlen(tags[i].value);
+
+        // Compute dynamic sizes:
+        // Name element: 2 (ID) + 8 (size) + tagNameLen
+        // String element: 2 (ID) + 8 (size) + tagValueLen
+        // SimpleTag payload = Name element + String element = 20 + tagNameLen + tagValueLen
+        // SimpleTag total size = 10 (header) + (20 + tagNameLen + tagValueLen)
+        // Tag payload = SimpleTag total size = 30 + tagNameLen + tagValueLen
+        size_t simpleTagPayloadSize = 20 + tagNameLen + tagValueLen;
+        size_t simpleTagTotalSize = 30 + tagNameLen + tagValueLen;
+        size_t tagPayloadSize = simpleTagTotalSize;
+
+        // Write Tag element (ID: 0x7373)
+        *(pIdx++) = 0x73;
+        *(pIdx++) = 0x73;
+
+        // Write Tag size (8 bytes) using computed payload size
+        *(pIdx++) = 0x01;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = (uint8_t)tagPayloadSize;
+
+        // Write SimpleTag element (ID: 0x67C8)
+        *(pIdx++) = 0x67;
+        *(pIdx++) = 0xC8;
+
+        // Write SimpleTag size (8 bytes) using computed payload size (Name+String only)
+        *(pIdx++) = 0x01;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = (uint8_t)simpleTagPayloadSize;
+
+        // Write Tag Name element (ID: 0x45A3)
+        *(pIdx++) = 0x45;
+        *(pIdx++) = 0xA3;
+
+        // Write Name size (8 bytes) with tagNameLen
+        *(pIdx++) = 0x01;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = (uint8_t)tagNameLen;
+
+        // Write Tag Name aka Key
+        memcpy(pIdx, tags[i].key, tagNameLen);
+        pIdx += tagNameLen;
+
+        // Write String element (ID: 0x4487)
+        *(pIdx++) = 0x44;
+        *(pIdx++) = 0x87;
+
+        // Write Tag v alue String size (8 bytes) with tagValueLen
+        *(pIdx++) = 0x01;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = 0x00;
+        *(pIdx++) = (uint8_t)tagValueLen;
+
+        // Write Tag value String content
+        memcpy(pIdx, tags[i].value, tagValueLen);
+        pIdx += tagValueLen;
+    }
+
+    // Calculate and update the total size for the Tags master element.
+    // The size field should cover everything after the initial 12 bytes (ID + size field)
+    size_t totalSize = pIdx - pTagHdr - 12;
+    pTagHdr[11] = (uint8_t)totalSize;  // Update the size field
+
+    // Debug print for verification
+
+    // for (size_t i = 0; i < 64 && i < (pIdx - pTagHdr); i++) {
+    //     printf("%02x ", pTagHdr[i]);
+    //     if ((i + 1) % 16 == 0) {
+    //         printf("\n");
+    //     }
+    // }
+    // printf("\n");
+
+    return KVS_ERRNO_NONE;
+}
+
