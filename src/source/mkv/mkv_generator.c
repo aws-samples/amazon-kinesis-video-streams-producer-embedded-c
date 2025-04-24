@@ -1093,6 +1093,7 @@ int Mkv_generateTags(const MkvTag_t tagsList[], const size_t tagsListLen, MkvTag
         // String element: 2 (ID) + 2 (size) + tagValueLen
         // SimpleTag payload = Name element + String element = 8 + tagNameLen + tagValueLen
         const size_t simpleTagPayloadSize = 8 + tagNameLen + tagValueLen;
+
         // Write Tag element (ID: 0x7373)
         *(pIdx++) = 0x73;
         *(pIdx++) = 0x73;
