@@ -453,6 +453,114 @@ int Kvs_dataFrameGetContent(DataFrameHandle xDataFrameHandle, uint8_t **ppMkvHea
     return res;
 }
 
+int Kvs_dataFrameAddTags(DataFrameHandle xDataFrameHandle, MkvTag_t* tagsList, size_t tagsListLen, bool endOfStream, uint8_t **ppMkvHeader, size_t *puMkvHeaderLen, uint8_t **ppData, size_t *puDataLen)
+{
+    int res = KVS_ERRNO_NONE;
+    DataFrame_t *pxDataFrame = xDataFrameHandle;
+
+    static bool firstClusterSeen = false;
+
+    if (pxDataFrame->xDataFrameIn.xClusterType != MKV_CLUSTER)
+    {
+        LogInfo("Not a cluster");
+        return KVS_ERRNO_NONE;
+    }
+
+    // Input validation
+    if (pxDataFrame == NULL || ppMkvHeader == NULL ||
+        puMkvHeaderLen == NULL || ppData == NULL || puDataLen == NULL)
+    {
+        LogError("Invalid argument in Kvs_dataFrameAddTags");
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    size_t effectiveTagsLen = tagsListLen + (endOfStream ? 1 : 0);
+    if (effectiveTagsLen >= MAX_TAG_AMOUNT) {
+        LogError("Trying to add too many tags");
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Track cluster transitions
+    if (!firstClusterSeen)
+    {
+        firstClusterSeen = true;
+        LogInfo("First cluster detected - skipping tags");
+    }
+    else
+    {
+        LogInfo("Adding tags before cluster");
+
+        // Get the original header information
+        uint8_t *originalHeader = (uint8_t *)pxDataFrame->pMkvHdr;
+        size_t originalHeaderLen = pxDataFrame->uMkvHdrLen;
+
+        MkvTag_t tagsToAddBuffer[MAX_TAG_AMOUNT];
+        MkvTag_t* tagsToAdd;
+        size_t tagsToAddLen;
+
+        if (endOfStream)
+        {
+            memcpy(tagsToAddBuffer, tagsList, tagsListLen * sizeof(MkvTag_t));
+
+            MkvTag_t endOfFragmentTag;
+            snprintf(endOfFragmentTag.key, MAX_TAG_NAME_LEN, "AWS_KINESISVIDEO_END_OF_FRAGMENT");
+            endOfFragmentTag.value[0] = '\0';
+
+            tagsToAddBuffer[tagsListLen] = endOfFragmentTag;
+
+            tagsToAdd = tagsToAddBuffer;
+            tagsToAddLen = tagsListLen + 1;
+        }
+        else
+        {
+            tagsToAdd = tagsList;
+            tagsToAddLen = tagsListLen;
+        }
+
+        for (size_t i = 0; i < tagsToAddLen; i++)
+        {
+            LogInfo("Adding tag: key=%s, val=%s", tagsToAdd[i].key, tagsToAdd[i].value);
+        }
+
+        // Generate tags header
+        MkvTagsBuffer_t tagsBuffer;
+        if (Mkv_generateTags(tagsToAdd, tagsToAddLen, &tagsBuffer) != KVS_ERRNO_NONE || tagsBuffer.buffer == NULL)
+        {
+            LogError("Failed to create MKV tags header");
+            return KVS_ERROR_OUT_OF_MEMORY;
+        }
+
+        // Allocate and create new combined header
+        size_t newHeaderLen = tagsBuffer.size + originalHeaderLen;
+        uint8_t *newHeader = (uint8_t *)malloc(newHeaderLen);
+        if (newHeader == NULL)
+        {
+            free(tagsBuffer.buffer);
+            LogError("Failed to allocate memory for new header");
+            return KVS_ERROR_OUT_OF_MEMORY;
+        }
+
+        // Combine headers
+        memcpy(newHeader, tagsBuffer.buffer, tagsBuffer.size);
+        memcpy(newHeader + tagsBuffer.size, originalHeader, originalHeaderLen);
+
+        // Clean up tags header buffer
+        free(tagsBuffer.buffer);
+
+        // Update the frame's header information
+        pxDataFrame->pMkvHdr = (char *)newHeader;
+        pxDataFrame->uMkvHdrLen = newHeaderLen;
+    }
+
+    // Assign frame content
+    *ppMkvHeader = (uint8_t *)(pxDataFrame->pMkvHdr);
+    *puMkvHeaderLen = pxDataFrame->uMkvHdrLen;
+    *ppData = (uint8_t *)(pxDataFrame->xDataFrameIn.pData);
+    *puDataLen = pxDataFrame->xDataFrameIn.uDataLen;
+
+    return res;
+}
+
 void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
 {
     DataFrame_t *pxDataFrame = xDataFrameHandle;

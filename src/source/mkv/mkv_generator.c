@@ -997,3 +997,150 @@ int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRa
 
     return res;
 }
+
+/*-----------------------------------------------------------*/
+
+// No access to strnlen
+size_t safe_strlen(const char* str, const size_t max_len)
+{
+    const char *end = (const char *)memchr(str, '\0', max_len);
+    return end ? (size_t)(end - str) : max_len;
+}
+
+int Mkv_generateTags(const MkvTag_t tagsList[], const size_t tagsListLen, MkvTagsBuffer_t* out)
+{
+    if (tagsList == NULL)
+    {
+        LogError("Null pointer provided for tags");
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (out == NULL)
+    {
+        LogError("Null pointer provided for out");
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    out->buffer = NULL;
+    out->size = 0;
+
+    // Calculate the total size needed for the Tags element and all its children
+    // Size Marker            Size Field Length    Max Encodable Size (Bytes)
+    // 0b10000000 (0x80)      1 byte               127
+    // 0b01000000 (0x40)      2 bytes              16,383
+    // 0b00100000 (0x20)      3 bytes              2,097,151
+    // 0b00010000 (0x10)      4 bytes              268,435,455
+
+    size_t totalSize = 4 + 2; // Tags element (ID + 2-byte size)
+    for (size_t i = 0; i < tagsListLen; i++)
+    {
+        const size_t keyLen = safe_strlen(tagsList[i].key, MAX_TAG_NAME_LEN + 1);
+        const size_t valueLen = safe_strlen(tagsList[i].value, MAX_TAG_VALUE_LEN + 1);
+
+        if (keyLen > MAX_TAG_NAME_LEN || valueLen > MAX_TAG_VALUE_LEN)
+        {
+            LogError("Tag key or value exceeds maximum length");
+            return KVS_ERROR_INVALID_ARGUMENT;
+        }
+
+        // Tags element (above)
+        totalSize += 2 + 2 +           // └─Tag element (ID + 2-byte size)
+                     2 + 2 +           //   └─SimpleTag element (ID + 2-byte size)
+                     2 + 2 + keyLen +  //     ├─TagName element (ID + 2-byte size + content)
+                     2 + 2 + valueLen; //     └─TagString element (ID + 2-byte size + content)
+    }
+
+    // Allocate buffer
+    uint8_t *buffer = (uint8_t *)malloc(totalSize);
+    if (buffer == NULL)
+    {
+        LogError("Failed to allocate memory for tags");
+        return KVS_ERROR_OUT_OF_MEMORY;
+    }
+
+    uint8_t *pIdx = buffer;
+
+    /**
+     * +-----------------+-------------+------------------+------------------------+
+     * | Element         | EBML ID     | Size Field       | Description            |
+     * +-----------------+-------------+------------------+------------------------+
+     * | Tags            | 0x1254C367  | 2 bytes          | Master element         |
+     * | └─Tag           | 0x7373      | 2 bytes          | Single tag container   |
+     * |   └─SimpleTag   | 0x67C8      | 2 bytes          | Tag content container  |
+     * |     ├─Name      | 0x45A3      | 2 bytes          | Tag name/key           |
+     * |     └─String    | 0x4487      | 2 bytes          | Tag value              |
+     * +-----------------+-------------+------------------+------------------------+
+     */
+
+    // Write Tags master element (ID: 0x1254C367)
+    *(pIdx++) = 0x12;
+    *(pIdx++) = 0x54;
+    *(pIdx++) = 0xC3;
+    *(pIdx++) = 0x67;
+
+    // Write Tags size field (2 bytes, placeholder for now)
+    *(pIdx++) = 0x40; // 2-byte size marker
+    *(pIdx++) = 0x00; // Actual size, will update later
+
+    // Process each tag
+    for (size_t i = 0; i < tagsListLen; i++)
+    {
+        const size_t tagNameLen = safe_strlen(tagsList[i].key, MAX_TAG_NAME_LEN + 1);
+        const size_t tagValueLen = safe_strlen(tagsList[i].value, MAX_TAG_VALUE_LEN + 1);
+
+        // Compute dynamic sizes:
+        // Name element: 2 (ID) + 2 (size) + tagNameLen
+        // String element: 2 (ID) + 2 (size) + tagValueLen
+        // SimpleTag payload = Name element + String element = 8 + tagNameLen + tagValueLen
+        const size_t simpleTagPayloadSize = 8 + tagNameLen + tagValueLen;
+        // Write Tag element (ID: 0x7373)
+        *(pIdx++) = 0x73;
+        *(pIdx++) = 0x73;
+
+        // Write Tag size (2 bytes) - payload size plus SimpleTag header (4 bytes)
+        size_t tagSize = simpleTagPayloadSize + 4;
+        *(pIdx++) = 0x40 | (uint8_t)(tagSize >> 8);
+        *(pIdx++) = (uint8_t)(tagSize & 0xFF);
+
+        // Write SimpleTag element (ID: 0x67C8)
+        *(pIdx++) = 0x67;
+        *(pIdx++) = 0xC8;
+
+        // Write SimpleTag size (2 bytes)
+        *(pIdx++) = 0x40 | (uint8_t)(simpleTagPayloadSize >> 8);
+        *(pIdx++) = (uint8_t)(simpleTagPayloadSize & 0xFF);
+
+        // Write Name element (ID: 0x45A3)
+        *(pIdx++) = 0x45;
+        *(pIdx++) = 0xA3;
+
+        // Write Name size (2 byte) with tagNameLen
+        *(pIdx++) = 0x40 | (uint8_t)(tagNameLen >> 8); // 2-byte size field
+        *(pIdx++) = (uint8_t)(tagNameLen & 0xFF);
+
+        // Write Name content
+        memcpy(pIdx, tagsList[i].key, tagNameLen);
+        pIdx += tagNameLen;
+
+        // Write String element (ID: 0x4487)
+        *(pIdx++) = 0x44;
+        *(pIdx++) = 0x87;
+
+        // Write String size (2 bytes) with tagValueLen
+        *(pIdx++) = 0x40 | (uint8_t)(tagValueLen >> 8);
+        *(pIdx++) = (uint8_t)(tagValueLen & 0xFF);
+
+        // Write String content
+        memcpy(pIdx, tagsList[i].value, tagValueLen);
+        pIdx += tagValueLen;
+    }
+
+    // Update the total size
+    const size_t payloadSize = pIdx - buffer - 6;
+    buffer[4] = 0x40 | (uint8_t)(payloadSize >> 8);
+    buffer[5] = (uint8_t)(payloadSize & 0xFF);
+
+    out->buffer = buffer;
+    out->size = totalSize;
+    return KVS_ERRNO_NONE;
+}

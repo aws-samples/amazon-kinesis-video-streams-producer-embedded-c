@@ -220,7 +220,7 @@ static void *audioThread(void *arg)
         }
     }
 
-    audioCapturerReleaseStream(videoCapturerHandle);
+    audioCapturerReleaseStream(audioCapturerHandle);
     printf("audio thread leaving, err:%d\n", res);
 
     return NULL;
