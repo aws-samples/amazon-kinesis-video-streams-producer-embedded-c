@@ -29,6 +29,11 @@ jobs:
           brew install coreutils # for gtimeout 
           brew install --cask mkvtoolnix
 
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.x'
+
       - name: Fix the const issue
         working-directory: ./libraries/amazon/amazon-kinesis-video-streams-media-interface
         run: |
@@ -45,7 +50,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: us-west-2
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.KVS_GITHUB_ACTIONS_ROLE_ARN }}
 
       - name: Run the sample
         working-directory: ./build
