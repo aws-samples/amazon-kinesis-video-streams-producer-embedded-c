@@ -1093,6 +1093,11 @@ void KvsApp_terminate(KvsAppHandle handle)
             kvsFree(pKvs->pPps);
             pKvs->pPps = NULL;
         }
+        if (pKvs->tagsList != NULL)
+        {
+            kvsFree(pKvs->tagsList);
+            pKvs->tagsList = NULL;
+        }
 
         Unlock(pKvs->xLock);
 

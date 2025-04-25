@@ -476,7 +476,7 @@ int Kvs_dataFrameAddTags(DataFrameHandle xDataFrameHandle, MkvTag_t* tagsList, s
 
     size_t effectiveTagsLen = tagsListLen + (endOfStream ? 1 : 0);
     if (effectiveTagsLen >= MAX_TAG_AMOUNT) {
-        LogError("Trying to add too many tags");
+        LogError("Trying to add too many tags - Adding: %zu tags, Max: %d", effectiveTagsLen, MAX_TAG_AMOUNT);
         return KVS_ERROR_INVALID_ARGUMENT;
     }
 

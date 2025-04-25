@@ -1021,6 +1021,12 @@ int Mkv_generateTags(const MkvTag_t tagsList[], const size_t tagsListLen, MkvTag
         return KVS_ERROR_INVALID_ARGUMENT;
     }
 
+    if (tagsListLen > MAX_TAG_AMOUNT)
+    {
+        LogError("Adding too many tags. Adding: %zu, Max: %d", tagsListLen, MAX_TAG_AMOUNT);
+        return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
     out->buffer = NULL;
     out->size = 0;
 
