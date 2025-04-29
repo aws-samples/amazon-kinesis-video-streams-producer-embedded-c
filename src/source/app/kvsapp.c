@@ -907,17 +907,24 @@ static int setupTagsForSession(KvsApp_t *pKvs)
     int res = KVS_ERRNO_NONE;
     const size_t tagsListLen = MAX_TAG_AMOUNT - 1; // Note: end of fragment tag counts towards the 10 limit
     MkvTag_t *tags = kvsMalloc(tagsListLen * sizeof(MkvTag_t));
-
-    for (int i = 1; i <= tagsListLen; i++)
+    if (tags == NULL)
     {
-        snprintf((char *)tags[i - 1].key, MAX_TAG_NAME_LEN, "test_key_%d", i);
-        snprintf((char *)tags[i - 1].value, MAX_TAG_VALUE_LEN, "test_value_%d", i);
+        res = KVS_ERROR_OUT_OF_MEMORY;
+        LogError("OOM: tagsList");
     }
+    else
+    {
+        for (int i = 1; i <= tagsListLen; i++)
+        {
+            snprintf((char *)tags[i - 1].key, MAX_TAG_NAME_LEN, "test_key_%d", i);
+            snprintf((char *)tags[i - 1].value, MAX_TAG_VALUE_LEN, "test_value_%d", i);
+        }
 
-    pKvs->tagsList = tags;
-    pKvs->tagsListLen = tagsListLen;
+        pKvs->tagsList = tags;
+        pKvs->tagsListLen = tagsListLen;
 
-    LogInfo("Setup tags for session");
+        LogInfo("Setup tags for session");
+    }
 
     return res;
 }
@@ -980,7 +987,11 @@ KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char 
             pKvs->isAudioTrackPresent = false;
             pKvs->pAudioTrackInfo = NULL;
 
-            setupTagsForSession(pKvs);
+            if ((res = setupTagsForSession(pKvs)) != KVS_ERRNO_NONE)
+            {
+                LogError("Failed to setup tags");
+                /* Propagate the res error */
+            }
         }
     }
 
