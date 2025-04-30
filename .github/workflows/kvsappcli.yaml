@@ -1,0 +1,75 @@
+name: kvsappcli test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  kvsappcli-on-mac:
+    runs-on: macos-15
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      STREAM_NAME: kvs-producer-embedded-c-kvsappcli-macos
+      AWS_KVS_HOST: "kinesisvideo.us-west-2.amazonaws.com"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install coreutils # for gtimeout 
+          brew install --cask mkvtoolnix
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.x'
+
+      - name: Fix the const issue
+        working-directory: ./libraries/amazon/amazon-kinesis-video-streams-media-interface
+        run: |
+          git apply ../../../patches/amazon-kinesis-video-streams-media-interface/const-fix.patch
+
+      - name: Build project
+        run: |
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE="Debug" -DENABLE_MKV_DUMP=ON
+          make -j
+
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2
+          role-to-assume: ${{ secrets.KVS_GITHUB_ACTIONS_ROLE_ARN }}
+
+      - name: Run the sample
+        working-directory: ./build
+        run: |
+          gtimeout --signal=SIGINT --kill-after=15s --preserve-status 30s ./bin/kvsappcli "$STREAM_NAME"
+
+      - name: Check MKV file
+        working-directory: ./build
+        run: |
+          if [ ! -f ./dumped_output.mkv ]; then
+            echo "❌ MKV file was not created!"
+            exit 1
+          fi
+          
+          output="$(mkvinfo -v ./dumped_output.mkv)"
+          echo "$output"
+      
+          if ! echo "$output" | grep "String: test_value_9"; then
+            echo "❌ No metadata found!"
+            exit 1
+          fi
+        shell: bash

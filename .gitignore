@@ -1,4 +1,5 @@
 build
+cmake-build-debug
 
 samples/kvs-esp32/sdkconfig.old
 samples/kvs-esp32/components/llhttp/*

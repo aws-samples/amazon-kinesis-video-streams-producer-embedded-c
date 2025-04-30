@@ -133,6 +133,21 @@ int Kvs_streamMemStatTotal(StreamHandle xStreamHandle, size_t *puMemTotal);
 int Kvs_dataFrameGetContent(DataFrameHandle xDataFrameHandle, uint8_t **ppMkvHeader, size_t *puMkvHeaderLen, uint8_t **ppData, size_t *puDataLen);
 
 /**
+ * @brief Add MKV tags to the data frame
+ *
+ * @param xDataFrameHandle[in] The data frame handle
+ * @param tagsList[in] List of tags to add to this data frame
+ * @param tagsListLen[in] Length of the tagsList
+ * @param endOfStream[in] Whether to add the end of fragment tag (EOFR)
+ * @param ppMkvHeader[out] The MKV header
+ * @param puMkvHeaderLen[out] THe MKV header length
+ * @param ppData[out] The data pointer
+ * @param puDataLen[out] The data length
+ * @return 0 on success, non-zero value otherwise
+ */
+int Kvs_dataFrameAddTags(DataFrameHandle xDataFrameHandle, MkvTag_t* tagsList, size_t tagsListLen, bool endOfStream, uint8_t **ppMkvHeader, size_t *puMkvHeaderLen, uint8_t **ppData, size_t *puDataLen);
+
+/**
  * @brief Terminate a data frame handle
  *
  * @param xDataFrameHandle[in] The data frame handle

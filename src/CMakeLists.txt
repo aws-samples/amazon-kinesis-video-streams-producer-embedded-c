@@ -13,6 +13,8 @@ set(CMAKE_C_FLAGS "-D_XOPEN_SOURCE=600 -D_POSIX_C_SOURCE=200112L ${CMAKE_C_FLAGS
 
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
+option(ENABLE_MKV_DUMP "Enable MKV dump to file" OFF)
+
 set(LIB_SRC
     ${LIB_DIR}/include/kvs/kvsapp.h
     ${LIB_DIR}/include/kvs/kvsapp_options.h
@@ -96,6 +98,11 @@ target_include_directories(${LIB_NAME} PRIVATE ${LIB_PRV_INC})
 if(${USE_WEBRTC_MBEDTLS_LIB})
     target_link_directories(${LIB_NAME} PUBLIC ${WEBRTC_LIB_PATH})
     target_include_directories(${LIB_NAME} PUBLIC ${WEBRTC_INC_PATH})
+endif()
+
+if(${ENABLE_MKV_DUMP})
+    message(STATUS "MKV dump enabled")
+    target_compile_definitions(${LIB_NAME} PUBLIC ENABLE_MKV_DUMP)
 endif()
 
 target_link_libraries(${LIB_NAME} PUBLIC

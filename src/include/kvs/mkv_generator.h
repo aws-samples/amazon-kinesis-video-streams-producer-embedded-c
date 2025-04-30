@@ -38,7 +38,7 @@
 
 #define MKV_TRACK_SIZE          ( 2 )
 
-
+#define MAX_TAG_AMOUNT      10
 #define MAX_TAG_NAME_LEN    128
 #define MAX_TAG_VALUE_LEN   256
 
@@ -46,13 +46,14 @@
 //https://github.com/awslabs/amazon-kinesis-video-streams-pic/blob/c98c2a256a7bb3dfc4db41ae26d45e28ac7eec56/src/mkvgen/include/com/amazonaws/kinesis/video/mkvgen/Include.h#L104C31-L104C34
 
 typedef struct {
-
     char key[MAX_TAG_NAME_LEN];
     char value[MAX_TAG_VALUE_LEN];
-
 } MkvTag_t;
 
-
+typedef struct {
+    uint8_t* buffer;
+    size_t size;
+} MkvTagsBuffer_t;
 
 typedef enum TrackType
 {
@@ -229,12 +230,16 @@ int Mkv_generateAacCodecPrivateData(Mpeg4AudioObjectTypes_t objectType, uint32_t
  */
 int Mkv_generatePcmCodecPrivateData(PcmFormatCode_t format, uint32_t uSamplingRate, uint16_t channels, uint8_t **ppCodecPrivateData, size_t *puCodecPrivateDataLen);
 
-
-
-int Mkv_initializeTagsHdr(uint8_t *pTagHdr,
-                          size_t uTagHdrLen,
-                          uint32_t numTags,
-                          const MkvTag_t *tags);
-
+/**
+ * @brief Allocates and writes MKV tags with their headers to the buffer. The caller is responsible for freeing out->buffer using free().
+ *
+ * @param tagsList[in] the tags to write
+ * @param tagsListLen[in] length of tagsList
+ * @param out[out] buffer containing the bytes written and its length
+ * @return 0 on success, non-zero value otherwise
+ *
+ * @see MkvTag_t  https://www.matroska.org/technical/elements.html
+ */
+int Mkv_generateTags(const MkvTag_t tagsList[], size_t tagsListLen, MkvTagsBuffer_t* out);
 
 #endif /* KVS_MKV_GENERATOR_H */

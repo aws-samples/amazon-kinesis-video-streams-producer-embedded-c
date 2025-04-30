@@ -114,6 +114,9 @@ typedef struct KvsApp
     bool isAudioTrackPresent;
     AudioTrackInfo_t *pAudioTrackInfo;
 
+    MkvTag_t* tagsList;
+    size_t tagsListLen;
+
     /* Session scope callbacks */
     OnMkvSentCallbackInfo_t onMkvSentCallbackInfo;
 } KvsApp_t;
@@ -780,7 +783,13 @@ static int prvPutMediaSendData(KvsApp_t *pKvs, int *pxSendCnt, bool bForceSend)
             LogError("Failed to get data and mkv header to send");
             /* Propagate the res error */
         }
-        else if ((res = Kvs_putMediaUpdate(pKvs->xPutMediaHandle, pMkvHeader, uMkvHeaderLen, pData, uDataLen)) != KVS_ERRNO_NONE)
+        else if (
+            (((DataFrameIn_t *)xDataFrameHandle)->xClusterType == MKV_CLUSTER) && pKvs->tagsListLen > 0 &&
+            (res = Kvs_dataFrameAddTags(xDataFrameHandle, pKvs->tagsList, pKvs->tagsListLen, false, &pMkvHeader, &uMkvHeaderLen, &pData, &uDataLen)) != KVS_ERRNO_NONE) {
+            LogError("Failed to add tags");
+            /* Propagate the res error */
+        }
+        else if (Kvs_putMediaUpdate(pKvs->xPutMediaHandle, pMkvHeader, uMkvHeaderLen, pData, uDataLen) != KVS_ERRNO_NONE)
         {
             LogError("Failed to update");
             /* Propagate the res error */
@@ -893,6 +902,33 @@ static int prvPutMediaDoWorkSendEndOfFrames(KvsApp_t *pKvs)
     return res;
 }
 
+static int setupTagsForSession(KvsApp_t *pKvs)
+{
+    int res = KVS_ERRNO_NONE;
+    const size_t tagsListLen = MAX_TAG_AMOUNT - 1; // Note: end of fragment tag counts towards the 10 limit
+    MkvTag_t *tags = kvsMalloc(tagsListLen * sizeof(MkvTag_t));
+    if (tags == NULL)
+    {
+        res = KVS_ERROR_OUT_OF_MEMORY;
+        LogError("OOM: tagsList");
+    }
+    else
+    {
+        for (int i = 1; i <= tagsListLen; i++)
+        {
+            snprintf((char *)tags[i - 1].key, MAX_TAG_NAME_LEN, "test_key_%d", i);
+            snprintf((char *)tags[i - 1].value, MAX_TAG_VALUE_LEN, "test_value_%d", i);
+        }
+
+        pKvs->tagsList = tags;
+        pKvs->tagsListLen = tagsListLen;
+
+        LogInfo("Setup tags for session");
+    }
+
+    return res;
+}
+
 KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char *pcService, const char *pcStreamName)
 {
     int res = KVS_ERRNO_NONE;
@@ -950,6 +986,12 @@ KvsAppHandle KvsApp_create(const char *pcHost, const char *pcRegion, const char 
             pKvs->pVideoTrackInfo = NULL;
             pKvs->isAudioTrackPresent = false;
             pKvs->pAudioTrackInfo = NULL;
+
+            if ((res = setupTagsForSession(pKvs)) != KVS_ERRNO_NONE)
+            {
+                LogError("Failed to setup tags");
+                /* Propagate the res error */
+            }
         }
     }
 
@@ -1061,6 +1103,11 @@ void KvsApp_terminate(KvsAppHandle handle)
         {
             kvsFree(pKvs->pPps);
             pKvs->pPps = NULL;
+        }
+        if (pKvs->tagsList != NULL)
+        {
+            kvsFree(pKvs->tagsList);
+            pKvs->tagsList = NULL;
         }
 
         Unlock(pKvs->xLock);

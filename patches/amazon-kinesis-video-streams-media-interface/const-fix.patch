@@ -1,0 +1,183 @@
+diff --git a/include/com/amazonaws/kinesis/video/capturer/AudioCapturer.h b/include/com/amazonaws/kinesis/video/capturer/AudioCapturer.h
+index e0747f4..63d0c79 100644
+--- a/include/com/amazonaws/kinesis/video/capturer/AudioCapturer.h
++++ b/include/com/amazonaws/kinesis/video/capturer/AudioCapturer.h
+@@ -46,7 +46,7 @@ AudioCapturerHandle audioCapturerCreate(void);
+  * @param[in] handle Handle of AudioCapturer.
+  * @return AudioCapturerStatus
+  */
+-AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle const handle);
++AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle handle);
+ 
+ /**
+  * @brief Get capturer capability.
+@@ -55,7 +55,7 @@ AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle const handl
+  * @param[out] pCapability Capturer capability.
+  * @return int 0 or error code.
+  */
+-int audioCapturerGetCapability(const AudioCapturerHandle const handle, AudioCapability* pCapability);
++int audioCapturerGetCapability(const AudioCapturerHandle handle, AudioCapability* pCapability);
+ 
+ /**
+  * @brief Set capturer format, channel number, bit depth and sample rate.
+@@ -80,7 +80,7 @@ int audioCapturerSetFormat(AudioCapturerHandle handle, const AudioFormat format,
+  * @param[in] pBitDepth Frame bit depth.
+  * @return int 0 or error code.
+  */
+-int audioCapturerGetFormat(const AudioCapturerHandle const handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
++int audioCapturerGetFormat(const AudioCapturerHandle handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
+                            AudioBitDepth* pBitDepth);
+ 
+ /**
+diff --git a/include/com/amazonaws/kinesis/video/capturer/VideoCapturer.h b/include/com/amazonaws/kinesis/video/capturer/VideoCapturer.h
+index 0b3671f..412625a 100644
+--- a/include/com/amazonaws/kinesis/video/capturer/VideoCapturer.h
++++ b/include/com/amazonaws/kinesis/video/capturer/VideoCapturer.h
+@@ -46,7 +46,7 @@ VideoCapturerHandle videoCapturerCreate(void);
+  * @param[in] handle Handle of VideoCapturer.
+  * @return VideoCapturerStatus Status of VideoCapturer.
+  */
+-VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle const handle);
++VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle handle);
+ 
+ /**
+  * @brief Get capturer capability.
+@@ -55,7 +55,7 @@ VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle const handl
+  * @param[out] pCapability Capturer capability.
+  * @return int 0 or error code.
+  */
+-int videoCapturerGetCapability(const VideoCapturerHandle const handle, VideoCapability* pCapability);
++int videoCapturerGetCapability(const VideoCapturerHandle handle, VideoCapability* pCapability);
+ 
+ /**
+  * @brief Set capturer format and resolution.
+@@ -75,7 +75,7 @@ int videoCapturerSetFormat(VideoCapturerHandle handle, const VideoFormat format,
+  * @param[out] pResolution Frame resolution.
+  * @return int 0 or error code.
+  */
+-int videoCapturerGetFormat(const VideoCapturerHandle const handle, VideoFormat* pFormat, VideoResolution* pResolution);
++int videoCapturerGetFormat(const VideoCapturerHandle handle, VideoFormat* pFormat, VideoResolution* pResolution);
+ 
+ /**
+  * @brief Acquire and turn on video stream.
+diff --git a/include/com/amazonaws/kinesis/video/player/AudioPlayer.h b/include/com/amazonaws/kinesis/video/player/AudioPlayer.h
+index db15477..2bf1c51 100644
+--- a/include/com/amazonaws/kinesis/video/player/AudioPlayer.h
++++ b/include/com/amazonaws/kinesis/video/player/AudioPlayer.h
+@@ -46,7 +46,7 @@ AudioPlayerHandle audioPlayerCreate(void);
+  * @param[in] handle Handle of AudioPlayer.
+  * @return AudioPlayerStatus Status of AudioPlayer.
+  */
+-AudioPlayerStatus audioPlayerGetStatus(const AudioPlayerHandle const handle);
++AudioPlayerStatus audioPlayerGetStatus(const AudioPlayerHandle handle);
+ 
+ /**
+  * @brief Get player capability.
+@@ -55,7 +55,7 @@ AudioPlayerStatus audioPlayerGetStatus(const AudioPlayerHandle const handle);
+  * @param[out] pCapability Player capability.
+  * @return int 0 or error code.
+  */
+-int audioPlayerGetCapability(const AudioPlayerHandle const handle, AudioCapability* pCapability);
++int audioPlayerGetCapability(const AudioPlayerHandle handle, AudioCapability* pCapability);
+ 
+ /**
+  * @brief Set player format, channel number, bit depth and sample rate.
+@@ -80,7 +80,7 @@ int audioPlayerSetFormat(AudioPlayerHandle handle, const AudioFormat format, con
+  * @param[in] pBitDepth Frame bit depth.
+  * @return int 0 or error code.
+  */
+-int audioPlayerGetFormat(const AudioPlayerHandle const handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
++int audioPlayerGetFormat(const AudioPlayerHandle handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
+                          AudioBitDepth* pBitDepth);
+ 
+ /**
+diff --git a/source/FILE/FILEAudioCapturer.c b/source/FILE/FILEAudioCapturer.c
+index 8fb3e69..17d4ca2 100644
+--- a/source/FILE/FILEAudioCapturer.c
++++ b/source/FILE/FILEAudioCapturer.c
+@@ -84,7 +84,7 @@ AudioCapturerHandle audioCapturerCreate(void)
+     return (AudioCapturerHandle) fileHandle;
+ }
+ 
+-AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle const handle)
++AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle handle)
+ {
+     if (!handle) {
+         return AUD_CAP_STATUS_NOT_READY;
+@@ -94,7 +94,7 @@ AudioCapturerStatus audioCapturerGetStatus(const AudioCapturerHandle const handl
+     return fileHandle->status;
+ }
+ 
+-int audioCapturerGetCapability(const AudioCapturerHandle const handle, AudioCapability* pCapability)
++int audioCapturerGetCapability(const AudioCapturerHandle handle, AudioCapability* pCapability)
+ {
+     FILE_HANDLE_NULL_CHECK(handle);
+     FILE_HANDLE_GET(handle);
+@@ -170,7 +170,7 @@ int audioCapturerSetFormat(AudioCapturerHandle handle, const AudioFormat format,
+     return 0;
+ }
+ 
+-int audioCapturerGetFormat(const AudioCapturerHandle const handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
++int audioCapturerGetFormat(const AudioCapturerHandle handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
+                            AudioBitDepth* pBitDepth)
+ {
+     FILE_HANDLE_NULL_CHECK(handle);
+diff --git a/source/FILE/FILEAudioPlayer.c b/source/FILE/FILEAudioPlayer.c
+index 8f35381..2f18b77 100644
+--- a/source/FILE/FILEAudioPlayer.c
++++ b/source/FILE/FILEAudioPlayer.c
+@@ -33,12 +33,12 @@ AudioPlayerHandle audioPlayerCreate(void)
+     return NULL;
+ }
+ 
+-AudioPlayerStatus audioPlayerGetStatus(const AudioPlayerHandle const handle)
++AudioPlayerStatus audioPlayerGetStatus(const AudioPlayerHandle handle)
+ {
+     return AUD_PLY_STATUS_NOT_READY;
+ }
+ 
+-int audioPlayerGetCapability(const AudioPlayerHandle const handle, AudioCapability* pCapability)
++int audioPlayerGetCapability(const AudioPlayerHandle handle, AudioCapability* pCapability)
+ {
+     return -EAGAIN;
+ }
+@@ -49,7 +49,7 @@ int audioPlayerSetFormat(AudioPlayerHandle handle, const AudioFormat format, con
+     return -EAGAIN;
+ }
+ 
+-int audioPlayerGetFormat(const AudioPlayerHandle const handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
++int audioPlayerGetFormat(const AudioPlayerHandle handle, AudioFormat* pFormat, AudioChannel* pChannel, AudioSampleRate* pSampleRate,
+                          AudioBitDepth* pBitDepth)
+ {
+     return -EAGAIN;
+diff --git a/source/FILE/FILEVideoCapturer.c b/source/FILE/FILEVideoCapturer.c
+index 4054bb2..018c548 100644
+--- a/source/FILE/FILEVideoCapturer.c
++++ b/source/FILE/FILEVideoCapturer.c
+@@ -74,7 +74,7 @@ VideoCapturerHandle videoCapturerCreate(void)
+     return (VideoCapturerHandle) fileHandle;
+ }
+ 
+-VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle const handle)
++VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle handle)
+ {
+     if (!handle) {
+         return VID_CAP_STATUS_NOT_READY;
+@@ -84,7 +84,7 @@ VideoCapturerStatus videoCapturerGetStatus(const VideoCapturerHandle const handl
+     return fileHandle->status;
+ }
+ 
+-int videoCapturerGetCapability(const VideoCapturerHandle const handle, VideoCapability* pCapability)
++int videoCapturerGetCapability(const VideoCapturerHandle handle, VideoCapability* pCapability)
+ {
+     FILE_HANDLE_NULL_CHECK(handle);
+     FILE_HANDLE_GET(handle);
+@@ -132,7 +132,7 @@ int videoCapturerSetFormat(VideoCapturerHandle handle, const VideoFormat format,
+     return 0;
+ }
+ 
+-int videoCapturerGetFormat(const VideoCapturerHandle const handle, VideoFormat* pFormat, VideoResolution* pResolution)
++int videoCapturerGetFormat(const VideoCapturerHandle handle, VideoFormat* pFormat, VideoResolution* pResolution)
+ {
+     FILE_HANDLE_NULL_CHECK(handle);
+     FILE_HANDLE_GET(handle);
