@@ -64,21 +64,21 @@
 
 /* IoT credential configuration */
 #if ENABLE_IOT_CREDENTIAL
-#define CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
-#define ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
-#define THING_NAME                      KVS_STREAM_NAME
+#define AWS_IOT_CREDENTIALS_HOST                "xxxxxxxxxxxxxx.credentials.iot.us-east-1.amazonaws.com"
+#define AWS_IOT_ROLE_ALIAS                      "KvsCameraIoTRoleAlias"
+#define AWS_IOT_THING_NAME                      KVS_STREAM_NAME
 
-#define ROOT_CA \
+#define AWS_IOT_ROOT_CA \
 "-----BEGIN CERTIFICATE-----\n" \
 "......\n" \
 "-----END CERTIFICATE-----\n"
 
-#define CERTIFICATE \
+#define AWS_IOT_CERTIFICATE \
 "-----BEGIN CERTIFICATE-----\n" \
 "......\n" \
 "-----END CERTIFICATE-----\n"
 
-#define PRIVATE_KEY \
+#define AWS_IOT_PRIVATE_KEY \
 "-----BEGIN RSA PRIVATE KEY-----\n" \
 "......\n" \
 "-----END RSA PRIVATE KEY-----\n"

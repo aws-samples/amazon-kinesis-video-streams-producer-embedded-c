@@ -233,27 +233,27 @@ static int setKvsAppOptions(KvsAppHandle kvsAppHandle)
 
     /* Setup credentials, it should be either using IoT credentials or AWS access key. */
 #if ENABLE_IOT_CREDENTIAL
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_CREDENTIAL_HOST, (const char *)CREDENTIALS_HOST) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_CREDENTIAL_HOST, OptCfg_getHostIotCredentials()) != 0)
     {
         printf("Failed to set credential host\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_ROLE_ALIAS, (const char *)ROLE_ALIAS) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_ROLE_ALIAS, OptCfg_getIotRoleAlias()) != 0)
     {
         printf("Failed to set role alias\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_THING_NAME, (const char *)THING_NAME) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_THING_NAME, OptCfg_getIotThingName()) != 0)
     {
         printf("Failed to set thing name\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_ROOTCA, (const char *)ROOT_CA) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_ROOTCA, (const char *)AWS_IOT_ROOT_CA) != 0)
     {
         printf("Failed to set root CA\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_CERT, (const char *)CERTIFICATE) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_CERT, (const char *)AWS_IOT_CERTIFICATE) != 0)
     {
         printf("Failed to set certificate\n");
     }
-    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_KEY, (const char *)PRIVATE_KEY) != 0)
+    if (KvsApp_setoption(kvsAppHandle, OPTION_IOT_X509_KEY, (const char *)AWS_IOT_PRIVATE_KEY) != 0)
     {
         printf("Failed to set private key\n");
     }
