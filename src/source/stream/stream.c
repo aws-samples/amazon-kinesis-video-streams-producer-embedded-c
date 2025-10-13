@@ -460,18 +460,18 @@ int Kvs_dataFrameAddTags(DataFrameHandle xDataFrameHandle, MkvTag_t* tagsList, s
 
     static bool firstClusterSeen = false;
 
-    if (pxDataFrame->xDataFrameIn.xClusterType != MKV_CLUSTER)
-    {
-        LogInfo("Not a cluster");
-        return KVS_ERRNO_NONE;
-    }
-
     // Input validation
     if (pxDataFrame == NULL || ppMkvHeader == NULL ||
         puMkvHeaderLen == NULL || ppData == NULL || puDataLen == NULL)
     {
         LogError("Invalid argument in Kvs_dataFrameAddTags");
         return KVS_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (pxDataFrame->xDataFrameIn.xClusterType != MKV_CLUSTER)
+    {
+        LogInfo("Not a cluster");
+        return KVS_ERRNO_NONE;
     }
 
     size_t effectiveTagsLen = tagsListLen + (endOfStream ? 1 : 0);
