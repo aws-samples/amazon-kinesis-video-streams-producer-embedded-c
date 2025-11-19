@@ -546,16 +546,23 @@ static int setupDataEndpoint(KvsApp_t *pKvs)
                 LogInfo("Failed to describe stream, status code:%u", uHttpStatusCode);
                 res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
 
-                LogInfo("Try to create stream");
-                if ((res = Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode)) != KVS_ERRNO_NONE)
+                if (uHttpStatusCode != 404)
                 {
-                    LogError("Unable to create stream");
                     /* Propagate the res error */
                 }
-                else if (uHttpStatusCode != 200)
+                else
                 {
-                    LogInfo("Failed to create stream, status code:%u", uHttpStatusCode);
-                    res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
+                    LogInfo("Try to create stream");
+                    if ((res = Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode)) != KVS_ERRNO_NONE)
+                    {
+                        LogError("Unable to create stream");
+                        /* Propagate the res error */
+                    }
+                    else if (uHttpStatusCode != 200)
+                    {
+                        LogInfo("Failed to create stream, status code:%u", uHttpStatusCode);
+                        res = KVS_GENERATE_RESTFUL_ERROR(uHttpStatusCode);
+                    }
                 }
             }
 

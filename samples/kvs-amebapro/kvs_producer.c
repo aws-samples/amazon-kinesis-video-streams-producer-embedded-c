@@ -631,10 +631,17 @@ static int setupDataEndpoint(Kvs_t *pKvs)
             if (Kvs_describeStream(&(pKvs->xServicePara), &(pKvs->xDescPara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
             {
                 printf("Failed to describe stream\r\n");
-                printf("Try to create stream\r\n");
-                if (Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
+                if (uHttpStatusCode == 404)
                 {
-                    printf("Failed to create stream\r\n");
+                    printf("Try to create stream\r\n");
+                    if (Kvs_createStream(&(pKvs->xServicePara), &(pKvs->xCreatePara), &uHttpStatusCode) != 0 || uHttpStatusCode != 200)
+                    {
+                        printf("Failed to create stream\r\n");
+                        res = ERRNO_FAIL;
+                    }
+                }
+                else
+                {
                     res = ERRNO_FAIL;
                 }
             }
