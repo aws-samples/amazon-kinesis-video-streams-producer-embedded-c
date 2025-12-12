@@ -509,6 +509,8 @@ static int prvParseFragmentAck(char *pcSrc, size_t uLen, FragmentAck_t *pxFragAc
         memcpy(tempBuffer, pcSrc + uBytesRead, uMsgLen);
         tempBuffer[uMsgLen] = '\0';  // Ensure null termination
 
+        STRING_delete(xStFragMsg);
+
         // STRING_construct_n uses strlen, so the input MUST be null terminated
         if ((xStFragMsg = STRING_construct_n(tempBuffer, uMsgLen)) == NULL ||
             parseFragmentMsg(STRING_c_str(xStFragMsg), pxFragAck) != KVS_ERRNO_NONE)

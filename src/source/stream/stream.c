@@ -213,10 +213,19 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
         res = KVS_ERROR_INVALID_CLUSTER_HDR_LEN;
         LogError("Invalid cluster len");
     }
-    else if ((pxDataFrame = (DataFrame_t *)kvsMalloc(sizeof(DataFrame_t) + uMkvHdrLen)) == NULL)
+    else if ((pxDataFrame = (DataFrame_t *)kvsMalloc(sizeof(DataFrame_t))) == NULL)
     {
         res = KVS_ERROR_OUT_OF_MEMORY;
         LogError("OOM: pxDataFrame");
+    }
+    else if (memset(pxDataFrame, 0, sizeof(DataFrame_t)) == NULL)
+    {
+        /* noop */
+    }
+    else if ((pxDataFrame->pMkvHdr = kvsMalloc(uMkvHdrLen)) == NULL)
+    {
+        res = KVS_ERROR_OUT_OF_MEMORY;
+        LogError("OOM: pxDataFrame->pMkvHeader");
     }
     else if (Lock(pxStream->xLock) != LOCK_OK)
     {
@@ -225,12 +234,10 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
     }
     else
     {
-        memset(pxDataFrame, 0, sizeof(DataFrame_t));
         memcpy(pxDataFrame, pxDataFrameIn, sizeof(DataFrameIn_t));
         DList_InitializeListHead(&(pxDataFrame->xClusterEntry));
         DList_InitializeListHead(&(pxDataFrame->xDataFrameEntry));
         pxDataFrame->uMkvHdrLen = uMkvHdrLen;
-        pxDataFrame->pMkvHdr = (char *)pxDataFrame + sizeof(DataFrame_t);
         uClusterTimestamp = pxStream->uEarliestClusterTimestamp;
 
         pxListHead = &(pxStream->xDataFramePending);
@@ -313,6 +320,10 @@ DataFrameHandle Kvs_streamAddDataFrame(StreamHandle xStreamHandle, DataFrameIn_t
     {
         if (pxDataFrame != NULL)
         {
+            if (pxDataFrame->pMkvHdr != NULL)
+            {
+                kvsFree(pxDataFrame->pMkvHdr);
+            }
             kvsFree(pxDataFrame);
             pxDataFrame = NULL;
         }
@@ -546,6 +557,7 @@ int Kvs_dataFrameAddTags(DataFrameHandle xDataFrameHandle, MkvTag_t* tagsList, s
 
         // Clean up tags header buffer
         free(tagsBuffer.buffer);
+        free(originalHeader);
 
         // Update the frame's header information
         pxDataFrame->pMkvHdr = (char *)newHeader;
@@ -567,6 +579,10 @@ void Kvs_dataFrameTerminate(DataFrameHandle xDataFrameHandle)
 
     if (pxDataFrame != NULL)
     {
+        if (pxDataFrame->pMkvHdr != NULL)
+        {
+            kvsFree(pxDataFrame->pMkvHdr);
+        }
         kvsFree(pxDataFrame);
     }
 }
