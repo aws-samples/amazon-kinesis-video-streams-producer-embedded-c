@@ -587,10 +587,10 @@ static int kvsInitialize(Kvs_t *pKvs)
         pKvs->xPutMediaPara.xTimecodeType = TIMECODE_TYPE_ABSOLUTE;
 
 #if ENABLE_IOT_CREDENTIAL
-        pKvs->xIotCredentialReq.pCredentialHost = CREDENTIALS_HOST;
-        pKvs->xIotCredentialReq.pRoleAlias = ROLE_ALIAS;
-        pKvs->xIotCredentialReq.pThingName = THING_NAME;
-        pKvs->xIotCredentialReq.pRootCA = ROOT_CA;
+        pKvs->xIotCredentialReq.pCredentialHost = AWS_IOT_CREDENTIALS_HOST;
+        pKvs->xIotCredentialReq.pRoleAlias = AWS_IOT_ROLE_ALIAS;
+        pKvs->xIotCredentialReq.pThingName = AWS_IOT_THING_NAME;
+        pKvs->xIotCredentialReq.pRootCA = AWS_IOT_ROOT_CA;
         pKvs->xIotCredentialReq.pCertificate = CERTIFICATE;
         pKvs->xIotCredentialReq.pPrivateKey = PRIVATE_KEY;
 #endif

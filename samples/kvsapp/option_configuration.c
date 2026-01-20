@@ -20,12 +20,21 @@
 #include "option_configuration.h"
 #include "sample_config.h"
 
-#define AWS_ACCESS_KEY_ENV_VAR          "AWS_ACCESS_KEY_ID"
-#define AWS_SECRET_KEY_ENV_VAR          "AWS_SECRET_ACCESS_KEY"
-#define AWS_SESSION_TOKEN_ENV_VAR       "AWS_SESSION_TOKEN"
-#define AWS_DEFAULT_REGION_ENV_VAR      "AWS_DEFAULT_REGION"
+#ifdef SAMPLE_OPTIONS_FROM_ENV_VAR
 
-#define AWS_KINESIS_VIDEO_HOST_ENV_VAR  "AWS_KVS_HOST"
+#define AWS_ACCESS_KEY_ENV_VAR "AWS_ACCESS_KEY_ID"
+#define AWS_SECRET_KEY_ENV_VAR "AWS_SECRET_ACCESS_KEY"
+#define AWS_SESSION_TOKEN_ENV_VAR "AWS_SESSION_TOKEN"
+#define AWS_DEFAULT_REGION_ENV_VAR "AWS_DEFAULT_REGION"
+#define AWS_KINESIS_VIDEO_HOST_ENV_VAR "AWS_KVS_HOST"
+
+#if ENABLE_IOT_CREDENTIAL
+#define AWS_IOT_CREDENTIALS_HOST_ENV_VAR "AWS_IOT_CREDENTIALS_HOST"
+#define AWS_IOT_ROLE_ALIAS_ENV_VAR "AWS_IOT_ROLE_ALIAS"
+#define AWS_IOT_THING_NAME_ENV_VAR "AWS_IOT_THING_NAME"
+#endif /* ENABLE_IOT_CREDENTIAL */
+
+#endif /* SAMPLE_OPTIONS_FROM_ENV_VAR */
 
 const char *OptCfg_getAwsAccessKey()
 {
@@ -99,9 +108,6 @@ const char *OptCfg_getServiceKinesisVideo()
 const char *OptCfg_getHostKinesisVideo()
 {
     char *pKvsHost = NULL;
-    const char *pRegion = NULL;
-    const char *pService = NULL;
-    size_t uLen = 0;
 
 #ifdef SAMPLE_OPTIONS_FROM_ENV_VAR
     pKvsHost = getenv(AWS_KINESIS_VIDEO_HOST_ENV_VAR);
@@ -114,3 +120,55 @@ const char *OptCfg_getHostKinesisVideo()
 
     return pKvsHost;
 }
+
+#if ENABLE_IOT_CREDENTIAL
+
+const char *OptCfg_getHostIotCredentials()
+{
+    char *pIotCredentialsHost = NULL;
+
+#ifdef SAMPLE_OPTIONS_FROM_ENV_VAR
+    pIotCredentialsHost = getenv(AWS_IOT_CREDENTIALS_HOST_ENV_VAR);
+#endif /* SAMPLE_OPTIONS_FROM_ENV_VAR */
+
+    if (pIotCredentialsHost == NULL)
+    {
+        pIotCredentialsHost = AWS_IOT_CREDENTIALS_HOST;
+    }
+
+    return pIotCredentialsHost;
+}
+
+const char *OptCfg_getIotRoleAlias()
+{
+    char *pIotRoleAlias = NULL;
+
+#ifdef SAMPLE_OPTIONS_FROM_ENV_VAR
+    pIotRoleAlias = getenv(AWS_IOT_ROLE_ALIAS_ENV_VAR);
+#endif /* SAMPLE_OPTIONS_FROM_ENV_VAR */
+
+    if (pIotRoleAlias == NULL)
+    {
+        pIotRoleAlias = AWS_IOT_ROLE_ALIAS;
+    }
+
+    return pIotRoleAlias;
+}
+
+const char *OptCfg_getIotThingName()
+{
+    char *pIotThingName = NULL;
+
+#ifdef SAMPLE_OPTIONS_FROM_ENV_VAR
+    pIotThingName = getenv(AWS_IOT_THING_NAME_ENV_VAR);
+#endif /* SAMPLE_OPTIONS_FROM_ENV_VAR */
+
+    if (pIotThingName == NULL)
+    {
+        pIotThingName = AWS_IOT_THING_NAME;
+    }
+
+    return pIotThingName;
+}
+
+#endif /* ENABLE_IOT_CREDENTIAL */
